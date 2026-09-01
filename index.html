@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <title>Room Check</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#F2F2F7">
@@ -226,6 +227,14 @@ h2{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
   background:rgba(18,18,26,.94);color:#fff;font-size:13.5px;font-weight:500;padding:9px 17px;
   border-radius:10px;z-index:90;opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;max-width:90vw}
 .toast.on{opacity:1;transform:translate(-50%,0)}
+/* password gate */
+.gate{min-height:72vh;display:grid;place-items:center;padding:22px}
+.gbox{width:100%;max-width:330px;background:var(--card);border-radius:15px;padding:24px 20px 19px;text-align:center}
+.gbox .gt{font-size:21px;font-weight:650;letter-spacing:-.01em}
+.gbox .gs{font-size:13.5px;color:var(--sub);margin:5px 0 17px}
+.gbox input{text-align:center}
+.gerr{font-size:13px;color:var(--red);height:17px;margin:7px 0 3px}
+.gn{font-size:11.5px;color:var(--sub);margin-top:13px;line-height:1.4}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -938,7 +947,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.0.0";
+const APP_VERSION="1.1.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
@@ -970,8 +979,40 @@ async function checkUpdate(){
   try{ await swReg.update(); toast("Up to date"); }catch(e){ toast("Couldn't check"); }
 }
 
+/* ---------- password gate ---------- */
+/* Not a security boundary — the page is public and anyone reading the source
+   can step around this. It keeps the app out of search results and stops
+   people wandering in. To change it, put the sha256 of the new password here. */
+const PASS_HASH="0638f669c22956bd4e78d80499dac617cd4ad2b5284f8be571d6905762a45fa0";
+const GKEY="roomcheck-unlocked";
+const hex=b=>[...new Uint8Array(b)].map(n=>n.toString(16).padStart(2,"0")).join("");
+const hashOf=async s=>hex(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s)));
+const knownDevice=()=>{try{return localStorage.getItem(GKEY)===PASS_HASH;}catch(e){return false;}};
+function gate(){
+  document.getElementById("app").innerHTML=`<div class="gate"><div class="gbox">
+      <div class="gt">Room Check</div>
+      <div class="gs">Enter the password to continue</div>
+      <input type="password" id="gp" placeholder="Password" autocomplete="current-password" enterkeyhint="go">
+      <div class="gerr" id="ge"></div>
+      <button class="btn" id="gb">Unlock</button>
+      <div class="gn">This device stays unlocked — you won't be asked again.</div>
+    </div></div>`;
+  const inp=document.getElementById("gp"), err=document.getElementById("ge");
+  const go=async()=>{
+    let h;
+    try{h=await hashOf(inp.value);}catch(e){err.textContent="Open this over https to unlock";return;}
+    if(h!==PASS_HASH){err.textContent="Wrong password";inp.value="";inp.focus();return;}
+    try{localStorage.setItem(GKEY,PASS_HASH);}catch(e){}
+    boot();
+  };
+  document.getElementById("gb").addEventListener("click",go);
+  inp.addEventListener("keydown",e=>{if(e.key==="Enter")go();});
+  inp.addEventListener("input",()=>{err.textContent="";});
+  inp.focus();
+}
+
 /* ---------- boot ---------- */
-(async function(){
+async function boot(){
   if(!window.storage)state.ok=false;
   state.persist=!!(window.storage||LS);
   let raw=await store.get(RKEY);
@@ -982,7 +1023,8 @@ async function checkUpdate(){
   const d=new Date(), mn=d.getHours()*60+d.getMinutes();
   state.cur=(mn>=23*60+55||mn<6*60)?"1200":(mn>=23*60+25)?"1130":"1115";
   render(); flush();
-})();
+}
+knownDevice()?boot():gate();
 </script>
 </body>
 </html>
