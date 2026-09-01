@@ -947,7 +947,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.1.0";
+const APP_VERSION="1.1.1";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
@@ -983,7 +983,7 @@ async function checkUpdate(){
 /* Not a security boundary — the page is public and anyone reading the source
    can step around this. It keeps the app out of search results and stops
    people wandering in. To change it, put the sha256 of the new password here. */
-const PASS_HASH="0638f669c22956bd4e78d80499dac617cd4ad2b5284f8be571d6905762a45fa0";
+const PASS_HASH="b1e9437aa6f093d641b3f33ef5a823e4109a27a449a9029fc9ad7a9fb8beb45a";
 const GKEY="roomcheck-unlocked";
 const hex=b=>[...new Uint8Array(b)].map(n=>n.toString(16).padStart(2,"0")).join("");
 const hashOf=async s=>hex(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s)));
@@ -992,7 +992,8 @@ function gate(){
   document.getElementById("app").innerHTML=`<div class="gate"><div class="gbox">
       <div class="gt">Room Check</div>
       <div class="gs">Enter the password to continue</div>
-      <input type="password" id="gp" placeholder="Password" autocomplete="current-password" enterkeyhint="go">
+      <input type="password" id="gp" placeholder="Password" autocomplete="current-password"
+        inputmode="numeric" pattern="[0-9]*" enterkeyhint="go">
       <div class="gerr" id="ge"></div>
       <button class="btn" id="gb">Unlock</button>
       <div class="gn">This device stays unlocked — you won't be asked again.</div>
