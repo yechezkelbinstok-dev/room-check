@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Room Check</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#F2F2F7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Room Check">
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KPHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIHJ4PSIyMCIgZmlsbD0iIzBBNjNDNCIvPgo8cmVjdCB4PSIyMiIgeT0iMjQiIHdpZHRoPSI1NiIgaGVpZ2h0PSI1MiIgcng9IjciIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI0LjUiLz4KPGxpbmUgeDE9IjIyIiB5MT0iNTAiIHgyPSI3OCIgeTI9IjUwIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNC41Ii8+Cjwvc3ZnPg==">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KPHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIHJ4PSIyMCIgZmlsbD0iIzBBNjNDNCIvPgo8cmVjdCB4PSIyMiIgeT0iMjQiIHdpZHRoPSI1NiIgaGVpZ2h0PSI1MiIgcng9IjciIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSI0LjUiLz4KPGxpbmUgeDE9IjIyIiB5MT0iNTAiIHgyPSI3OCIgeTI9IjUwIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNC41Ii8+Cjwvc3ZnPg==">
+<style>
+:root{
+  --bg:#F2F2F7;
+  --card:#FFFFFF;
+  --sep:#E4E4E9;
+  --text:#111114;
+  --sub:#8A8A8E;
+  --sub2:#63656B;
+  --blue:#0A63C4;
+  --blue-l:#EAF1FB;
+  --green:#12795A;
+  --green-l:#E6F4EE;
+  --red:#C42B21;
+  --red-l:#FBEBEA;
+  --grey:#8A8A8E;
+  --grey-l:#EEEEF1;
+  --amber:#96600A;
+  --wall:#24262D;
+  --floor:#FBFBFA;
+  --f:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--f);font-size:15px;line-height:1.35;
+  -webkit-font-smoothing:antialiased;padding-bottom:calc(80px + env(safe-area-inset-bottom))}
+button{background:none;border:none;padding:0;font:inherit;color:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:var(--text);background:#fff;border:1px solid var(--sep);
+  border-radius:10px;padding:10px 12px;width:100%}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+::placeholder{color:#AEB0BC}
+
+/* header */
+.hd{padding:13px 16px 0}
+.h1{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.hdate{font-size:23px;font-weight:650;letter-spacing:-.01em}
+.gdate{font-size:12.5px;color:var(--sub);margin-top:2px}
+.sv{font-size:11px;color:var(--sub);text-align:right;padding-top:3px}
+.pill{font-size:13.5px;font-weight:550;color:var(--blue);background:#fff;border:1px solid var(--sep);
+  border-radius:9px;padding:8px 13px;flex:none}
+.pill:active{background:var(--blue-l)}
+.h2{display:flex;align-items:center;gap:7px;margin-top:10px}
+.h2 button{background:#fff;border:1px solid var(--sep);border-radius:9px;height:36px;min-width:38px;
+  padding:0 13px;font-size:14px;font-weight:550;color:var(--blue);display:grid;place-items:center}
+.h2 button:active{background:var(--blue-l)}
+
+/* sticky: times + rooms */
+.stick{position:sticky;top:0;z-index:20;background:var(--bg);padding:10px 12px 8px}
+.seg3{display:flex;background:#E7E7EC;border-radius:11px;padding:3px;gap:3px}
+.seg3 button{flex:1;border-radius:8px;padding:6px 2px 7px;text-align:center}
+.seg3 .a{font-size:16px;font-weight:600;color:var(--sub2)}
+.seg3 .b{font-size:11px;height:14px;color:var(--sub);margin-top:1px}
+.seg3 button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.14)}
+.seg3 button.on .a{color:var(--text)}
+.seg3 .b.out{color:var(--red);font-weight:600}
+.seg3 .b.done{color:var(--green)}
+.rooms{display:flex;gap:5px;margin-top:8px}
+.rooms button{flex:1;height:34px;border-radius:9px;background:#fff;border:1px solid var(--sep);
+  font-size:14px;font-weight:600;color:var(--sub2);position:relative}
+.rooms button.done{background:var(--green-l);border-color:#BCE0D2;color:var(--green)}
+.rooms button.miss{background:var(--red-l);border-color:#F0C9C6;color:var(--red)}
+.rooms button.on{background:var(--text);border-color:var(--text);color:#fff}
+
+/* room bar */
+.rbar{display:flex;justify-content:space-between;align-items:baseline;padding:12px 16px 8px}
+.rbar .t{font-size:19px;font-weight:650;letter-spacing:-.01em}
+.rbar .t em{font-style:normal;font-size:13px;font-weight:500;color:var(--sub);margin-left:8px}
+.rbar .t em.miss{color:var(--red);font-weight:600}
+.rbar button{font-size:14px;font-weight:600;color:var(--blue);flex:none;padding-left:12px}
+
+/* plan */
+.planwrap{padding:0 12px;touch-action:pan-y}
+.plan{position:relative;width:100%;aspect-ratio:100/112;background:var(--floor);
+  border-radius:4px;overflow:hidden}
+.plan>svg.walls{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.wall{stroke:var(--wall);stroke-width:1.6;fill:none;stroke-linecap:square}
+.swing{stroke:#BFC1C7;stroke-width:.7;fill:none}
+.plan.allin{background:#F7FCFA}
+.bed{position:absolute;display:flex;flex-direction:column;background:#fff;
+  border:1.5px solid #C9CBD2;border-radius:5px;overflow:hidden}
+.slot{flex:1;min-height:0;display:flex;padding:6px 6px 5px;gap:4px;position:relative;
+  border-bottom:1.5px solid #C9CBD2}
+.slot:last-child{border-bottom:none}
+.slot.col{flex-direction:column;align-items:stretch;justify-content:center}
+.slot.col .nb{flex:0 0 auto}
+.slot.row{flex-direction:row;align-items:center}
+.slot.in{background:var(--green-l)}
+.slot.out{background:var(--red-l)}
+.slot.exc{background:var(--grey-l)}
+.nb{flex:1;min-width:0;text-align:left;padding:1px 0;display:block}
+.slot.col .nb{text-align:center}
+.ln{display:block;font-size:13px;font-weight:650;letter-spacing:-.015em;line-height:1.12;overflow:hidden}
+.slot.row .ln{white-space:nowrap;text-overflow:ellipsis}
+.slot.col .ln{white-space:normal;overflow-wrap:anywhere}
+.fn{display:block;font-size:9.5px;color:var(--sub);line-height:1.16;overflow:hidden;
+  white-space:normal;overflow-wrap:anywhere}
+.slot.row .fn{font-size:9px}
+.slot.row .mk button{width:29px}
+.slot.row .mk .e{width:23px}
+.slot.out .ln{color:var(--red)}
+.slot.exc .ln,.slot.exc .fn{color:var(--grey)}
+.bunk{position:absolute;top:3px;left:7px;font-size:9px;font-weight:500;color:#B7B9C2}
+.slot.col .nb{padding-top:7px}
+.mk{display:flex;gap:3px;flex:none}
+.slot.col .mk{margin-top:4px;justify-content:center}
+.mk button{width:31px;height:30px;border-radius:7px;background:#EDEEF2;display:grid;place-items:center;color:#9A9CA6}
+.mk svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.9;stroke-linecap:round;stroke-linejoin:round}
+.mk .e{font-size:11px;font-weight:700;width:24px}
+.mk button:active{background:#DEDFE6}
+.mk .v-in.on{background:var(--green);color:#fff}
+.mk .v-out.on{background:var(--red);color:#fff}
+.mk .e.on{background:var(--grey);color:#fff}
+.legend{padding:9px 16px 4px;font-size:11.5px;color:var(--sub)}
+.viewrow{display:flex;align-items:center;gap:10px;margin-top:8px}
+.seg2{display:flex;background:#E7E7EC;border-radius:9px;padding:2px;gap:2px;flex:1}
+.seg2 button{flex:1;border-radius:7px;padding:7px 4px;font-size:13px;font-weight:550;color:var(--sub2)}
+.seg2 button.on{background:#fff;color:var(--text);font-weight:650;box-shadow:0 1px 2px rgba(0,0,0,.13)}
+.revlink{flex:none;font-size:13.5px;font-weight:600;color:var(--blue);padding:7px 4px 7px 6px}
+.roomblock{margin-bottom:6px;scroll-margin-top:150px}
+.finnote{font-size:11.5px;color:var(--sub);text-align:center;padding:7px 10px 0;line-height:1.4}
+.revbar{margin-bottom:10px}
+.rvhead{display:flex;justify-content:flex-end;gap:0;padding:0 18px 4px 0}
+.rvhead span{width:34px;text-align:center;font-size:10.5px;color:var(--sub);font-weight:600}
+.rvs{flex:none;display:flex;gap:0}
+.rv{width:34px;text-align:center;font-size:14px;font-weight:700}
+.rv.g{color:var(--green)}
+.rv.r{color:var(--red)}
+.rv.e{color:var(--grey);font-size:12px}
+.rv.n{color:#C9CBD2}
+.next{padding:12px 12px 6px;display:flex;gap:8px}
+.next button{flex:1;background:#fff;border:1px solid var(--sep);border-radius:11px;padding:13px;
+  font-size:14.5px;font-weight:600;color:var(--blue)}
+.next button:active{background:var(--blue-l)}
+.next button:disabled{color:var(--sub);opacity:.5}
+
+/* closed record */
+.lock{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--blue-l);
+  border-radius:11px;padding:11px 14px;margin:12px;font-size:13.5px;color:#0B4F9E;font-weight:500}
+.lock button{font-size:14.5px;font-weight:650;color:var(--blue)}
+.sumh{display:flex;align-items:baseline;justify-content:space-between;padding:18px 16px 7px}
+.sumh .a{font-size:16px;font-weight:650}
+.sumh .b{font-size:13px;font-weight:600}
+.sumh .b.r{color:var(--red)} .sumh .b.g{color:var(--green)} .sumh .b.d{color:var(--sub)}
+
+/* bottom */
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;align-items:center;gap:10px;
+  padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(242,242,247,.94);
+  backdrop-filter:blur(14px);border-top:.5px solid var(--sep)}
+.bar .st{flex:1;min-width:0;font-size:13px;color:var(--sub2)}
+.bar .st b{color:var(--text);font-weight:600}
+.bar .st b.r{color:var(--red)}
+.bar .cp{flex:none;background:var(--text);color:#fff;font-size:15px;font-weight:650;
+  border-radius:10px;padding:12px 26px}
+.bar .cp:active{opacity:.8}
+
+/* panels */
+.pan{padding:12px}
+h2{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--sub2);margin:20px 4px 7px}
+.blk{background:var(--card);border-radius:13px;overflow:hidden;margin-bottom:9px}
+.li{display:flex;align-items:center;gap:11px;padding:12px 14px;position:relative;text-align:left;width:100%}
+.li+.li::before{content:"";position:absolute;left:14px;right:0;top:0;height:.5px;background:var(--sep)}
+.li .a{flex:1;min-width:0;font-size:15px}
+.li .a i{display:block;font-style:normal;font-size:12px;color:var(--sub);margin-top:1px}
+.li .z{font-size:13px;color:var(--sub);flex:none}
+.li .lnk{color:var(--blue);font-weight:550}
+.li.dz .a{color:var(--red)}
+.ck{width:22px;height:22px;border-radius:7px;border:1.5px solid #C6C8D4;flex:none;position:relative;background:#fff}
+.ck.on{background:var(--green);border-color:var(--green)}
+.ck.on::after{content:"";position:absolute;left:7px;top:3px;width:5px;height:10px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(43deg)}
+.none{font-size:13.5px;color:var(--sub);padding:16px;text-align:center}
+.btn{display:block;width:100%;text-align:center;background:var(--blue);color:#fff;font-size:15px;
+  font-weight:650;border-radius:11px;padding:13px}
+.btn.gh{background:#fff;color:var(--blue);border:1px solid var(--sep)}
+.rep{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.55;
+  white-space:pre-wrap;border-radius:10px;resize:vertical}
+
+/* calendar */
+.cnav{display:flex;align-items:center;justify-content:space-between;padding:14px 14px 10px}
+.cnav .m{font-size:17px;font-weight:650;text-align:center}
+.cnav .m i{display:block;font-style:normal;font-size:11.5px;color:var(--sub);font-weight:400;margin-top:1px}
+.cnav button{width:36px;height:36px;border-radius:10px;background:var(--blue-l);color:var(--blue);
+  font-size:17px;font-weight:600;display:grid;place-items:center;flex:none}
+.dow{display:grid;grid-template-columns:repeat(7,1fr);padding:0 8px 4px}
+.dow div{text-align:center;font-size:12px;color:var(--sub);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:0 8px 12px}
+.cell{height:50px;border-radius:10px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:1px;position:relative}
+.cell .h{font-size:15px;font-weight:600}
+.cell .g{font-size:9.5px;color:var(--sub)}
+.cell.sat{background:#F5F6FA}
+.cell.has::after{content:"";position:absolute;bottom:5px;width:4px;height:4px;border-radius:50%;background:var(--blue)}
+.cell.today{box-shadow:inset 0 0 0 1.5px var(--blue)}
+.cell.on{background:var(--blue)}
+.cell.on .h{color:#fff} .cell.on .g{color:rgba(255,255,255,.75)}
+.cell.on.has::after{background:#fff}
+.cell.empty{visibility:hidden}
+.cnote{font-size:12px;color:var(--sub);padding:0 16px 14px;line-height:1.45}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(10,10,20,.4);z-index:70;opacity:0;pointer-events:none;transition:opacity .18s}
+.scrim.on{opacity:1;pointer-events:auto}
+.pop{position:fixed;left:8px;right:8px;bottom:8px;z-index:80;max-height:90vh;overflow-y:auto;
+  transform:translateY(calc(100% + 14px));transition:transform .22s cubic-bezier(.24,.8,.3,1)}
+.pop.on{transform:translateY(0)}
+.pop .grp{background:#fff;border-radius:15px;overflow:hidden;margin-bottom:8px}
+.pop .hdd{padding:14px;text-align:center;border-bottom:.5px solid var(--sep)}
+.pop .hdd .a{font-size:16.5px;font-weight:650}
+.pop .hdd .b{font-size:12.5px;color:var(--sub);margin-top:2px}
+.pop .cancel{width:100%;background:#fff;border-radius:15px;padding:15px;font-size:16px;
+  font-weight:650;color:var(--blue);margin-bottom:env(safe-area-inset-bottom)}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translate(-50%,8px);
+  background:rgba(18,18,26,.94);color:#fff;font-size:13.5px;font-weight:500;padding:9px 17px;
+  border-radius:10px;z-index:90;opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;max-width:90vw}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="scrim" id="scrim"></div>
+<div class="pop" id="pop"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+const SLOTS=[{id:"1115",label:"11:15"},{id:"1130",label:"11:30"},{id:"1200",label:"12:00"}];
+const SIDS=SLOTS.map(s=>s.id);
+const RKEY="dorm-plan-v1", MKEY="dorm-mirror-v1", NPRE="dn:";
+const IC={
+  tick:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.6l4.6 4.6L19 7.2"/></svg>`,
+  ex:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 6.6l10.8 10.8M17.4 6.6L6.6 17.4"/></svg>`
+};
+
+/* ---- people ---- */
+const P={
+ p1:["Shlomo","Altein"],            p2:["Yosef","Lehr"],
+ p3:["Menachem Mendel","Piekarski"], p4:["Dovber","Pevzner"],
+ p5:["Sholom","Holtzberg"],         p6:["Menachem Mendel","Stolik"],
+ p7:["Avrohom","Raices"],           p8:["Menachem Mendel","Levin"],
+ p9:["Avrohom","Heidingsfeld"],     p10:["Menachem Mendel","Hirsch"],
+ p11:["Asher","Wolfe"],             p12:["Yaakov","Tzfasman"],
+ p13:["Dovid","Altein"],            p14:["Menachem Mendel","Goldstein"],
+ p15:["Nochum","Groner"],           p16:["Menachem Mendel","Palace"],
+ p17:["Moshe Eliezer","Backman"],   p18:["Shmuel","Browd"],
+ p19:["Menachem Mendel HaLevi","Flint"], p20:["Shlomo","Schwei"],
+ p21:["Yaakov","Belinitzki"],       p22:["Chaim Yehoshua","Brenenson"],
+ p23:["Yehuda Leib","Gourarie"],    p24:["Leib Meir","November"],
+ p25:["Sadya","Liberow"],           p26:["Yitzchok Sholom","Lipkind"],
+ p27:["Dovid","Fridman"],           p28:["Tzvi Dov HaLevi","Levitansky"],
+ p29:["Yehuda","Fehler"],           p30:["Meir Shlomo","Ceitlin"]
+};
+
+/* ---- floor plans: x/y/w/h in % of the room, slots top-to-bottom ---- */
+const BW=36, BH=46;   /* every bed, upright */
+const bedV=(x,y,slots,lay)=>({x,y,w:BW,h:BH,slots,lay:lay||"col"});
+const bedH=(x,y,slots,lay)=>({x,y,w:BH,h:BW,slots,lay:lay||"row"});
+const PLAN=[
+ {id:"r1",label:"Room 1",door:{wall:"bottom",pos:38},beds:[
+   bedV(9,26,["p2","p1"]), bedV(55,26,["p3","p4"])]},
+ {id:"r2",label:"Room 2",door:{wall:"bottom",pos:85},beds:[
+   bedV(9,26,["p8","p5"]), bedV(55,26,["p7","p6"])]},
+ {id:"r3",label:"Room 3",door:{wall:"bottom",pos:70},beds:[
+   bedH(7,7,["p10"]), bedV(7,49,["p9"]), bedV(57,7,["p11","p12"])]},
+ {id:"r4",label:"Room 4",door:{wall:"bottom",pos:24},beds:[
+   bedV(7,8,["p15"]), bedH(47,8,["p14"]), bedH(47,52,["p13","p16"])]},
+ {id:"r5",label:"Room 5",door:{wall:"left",pos:82},beds:[
+   bedV(9,18,["p20","p18"]), bedV(55,18,["p17","p19"])]},
+ {id:"r6",label:"Room 6",door:{wall:"top",pos:72},beds:[
+   bedV(9,32,["p22","p21"]), bedV(55,32,["p23","p24"])]},
+ {id:"r7",label:"Room 7",door:{wall:"bottom",pos:14},beds:[
+   bedH(27,10,["p26","p27"]), bedH(27,54,["p25"])]},
+ {id:"r8",label:"Room 8",door:{wall:"bottom",pos:16},beds:[
+   bedH(7,10,["p29","p30"]), bedV(57,10,["p28"])]}
+];
+
+let state={night:null,dateKey:null,cur:"1115",room:0,tab:"check",who:null,mode:"one",review:false,onlyOut:false,
+  ok:true,persist:true,lastSave:null,editing:false,cal:null,calHas:{},extra:{}};
+let undoStack=[];
+
+/* ---------- storage ---------- */
+const mem={};
+let LS=null;
+try{ if(window.localStorage){ window.localStorage.setItem("__t","1"); window.localStorage.removeItem("__t"); LS=window.localStorage; } }catch(e){ LS=null; }
+const store={
+  async get(k){
+    if(window.storage&&state.ok){try{const r=await window.storage.get(k,false);if(r)return r.value;}catch(e){}}
+    if(LS){try{const v=LS.getItem(k);if(v!==null)return v;}catch(e){}}
+    return mem[k]??null;
+  },
+  async set(k,v){
+    mem[k]=v; let done=false;
+    if(window.storage&&state.ok){try{await window.storage.set(k,v,false);done=true;}catch(e){state.ok=false;}}
+    if(LS){try{LS.setItem(k,v);done=true;}catch(e){}}
+    return done;
+  },
+  async list(p){
+    if(window.storage&&state.ok){try{const r=await window.storage.list(p,false);if(r&&r.keys&&r.keys.length)return r.keys;}catch(e){}}
+    if(LS){try{const o=[];for(let i=0;i<LS.length;i++){const k=LS.key(i);if(k&&k.startsWith(p))o.push(k);}if(o.length)return o;}catch(e){}}
+    return Object.keys(mem).filter(k=>k.startsWith(p));
+  }
+};
+let sT=null,saving=false;
+function save(){clearTimeout(sT);sT=setTimeout(flush,250);}
+async function flush(){
+  clearTimeout(sT); if(saving)return; saving=true;
+  try{
+    await store.set(RKEY,JSON.stringify({extra:state.extra,mode:state.mode}));
+    await store.set(NPRE+state.dateKey,JSON.stringify(state.night));
+    await store.set(MKEY,JSON.stringify({at:Date.now(),date:state.dateKey,night:state.night,extra:state.extra}));
+    state.lastSave=new Date();
+    const e=document.getElementById("sv"); if(e)e.textContent=savedText();
+  }finally{saving=false;}
+}
+const savedText=()=>!state.persist?"not saving on this device":
+  state.lastSave?"saved "+state.lastSave.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}).toLowerCase():"saved";
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flush();});
+window.addEventListener("pagehide",flush);
+
+/* ---------- dates ---------- */
+const pad=n=>n<10?"0"+n:""+n;
+const GML=[31,28,31,30,31,30,31,31,30,31,30,31];
+const gLeap=y=>(y%4===0&&y%100!==0)||y%400===0;
+const gML=(m,y)=>m===2&&gLeap(y)?29:GML[m-1];
+function gAbs(y,m,d){let a=365*(y-1)+Math.floor((y-1)/4)-Math.floor((y-1)/100)+Math.floor((y-1)/400);
+  for(let i=0;i<m-1;i++)a+=GML[i]; if(m>2&&gLeap(y))a++; return a+d;}
+function absToG(abs){let y=Math.floor(abs/366);while(abs>=gAbs(y+1,1,1))y++;
+  let m=1;while(abs>gAbs(y,m,gML(m,y)))m++;return{y,m,d:abs-gAbs(y,m,1)+1};}
+const keyOf=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parseKey=k=>{const p=k.split("-");return new Date(+p[0],+p[1]-1,+p[2]);};
+const keyFromAbs=a=>{const g=absToG(a);return g.y+"-"+pad(g.m)+"-"+pad(g.d);};
+const absOfKey=k=>{const p=k.split("-");return gAbs(+p[0],+p[1],+p[2]);};
+function tonightKey(){const n=new Date();if(n.getHours()<6)n.setDate(n.getDate()-1);return keyOf(n);}
+const longDate=k=>parseKey(k).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"});
+const shiftDate=(k,n)=>keyFromAbs(absOfKey(k)+n);
+
+const HEB_EPOCH=-1373427;
+const hLeap=y=>((y*7+1)%19)<7, hMonths=y=>hLeap(y)?13:12;
+function hElapsed(y){const me=Math.floor((235*y-234)/19),pe=12084+13753*me;
+  let d=29*me+Math.floor(pe/25920); if(((3*(d+1))%7)<3)d++; return d;}
+function hNewYear(y){const l=hElapsed(y-1),p=hElapsed(y),n=hElapsed(y+1);
+  let dl=0; if(n-p===356)dl=2; else if(p-l===382)dl=1; return HEB_EPOCH+p+dl;}
+const hYearLen=y=>hNewYear(y+1)-hNewYear(y);
+function hML(m,y){
+  if(m===2||m===4||m===6||m===10||m===13)return 29;
+  if(m===12&&!hLeap(y))return 29;
+  if(m===8&&hYearLen(y)%10!==5)return 29;
+  if(m===9&&hYearLen(y)%10===3)return 29;
+  return 30;
+}
+function hToAbs(y,m,d){let a=d;
+  if(m<7){for(let i=7;i<=hMonths(y);i++)a+=hML(i,y);for(let i=1;i<m;i++)a+=hML(i,y);}
+  else{for(let i=7;i<m;i++)a+=hML(i,y);}
+  return a+hNewYear(y)-1;}
+function absToH(abs){let y=Math.floor((abs-HEB_EPOCH)/366);
+  while(abs>=hToAbs(y+1,7,1))y++;
+  let m=(abs<hToAbs(y,1,1))?7:1;
+  while(abs>hToAbs(y,m,hML(m,y)))m++;
+  return{y,m,d:abs-hToAbs(y,m,1)+1};}
+function hNext(y,m){const mx=hMonths(y);if(m===6)return{y:y+1,m:7};if(m===mx)return{y,m:1};return{y,m:m+1};}
+function hPrev(y,m){if(m===7)return{y:y-1,m:6};if(m===1)return{y,m:hMonths(y)};return{y,m:m-1};}
+const HM=["","ניסן","אייר","סיון","תמוז","אב","אלול","תשרי","חשון","כסלו","טבת","שבט","אדר","אדר ב׳"];
+const HME=["","Nissan","Iyar","Sivan","Tammuz","Av","Elul","Tishrei","Cheshvan","Kislev","Teves","Shevat","Adar","Adar II"];
+const hMName=(m,y)=>(m===12&&hLeap(y))?"אדר א׳":HM[m];
+const hMNameEn=(m,y)=>(m===12&&hLeap(y))?"Adar I":HME[m];
+function hNum(n){
+  const T=[[400,"ת"],[300,"ש"],[200,"ר"],[100,"ק"],[90,"צ"],[80,"פ"],[70,"ע"],[60,"ס"],[50,"נ"],[40,"מ"],[30,"ל"],[20,"כ"],[10,"י"],[9,"ט"],[8,"ח"],[7,"ז"],[6,"ו"],[5,"ה"],[4,"ד"],[3,"ג"],[2,"ב"],[1,"א"]];
+  let o="",v=n;
+  while(v>0){ if(v===15){o+="טו";break;} if(v===16){o+="טז";break;}
+    for(const[a,c]of T){if(v>=a){o+=c;v-=a;break;}} }
+  return o;
+}
+const ger=s=>s.length===1?s+"׳":s.slice(0,-1)+"״"+s.slice(-1);
+const hebParts=k=>absToH(absOfKey(k)+1);
+const hebDate=k=>{const h=hebParts(k);return ger(hNum(h.d))+" "+hMName(h.m,h.y)+" "+ger(hNum(h.y%1000));};
+
+/* ---------- model ---------- */
+const allP=()=>{const o=[];PLAN.forEach(r=>r.beds.forEach(b=>b.slots.forEach(pid=>o.push({pid,room:r}))));return o;};
+function roomOf(pid){for(const r of PLAN)for(const b of r.beds)if(b.slots.includes(pid))return r;return null;}
+const first=pid=>(state.extra[pid]&&state.extra[pid].first)??P[pid][0];
+const last=pid=>(state.extra[pid]&&state.extra[pid].last)??P[pid][1];
+const nameOf=pid=>first(pid)+" "+last(pid);
+const isAlways=pid=>!!(state.extra[pid]&&state.extra[pid].always);
+
+function blank(){const n={marks:{},tonight:[],notes:{},closed:false};SIDS.forEach(s=>n.marks[s]={});return n;}
+function norm(n){
+  const b=blank(); if(!n||typeof n!=="object")return b;
+  b.tonight=Array.isArray(n.tonight)?n.tonight:[];
+  b.notes=(n.notes&&typeof n.notes==="object")?n.notes:{};
+  b.closed=!!n.closed;
+  SIDS.forEach(s=>{const m=(n.marks&&n.marks[s])||{};b.marks[s]=(m&&typeof m==="object")?{...m}:{};});
+  return b;
+}
+async function loadNight(k){
+  const raw=await store.get(NPRE+k); let p=null;
+  if(raw){try{p=JSON.parse(raw);}catch(e){}}
+  state.dateKey=k; state.night=norm(p); undoStack=[]; state.editing=false; state.review=false;
+}
+function statusOf(pid,sid){
+  if(isAlways(pid))return "exc";
+  if(state.night.tonight.includes(pid))return "exc";
+  return state.night.marks[sid][pid]||null;
+}
+function roomChecked(room,sid){
+  const live=[];
+  room.beds.forEach(b=>b.slots.forEach(pid=>{if(statusOf(pid,sid)!=="exc")live.push(pid);}));
+  if(!live.length)return true;
+  return live.some(pid=>state.night.marks[sid][pid]);
+}
+function roomAllIn(room,sid){
+  let any=false;
+  for(const b of room.beds)for(const pid of b.slots){
+    const st=statusOf(pid,sid);
+    if(st==="exc")continue;
+    if(st!=="in")return false;
+    any=true;
+  }
+  return any||roomChecked(room,sid);
+}
+const outIn=(room,sid)=>{const o=[];room.beds.forEach(b=>b.slots.forEach(pid=>{if(statusOf(pid,sid)==="out")o.push(pid);}));return o;};
+function stats(sid){
+  let out=0,inn=0,exc=0;
+  allP().forEach(({pid})=>{const s=statusOf(pid,sid);
+    if(s==="out")out++;else if(s==="in")inn++;else if(s==="exc")exc++;});
+  const left=PLAN.filter(r=>!roomChecked(r,sid)).length;
+  return {out,inn,exc,left,started:left<PLAN.length};
+}
+const label=id=>{const s=SLOTS.find(x=>x.id===id);return s?s.label:id;};
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function snap(){undoStack.push(JSON.parse(JSON.stringify(state.night)));if(undoStack.length>40)undoStack.shift();}
+function setMark(pid,sid,v){
+  snap(); const m=state.night.marks[sid];
+  if(m[pid]===v)delete m[pid]; else m[pid]=v;
+  save();
+}
+function markRoom(room,sid){
+  snap(); const m=state.night.marks[sid];
+  const all=roomAllIn(room,sid);
+  room.beds.forEach(b=>b.slots.forEach(pid=>{
+    if(statusOf(pid,sid)==="exc")return;
+    if(all)delete m[pid]; else m[pid]="in";
+  }));
+  save();
+}
+function undo(){const u=undoStack.pop();if(!u){toast("Nothing to undo");return;}state.night=u;save();render();toast("Undone");}
+
+/* ---------- report ---------- */
+function report(){
+  const L=[hebDate(state.dateKey)];
+  SIDS.forEach(sid=>{
+    L.push("",label(sid));
+    if(!stats(sid).started){L.push("not done");return;}
+    let any=false;
+    PLAN.forEach(room=>{
+      if(!roomChecked(room,sid))return;
+      const o=outIn(room,sid);
+      if(o.length){any=true;L.push(room.label+": "+o.map(nameOf).join(", "));}
+    });
+    if(!any)L.push("Everyone in.");
+    const u=PLAN.filter(r=>!roomChecked(r,sid));
+    if(u.length)L.push("(not checked: "+u.map(r=>r.label).join(", ")+")");
+  });
+  const done=SIDS.filter(s=>stats(s).started);
+  if(done.length>1){
+    const a=allP().filter(({pid})=>done.every(s=>statusOf(pid,s)==="out")).map(({pid,room})=>nameOf(pid)+" ("+room.label+")");
+    if(a.length)L.push("","Out all "+done.length+" times: "+a.join(", "));
+  }
+  return L.join("\n");
+}
+
+/* ---------- floor plan drawing ---------- */
+const H=112, GAP=6;
+const R=GAP*2;                      /* swing radius must equal the doorway width */
+function doorSVG(d){
+  const p=d.pos, W=100, seg=[];
+  let arc="",leaf="";
+  if(d.wall==="bottom"){
+    const y=H-.8, a=p-GAP, b=p+GAP;
+    seg.push(`M0 ${y}H${a}`,`M${b} ${y}H${W}`);
+    arc=`M${b} ${y}A${R} ${R} 0 0 0 ${a} ${y-R}`; leaf=`M${a} ${y}V${y-R}`;
+  }else if(d.wall==="top"){
+    const y=.8, a=p-GAP, b=p+GAP;
+    seg.push(`M0 ${y}H${a}`,`M${b} ${y}H${W}`);
+    arc=`M${b} ${y}A${R} ${R} 0 0 1 ${a} ${y+R}`; leaf=`M${a} ${y}V${y+R}`;
+  }else if(d.wall==="left"){
+    const x=.8, a=p-GAP, b=p+GAP;
+    seg.push(`M${x} 0V${a}`,`M${x} ${b}V${H}`);
+    arc=`M${x} ${b}A${R} ${R} 0 0 1 ${x+R} ${a}`; leaf=`M${x} ${a}H${x+R}`;
+  }else{
+    const x=W-.8, a=p-GAP, b=p+GAP;
+    seg.push(`M${x} 0V${a}`,`M${x} ${b}V${H}`);
+    arc=`M${x} ${b}A${R} ${R} 0 0 0 ${x-R} ${a}`; leaf=`M${x} ${a}H${x-R}`;
+  }
+  return {seg,arc,leaf};
+}
+function wallsSVG(room){
+  const d=doorSVG(room.door), W=100;
+  const full={bottom:`M.8 .8H${W-.8}V${H-.8}H.8Z`};
+  let base;
+  if(room.door.wall==="bottom") base=`M.8 ${H-.8}V.8H${W-.8}V${H-.8}`;
+  else if(room.door.wall==="top") base=`M.8 .8V${H-.8}H${W-.8}V.8`;
+  else if(room.door.wall==="left") base=`M.8 .8H${W-.8}V${H-.8}H.8`;
+  else base=`M${W-.8} .8H.8V${H-.8}H${W-.8}`;
+  return `<svg class="walls" viewBox="0 0 100 ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <path class="wall" d="${base}"/>
+    ${d.seg.map(s=>`<path class="wall" d="${s}"/>`).join("")}
+    <path class="swing" d="${d.arc}"/><path class="swing" d="${d.leaf}"/>
+  </svg>`;
+}
+function lnStyle(n,wide){
+  if(wide)return "";
+  const L=n.length;
+  if(L>11)return ' style="font-size:10.5px"';
+  if(L>9)return ' style="font-size:11.5px"';
+  return "";
+}
+function bedHTML(bed){
+  const n=bed.slots.length;
+  const wide=bed.lay==="row";
+  const rows=bed.slots.map((pid,i)=>{
+    const bunk=n>1?(i===0?"top":"bottom"):"";
+    return `<div class="slot ${wide?"row":"col"}" data-slot="${pid}">
+      ${bunk?`<span class="bunk">${bunk}</span>`:``}
+      <button class="nb" data-a="who" data-p="${pid}">
+        <span class="ln"${lnStyle(last(pid),wide)}>${esc(last(pid))}</span>
+        <span class="fn">${esc(first(pid))}</span>
+      </button>
+      <div class="mk">
+        <button class="v-in" data-mk data-p="${pid}" data-v="in" aria-label="${esc(nameOf(pid))} here">${IC.tick}</button>
+        <button class="v-out" data-mk data-p="${pid}" data-v="out" aria-label="${esc(nameOf(pid))} not here">${IC.ex}</button>
+        <button class="e" data-mk data-p="${pid}" data-v="exc" aria-label="${esc(nameOf(pid))} excused">E</button>
+      </div>
+    </div>`;
+  }).join("");
+  return `<div class="bed" style="left:${bed.x}%;top:${bed.y}%;width:${bed.w}%;height:${bed.h}%">${rows}</div>`;
+}
+function roomBlock(i){
+  const room=PLAN[i];
+  return `<div class="roomblock" id="rb-${room.id}">
+    <div class="rbar">
+      <div class="t">${esc(room.label)}<em data-rout="${room.id}"></em></div>
+      <button data-a="allin" data-r="${room.id}"><span data-ain="${room.id}">Everyone in</span></button>
+    </div>
+    <div class="planwrap"${i===state.room&&state.mode==="one"?' id="pw"':''}>
+      <div class="plan" data-plan="${room.id}">${wallsSVG(room)}${room.beds.map(bedHTML).join("")}</div>
+    </div>
+  </div>`;
+}
+function doneBtn(){
+  return `<div class="fin"><button data-a="closenight">Done for tonight</button>
+    <div class="finnote">Locks it to a read-only record. It closes on its own at 6am anyway.</div></div>`;
+}
+function marksHTML(){
+  if(state.mode==="scroll")
+    return `<div class="wrap">${PLAN.map((r,i)=>roomBlock(i)).join("")}${doneBtn()}</div>`;
+  return `<div class="wrap">${roomBlock(state.room)}
+    <div class="legend">Doorway is on the wall you walk in from. Swipe the plan for the next room.</div>
+    <div class="next">
+      <button data-a="room" data-d="-1" ${state.room===0?"disabled":""}>‹ ${state.room>0?esc(PLAN[state.room-1].label):""}</button>
+      <button data-a="room" data-d="1" ${state.room===PLAN.length-1?"disabled":""}>${state.room<PLAN.length-1?esc(PLAN[state.room+1].label):""} ›</button>
+    </div>${doneBtn()}</div>`;
+}
+
+/* ---------- screens ---------- */
+/* closed either because you said so, or because 6am came and went */
+function isLocked(){
+  if(state.editing)return false;
+  if(state.night.closed)return true;
+  if(state.dateKey===tonightKey())return false;
+  return SIDS.some(s=>Object.keys(state.night.marks[s]).length>0);
+}
+const showingReview=()=>isLocked()||state.review;
+function headHTML(){
+  const times=SLOTS.map(s=>`<button data-a="time" data-s="${s.id}" class="${s.id===state.cur?"on":""}">
+      <div class="a">${s.label}</div><div class="b" data-tb="${s.id}"></div></button>`).join("");
+  const rooms=PLAN.map((r,i)=>`<button data-a="jump" data-i="${i}" data-rp="${r.id}"
+      class="${i===state.room?"on":""}">${i+1}</button>`).join("");
+  return `<div class="hd">
+      <div class="h1">
+        <div><div class="hdate">${esc(hebDate(state.dateKey))}</div>
+        <div class="gdate">${esc(longDate(state.dateKey))}</div></div>
+        <div style="text-align:right"><div class="sv" id="sv">${esc(savedText())}</div>
+        <button class="pill" style="margin-top:7px" data-a="tab" data-t="names">Names</button></div>
+      </div>
+      <div class="h2">
+        <button data-a="day" data-d="-1">‹</button>
+        <button data-a="day" data-d="1">›</button>
+        <button data-a="cal">Calendar</button>
+        ${state.dateKey!==tonightKey()?`<button data-a="today">Tonight</button>`:``}
+        ${isLocked()?``:`<button data-a="undo" style="margin-left:auto">Undo</button>`}
+      </div>
+    </div>
+    ${showingReview()?``:`<div class="stick">
+      <div class="seg3">${times}</div>
+      <div class="viewrow">
+        <div class="seg2">
+          <button class="${state.mode==="one"?"on":""}" data-a="mode" data-m="one">One room</button>
+          <button class="${state.mode==="scroll"?"on":""}" data-a="mode" data-m="scroll">Scroll all</button>
+        </div>
+        <button class="revlink" data-a="review">Review</button>
+      </div>
+      <div class="rooms">${rooms}</div>
+    </div>`}`;
+}
+const GLYPH={in:'<span class="rv g" title="here">✓</span>',
+  out:'<span class="rv r" title="not here">✕</span>',
+  exc:'<span class="rv e" title="excused">E</span>',
+  none:'<span class="rv n" title="not marked">–</span>'};
+function reviewHTML(){
+  let body="", shownAny=false;
+  PLAN.forEach(room=>{
+    const ppl=[];
+    room.beds.forEach(b=>b.slots.forEach(pid=>ppl.push(pid)));
+    const list=state.onlyOut?ppl.filter(pid=>SIDS.some(s=>statusOf(pid,s)==="out")):ppl;
+    if(!list.length)return;
+    shownAny=true;
+    body+=`<h2>${esc(room.label)}</h2><div class="blk">`+list.map(pid=>
+      `<div class="li"><span class="a">${esc(nameOf(pid))}</span><span class="rvs">`+
+      SIDS.map(s=>GLYPH[statusOf(pid,s)||"none"]).join("")+`</span></div>`).join("")+`</div>`;
+  });
+  if(!shownAny)body=`<div class="blk"><div class="none">${state.onlyOut?"Nobody was marked out tonight.":"Nothing marked yet."}</div></div>`;
+  const st=SIDS.map(s=>stats(s));
+  return `<div class="lock"><span>${isLocked()?"Closed — read only":"Review — read only"}</span>
+      <button data-a="edit">Edit</button></div>
+    <div class="pan" style="padding-top:0">
+      <div class="revbar">
+        <div class="seg2">
+          <button class="${state.onlyOut?"":"on"}" data-a="onlyout" data-v="0">Everyone</button>
+          <button class="${state.onlyOut?"on":""}" data-a="onlyout" data-v="1">Only not here</button>
+        </div>
+      </div>
+      <div class="rvhead"><span>${st.map((x,i)=>`${SLOTS[i].label}`).join("</span><span>")}</span></div>
+      ${body}
+      <div class="none" style="padding-bottom:24px">✓ here · ✕ not here · E excused · – not marked</div>
+    </div>`;
+}
+function summaryHTML(){
+  const blocks=SLOTS.map(s=>{
+    const st=stats(s.id);
+    let badge,inner;
+    if(!st.started){badge=`<span class="b d">not done</span>`;inner=`<div class="none">Not done</div>`;}
+    else{
+      badge=st.out?`<span class="b r">${st.out} out</span>`:`<span class="b g">all in</span>`;
+      const rows=[];
+      PLAN.forEach(r=>{
+        if(!roomChecked(r,s.id))return;
+        outIn(r,s.id).forEach(pid=>rows.push(
+          `<div class="li"><span class="a">${esc(nameOf(pid))}</span><span class="z">${esc(r.label)}</span></div>`));
+      });
+      const un=PLAN.filter(r=>!roomChecked(r,s.id));
+      if(un.length)rows.push(`<div class="li"><span class="a" style="font-size:13px;color:var(--amber)">Not checked — ${un.map(r=>esc(r.label)).join(", ")}</span></div>`);
+      inner=rows.length?rows.join(""):`<div class="none">Everyone in</div>`;
+    }
+    return `<div class="sumh"><span class="a">${s.label}</span>${badge}</div><div style="padding:0 12px"><div class="blk">${inner}</div></div>`;
+  }).join("");
+  const exc=allP().filter(({pid})=>SIDS.some(s=>statusOf(pid,s)==="exc"));
+  return `<div class="lock"><span>Closed — ${esc(longDate(state.dateKey))}</span><button data-a="edit">Edit</button></div>
+    ${blocks}
+    ${exc.length?`<div class="sumh"><span class="a">Excused</span></div><div style="padding:0 12px"><div class="blk">${
+      exc.map(({pid,room})=>`<div class="li"><span class="a">${esc(nameOf(pid))}</span><span class="z">${esc(room.label)}</span></div>`).join("")
+    }</div></div>`:``}`;
+}
+function checkScreen(){
+  return headHTML()+
+    (showingReview()?reviewHTML():
+      (state.editing?`<div class="lock" style="margin-bottom:0"><span>Editing a closed night</span><button data-a="done">Done</button></div>`:``)+marksHTML())+
+    `<div class="bar"><div class="st" id="stat"></div><button class="cp" data-a="copy">Copy</button></div>`;
+}
+function peopleScreen(){
+  const exc=allP().filter(({pid})=>isAlways(pid));
+  return `<div class="hd"><div class="h1"><div><div class="hdate">Names</div>
+      <div class="gdate">30 bochurim · 8 rooms</div></div>
+      <button class="pill" data-a="tab" data-t="check">Done</button></div></div>
+    <div class="pan">
+    ${exc.length?`<h2>Excused indefinitely</h2><div class="blk">${exc.map(({pid,room})=>`
+      <div class="li"><span class="a">${esc(nameOf(pid))}<i>${esc(room.label)}${(state.extra[pid]||{}).reason?" · "+esc(state.extra[pid].reason):""}</i></span>
+      <button class="z lnk" data-a="unexc" data-p="${pid}">Turn back on</button></div>`).join("")}</div>`:``}
+    ${PLAN.map(r=>`<h2>${esc(r.label)}</h2><div class="blk">${
+      r.beds.map(b=>b.slots.map((pid,i)=>`<button class="li" data-a="editp" data-p="${pid}">
+        <span class="a">${esc(nameOf(pid))}<i>${b.slots.length>1?(i===0?"top bunk":"bottom bunk"):"single bed"}</i></span>
+        ${isAlways(pid)?`<span class="z">excused</span>`:``}</button>`).join("")).join("")
+    }</div>`).join("")}
+    <h2>Backup</h2>
+    <div class="blk">
+      <button class="li" data-a="dl"><span class="a lnk">Save a backup file</span></button>
+      <button class="li" data-a="imp"><span class="a lnk">Restore from a backup</span></button>
+    </div>
+    <h2>App</h2>
+    <div class="blk">
+      <button class="li" id="installrow" style="display:none" data-a="install"><span class="a lnk">Install on your home screen</span></button>
+      <button class="li" id="updrow" style="display:none" data-a="reload"><span class="a lnk">Update ready — tap to reload</span></button>
+      <button class="li" data-a="checkupd"><span class="a">Check for an update<i>Version ${APP_VERSION}</i></span><span class="z">Check</span></button>
+    </div>
+    <div class="none" style="padding-bottom:30px">Everything saves on this device as you tap. Works with no signal.</div>
+    </div>`;
+}
+
+/* ---------- live sync ---------- */
+function sync(){
+  const sid=state.cur;
+  document.querySelectorAll("[data-mk]").forEach(b=>
+    b.classList.toggle("on",statusOf(b.dataset.p,sid)===b.dataset.v));
+  document.querySelectorAll("[data-slot]").forEach(el=>{
+    const st=statusOf(el.dataset.slot,sid);
+    el.classList.toggle("in",st==="in");
+    el.classList.toggle("out",st==="out");
+    el.classList.toggle("exc",st==="exc");
+  });
+  PLAN.forEach(room=>{
+    const pl=document.querySelector(`[data-plan="${room.id}"]`);
+    if(pl)pl.classList.toggle("allin",roomAllIn(room,sid));
+    const ro=document.querySelector(`[data-rout="${room.id}"]`);
+    if(ro){const o=outIn(room,sid).length;
+      ro.textContent=o?o+" out":room.beds.reduce((a,b)=>a+b.slots.length,0)+" beds";
+      ro.className=o?"miss":"";}
+    const ai=document.querySelector(`[data-ain="${room.id}"]`);
+    if(ai)ai.textContent=roomAllIn(room,sid)?"Clear room":"Everyone in";
+  });
+  PLAN.forEach((r,i)=>{
+    const b=document.querySelector(`[data-rp="${r.id}"]`); if(!b)return;
+    const o=outIn(r,sid).length, ck=roomChecked(r,sid);
+    b.className=(i===state.room?"on":"")+(o?" miss":ck?" done":"");
+  });
+  SIDS.forEach(s=>{
+    const e=document.querySelector(`[data-tb="${s}"]`); if(!e)return;
+    const st=stats(s);
+    if(st.out){e.textContent=st.out+" out";e.className="b out";}
+    else if(!st.started){e.textContent="—";e.className="b";}
+    else if(!st.left){e.textContent="all in";e.className="b done";}
+    else{e.textContent=st.left+" left";e.className="b";}
+  });
+  const st=stats(sid), sl=document.getElementById("stat");
+  if(sl){
+    const bits=[st.out?`<b class="r">${st.out} out</b>`:`<b>Nobody out</b>`];
+    if(st.left)bits.push(st.left+" room"+(st.left>1?"s":"")+" left");
+    if(st.exc)bits.push(st.exc+" excused");
+    sl.innerHTML=label(sid)+" · "+bits.join(" · ");
+  }
+}
+
+/* ---------- sheets ---------- */
+function openWho(pid){
+  state.who=pid;
+  const room=roomOf(pid), tn=state.night.tonight.includes(pid);
+  showPop(`<div class="grp">
+      <div class="hdd"><div class="a">${esc(nameOf(pid))}</div><div class="b">${esc(room.label)}</div></div>
+      ${SLOTS.map(s=>{const st=statusOf(pid,s.id);
+        return `<div class="li"><span class="a">${s.label}</span><div class="mk">
+          <button class="v-in ${st==="in"?"on":""}" data-a="wset" data-s="${s.id}" data-v="in">${IC.tick}</button>
+          <button class="v-out ${st==="out"?"on":""}" data-a="wset" data-s="${s.id}" data-v="out">${IC.ex}</button>
+          <button class="e ${st==="exc"?"on":""}" data-a="wset" data-s="${s.id}" data-v="exc">E</button>
+        </div></div>`;}).join("")}
+    </div>
+    <div class="grp">
+      <button class="li" data-a="exctn"><span class="ck ${tn?"on":""}"></span><span class="a">Excused tonight<i>All three times, tonight only</i></span></button>
+      <button class="li" data-a="excalways"><span class="ck ${isAlways(pid)?"on":""}"></span><span class="a">Excused indefinitely<i>Until you turn it back on</i></span></button>
+      ${isAlways(pid)?`<div class="li"><input value="${esc((state.extra[pid]||{}).reason||"")}" placeholder="Reason (optional)" data-a="reason"></div>`:``}
+      <div class="li"><input value="${esc(state.night.notes[pid]||"")}" placeholder="Note for tonight" data-a="note"></div>
+    </div>
+    <button class="cancel" data-a="close">Done</button>`);
+}
+function editPerson(pid){
+  state.who=pid;
+  showPop(`<div class="grp">
+      <div class="hdd"><div class="a">${esc(nameOf(pid))}</div><div class="b">${esc(roomOf(pid).label)}</div></div>
+      <div class="li"><span class="a" style="flex:0 0 52px">First</span><input value="${esc(first(pid))}" data-a="first"></div>
+      <div class="li"><span class="a" style="flex:0 0 52px">Last</span><input value="${esc(last(pid))}" data-a="last"></div>
+    </div>
+    <button class="cancel" data-a="close">Done</button>`);
+}
+async function openCal(){
+  const keys=await store.list(NPRE);
+  state.calHas={}; keys.forEach(k=>state.calHas[k.slice(NPRE.length)]=1);
+  const h=hebParts(state.dateKey);
+  state.cal={y:h.y,m:h.m};
+  drawCal();
+}
+function drawCal(){
+  const {y,m}=state.cal, len=hML(m,y), first=hToAbs(y,m,1), lead=first%7;
+  const sel=state.dateKey, tn=tonightKey(), cells=[];
+  for(let i=0;i<lead;i++)cells.push(`<div class="cell empty"></div>`);
+  for(let d=1;d<=len;d++){
+    const abs=hToAbs(y,m,d), k=keyFromAbs(abs-1), g=parseKey(k), c=["cell"];
+    if(abs%7===6)c.push("sat");
+    if(state.calHas[k])c.push("has");
+    if(k===tn)c.push("today");
+    if(k===sel)c.push("on");
+    cells.push(`<button class="${c.join(" ")}" data-a="pick" data-k="${k}">
+      <span class="h">${hNum(d)}</span><span class="g">${g.getMonth()+1}/${g.getDate()}</span></button>`);
+  }
+  showPop(`<div class="grp">
+      <div class="cnav"><button data-a="calm" data-d="-1">‹</button>
+        <div class="m">${hMName(m,y)} ${ger(hNum(y%1000))}<i>${hMNameEn(m,y)} ${y}</i></div>
+        <button data-a="calm" data-d="1">›</button></div>
+      <div class="dow"><div>א</div><div>ב</div><div>ג</div><div>ד</div><div>ה</div><div>ו</div><div>ש</div></div>
+      <div class="grid">${cells.join("")}</div>
+      <div class="cnote">Nights sit under their Hebrew date, so the night of 8/30 is י״ח אלול. The small number is that evening's English date. A dot means marks are saved.</div>
+    </div><button class="cancel" data-a="close">Cancel</button>`);
+}
+function showPop(h){const p=document.getElementById("pop");p.innerHTML=h;p.scrollTop=0;p.classList.add("on");document.getElementById("scrim").classList.add("on");}
+function closePop(){document.getElementById("pop").classList.remove("on");document.getElementById("scrim").classList.remove("on");state.who=null;}
+
+/* ---------- shell ---------- */
+function render(){
+  const y=window.scrollY;
+  document.getElementById("app").innerHTML=state.tab==="names"?peopleScreen():checkScreen();
+  if(state.tab==="check"&&!showingReview()){sync();if(state.mode==="one")bindSwipe();}
+  window.scrollTo(0,y);
+}
+let tt=null;
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("on"),1700);}
+async function copyText(t){
+  try{await navigator.clipboard.writeText(t);toast("Copied");return;}catch(e){}
+  const a=document.createElement("textarea");a.value=t;a.style.position="fixed";a.style.opacity="0";
+  document.body.appendChild(a);a.focus();a.select();
+  try{document.execCommand("copy");toast("Copied");}catch(e){toast("Couldn't copy");}
+  a.remove();
+}
+function goRoom(i){
+  if(i<0||i>=PLAN.length)return;
+  state.room=i; render();
+  const pw=document.getElementById("pw");
+  if(pw)pw.scrollIntoView({block:"nearest"});
+}
+function bindSwipe(){
+  const pw=document.getElementById("pw"); if(!pw)return;
+  let x0=null,y0=null;
+  pw.addEventListener("pointerdown",e=>{x0=e.clientX;y0=e.clientY;},{passive:true});
+  pw.addEventListener("pointerup",e=>{
+    if(x0===null)return;
+    const dx=e.clientX-x0, dy=e.clientY-y0;
+    x0=null;
+    if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.6) goRoom(state.room+(dx<0?1:-1));
+  },{passive:true});
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",async e=>{
+  const t=e.target.closest("[data-a],[data-mk]"); if(!t)return;
+  if(t.hasAttribute("data-mk")&&!t.dataset.a){ setMark(t.dataset.p,state.cur,t.dataset.v); sync(); return; }
+  const a=t.dataset.a;
+
+  if(a==="tab"){state.tab=t.dataset.t;render();window.scrollTo(0,0);return;}
+  if(a==="time"){state.cur=t.dataset.s;
+    document.querySelectorAll(".seg3 button").forEach(b=>b.classList.toggle("on",b.dataset.s===state.cur));
+    sync(); return;}
+  if(a==="jump"){
+    if(state.mode==="scroll"){const el=document.getElementById("rb-"+PLAN[+t.dataset.i].id);
+      if(el)el.scrollIntoView({behavior:"smooth",block:"start"});return;}
+    goRoom(+t.dataset.i);return;}
+  if(a==="room"){goRoom(state.room+(+t.dataset.d));return;}
+  if(a==="allin"){const r=PLAN.find(x=>x.id===t.dataset.r)||PLAN[state.room];markRoom(r,state.cur);sync();return;}
+  if(a==="mode"){state.mode=t.dataset.m;save();render();window.scrollTo(0,0);return;}
+  if(a==="review"){state.review=true;render();window.scrollTo(0,0);return;}
+  if(a==="onlyout"){state.onlyOut=t.dataset.v==="1";render();return;}
+  if(a==="closenight"){
+    if(!confirm("Close tonight? It becomes a read-only record — you can still reopen it with Edit."))return;
+    state.night.closed=true;state.editing=false;state.review=false;
+    save();render();window.scrollTo(0,0);toast("Closed for tonight");return;}
+  if(a==="day"){await flush();await loadNight(shiftDate(state.dateKey,+t.dataset.d));render();return;}
+  if(a==="today"){await flush();await loadNight(tonightKey());render();return;}
+  if(a==="cal"){await openCal();return;}
+  if(a==="calm"){state.cal=(+t.dataset.d>0)?hNext(state.cal.y,state.cal.m):hPrev(state.cal.y,state.cal.m);drawCal();return;}
+  if(a==="pick"){await flush();await loadNight(t.dataset.k);closePop();render();window.scrollTo(0,0);return;}
+  if(a==="undo"){undo();return;}
+  if(a==="edit"){state.editing=true;state.review=false;render();window.scrollTo(0,0);return;}
+  if(a==="done"){state.editing=false;render();window.scrollTo(0,0);return;}
+  if(a==="copy"){copyText(report());return;}
+
+  if(a==="who"){openWho(t.dataset.p);return;}
+  if(a==="editp"){editPerson(t.dataset.p);return;}
+  if(a==="wset"){setMark(state.who,t.dataset.s,t.dataset.v);openWho(state.who);render();return;}
+  if(a==="exctn"){const pid=state.who;snap();
+    const i=state.night.tonight.indexOf(pid);
+    if(i>=0)state.night.tonight.splice(i,1);
+    else{state.night.tonight.push(pid);SIDS.forEach(s=>delete state.night.marks[s][pid]);}
+    save();openWho(pid);render();return;}
+  if(a==="excalways"){const pid=state.who;
+    state.extra[pid]=state.extra[pid]||{};
+    state.extra[pid].always=!state.extra[pid].always;
+    save();openWho(pid);render();
+    toast(state.extra[pid].always?"Off the reports until you turn him back on":"Back on the sheet");return;}
+  if(a==="unexc"){const pid=t.dataset.p;
+    if(state.extra[pid])state.extra[pid].always=false;
+    save();render();toast(nameOf(pid)+" is back on");return;}
+  if(a==="close"){closePop();return;}
+
+  if(a==="dl"){await flush();
+    const keys=await store.list(NPRE),nights={};
+    for(const k of keys){const v=await store.get(k);if(v)nights[k]=v;}
+    const j=JSON.stringify({v:1,saved:new Date().toISOString(),extra:state.extra,nights},null,1);
+    let ok=false;
+    try{const b=new Blob([j],{type:"application/json"}),u=URL.createObjectURL(b),l=document.createElement("a");
+      l.href=u;l.download="room-check-"+state.dateKey+".json";document.body.appendChild(l);l.click();l.remove();
+      setTimeout(()=>URL.revokeObjectURL(u),4000);ok=true;}catch(e){}
+    showPop(`<div class="grp"><div class="hdd"><div class="a">Backup</div><div class="b">${ok?"Saved to your downloads":"Copy this and keep it safe"}</div></div>
+      <div class="li"><textarea class="rep" id="ex" rows="8" spellcheck="false">${esc(j)}</textarea></div>
+      <button class="li" data-a="copybox" data-src="ex"><span class="a lnk">Copy</span></button></div>
+      <button class="cancel" data-a="close">Done</button>`);return;}
+  if(a==="install"){doInstall();return;}
+  if(a==="reload"){location.reload();return;}
+  if(a==="checkupd"){checkUpdate();return;}
+  if(a==="copybox"){const el=document.getElementById(t.dataset.src);if(el)copyText(el.value);return;}
+  if(a==="imp"){showPop(`<div class="grp"><div class="hdd"><div class="a">Restore</div><div class="b">Replaces everything on this device</div></div>
+      <div class="li"><textarea class="rep" id="im" rows="7" placeholder="Paste a backup" spellcheck="false"></textarea></div>
+      <button class="li" data-a="doimp"><span class="a lnk">Restore</span></button></div>
+      <button class="cancel" data-a="close">Cancel</button>`);return;}
+  if(a==="doimp"){let d;try{d=JSON.parse(document.getElementById("im").value);}catch(e){toast("Not a backup");return;}
+    if(!d.nights&&!d.extra){toast("Not a backup");return;}
+    state.extra=d.extra||{};
+    if(d.nights)for(const k of Object.keys(d.nights))await store.set(k,d.nights[k]);
+    await store.set(RKEY,JSON.stringify({extra:state.extra,mode:state.mode}));
+    await loadNight(state.dateKey);closePop();render();toast("Restored");return;}
+});
+document.getElementById("scrim").addEventListener("click",closePop);
+
+document.addEventListener("input",e=>{
+  const t=e.target.closest("[data-a]"); if(!t)return;
+  const a=t.dataset.a, pid=state.who; if(!pid)return;
+  if(a==="note"){if(t.value.trim())state.night.notes[pid]=t.value;else delete state.night.notes[pid];save();return;}
+  if(a==="first"||a==="last"){state.extra[pid]=state.extra[pid]||{};state.extra[pid][a]=t.value;save();return;}
+  if(a==="reason"){state.extra[pid]=state.extra[pid]||{};state.extra[pid].reason=t.value;save();return;}
+});
+
+/* ---------- installable app plumbing ---------- */
+const APP_VERSION="1.0.0";
+let deferredInstall=null, swReg=null;
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
+  const b=document.getElementById("installrow"); if(b)b.style.display="";});
+window.addEventListener("appinstalled",()=>{deferredInstall=null;toast("Installed");});
+async function doInstall(){
+  if(!deferredInstall){toast("Use your browser menu: Add to Home screen");return;}
+  deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall=null;
+}
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  window.addEventListener("load",async()=>{
+    try{
+      swReg=await navigator.serviceWorker.register("sw.js");
+      swReg.addEventListener("updatefound",()=>{
+        const nw=swReg.installing; if(!nw)return;
+        nw.addEventListener("statechange",()=>{
+          if(nw.state==="installed"&&navigator.serviceWorker.controller){
+            const el=document.getElementById("updrow");
+            if(el){el.style.display="";}
+            toast("Update ready — reopen the app");
+          }
+        });
+      });
+    }catch(e){}
+  });
+}
+async function checkUpdate(){
+  if(!swReg){toast("Not installed as an app yet");return;}
+  toast("Checking…");
+  try{ await swReg.update(); toast("Up to date"); }catch(e){ toast("Couldn't check"); }
+}
+
+/* ---------- boot ---------- */
+(async function(){
+  if(!window.storage)state.ok=false;
+  state.persist=!!(window.storage||LS);
+  let raw=await store.get(RKEY);
+  if(!raw){const m=await store.get(MKEY);
+    if(m){try{const d=JSON.parse(m);if(d.extra)raw=JSON.stringify({extra:d.extra});}catch(e){}}}
+  if(raw){try{const d=JSON.parse(raw);state.extra=d.extra||{};if(d.mode)state.mode=d.mode;}catch(e){state.extra={};}}
+  await loadNight(tonightKey());
+  const d=new Date(), mn=d.getHours()*60+d.getMinutes();
+  state.cur=(mn>=23*60+55||mn<6*60)?"1200":(mn>=23*60+25)?"1130":"1115";
+  render(); flush();
+})();
+</script>
+</body>
+</html>
