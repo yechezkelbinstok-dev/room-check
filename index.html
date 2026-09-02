@@ -46,17 +46,18 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 
 /* header */
 .hd{padding:13px 16px 0}
-.h1{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-.hdate{font-size:23px;font-weight:650;letter-spacing:-.01em}
-.gdate{font-size:12.5px;color:var(--sub);margin-top:2px}
-.sv{font-size:11px;color:var(--sub);text-align:right;padding-top:3px}
 .pill{font-size:13.5px;font-weight:550;color:var(--blue);background:#fff;border:1px solid var(--sep);
   border-radius:9px;padding:8px 13px;flex:none}
 .pill:active{background:var(--blue-l)}
-.h2{display:flex;align-items:center;gap:7px;margin-top:10px}
-.h2 button{background:#fff;border:1px solid var(--sep);border-radius:9px;height:36px;min-width:38px;
-  padding:0 13px;font-size:14px;font-weight:550;color:var(--blue);display:grid;place-items:center}
-.h2 button:active{background:var(--blue-l)}
+.topbar{display:flex;align-items:center;gap:6px}
+.ibtn{width:36px;height:36px;border-radius:10px;background:#fff;border:1px solid var(--sep);
+  display:grid;place-items:center;color:var(--blue);flex:none;font-size:17px;font-weight:600}
+.ibtn:active{background:var(--blue-l)}
+.ibtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.dtap{flex:1;min-width:0;text-align:center;padding:2px 2px}
+.hdate{display:block;direction:rtl;font-size:19px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gdate{display:block;font-size:11.5px;color:var(--sub);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sv{font-size:10.5px;color:var(--sub);text-align:right;padding:4px 2px 0}
 
 /* sticky: times + rooms */
 .stick{position:sticky;top:0;z-index:20;background:var(--bg);padding:10px 12px 8px}
@@ -68,7 +69,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .seg3 button.on .a{color:var(--text)}
 .seg3 .b.out{color:var(--red);font-weight:600}
 .seg3 .b.done{color:var(--green)}
-.rooms{display:flex;gap:5px;margin-top:8px}
+.rooms{display:flex;gap:5px;flex:1;min-width:0}
 .rooms button{flex:1;height:34px;border-radius:9px;background:#fff;border:1px solid var(--sep);
   font-size:14px;font-weight:600;color:var(--sub2);position:relative}
 .rooms button.done{background:var(--green-l);border-color:#BCE0D2;color:var(--green)}
@@ -125,11 +126,10 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .mk .v-out.on{background:var(--red);color:#fff}
 .mk .e.on{background:var(--grey);color:#fff}
 .legend{padding:9px 16px 4px;font-size:11.5px;color:var(--sub)}
-.viewrow{display:flex;align-items:center;gap:10px;margin-top:8px}
+.viewrow{display:flex;align-items:center;gap:6px;margin-top:8px}
 .seg2{display:flex;background:#E7E7EC;border-radius:9px;padding:2px;gap:2px;flex:1}
 .seg2 button{flex:1;border-radius:7px;padding:7px 4px;font-size:13px;font-weight:550;color:var(--sub2)}
 .seg2 button.on{background:#fff;color:var(--text);font-weight:650;box-shadow:0 1px 2px rgba(0,0,0,.13)}
-.revlink{flex:none;font-size:13.5px;font-weight:600;color:var(--blue);padding:7px 4px 7px 6px}
 .roomblock{margin-bottom:6px;scroll-margin-top:150px}
 .finnote{font-size:11.5px;color:var(--sub);text-align:center;padding:7px 10px 0;line-height:1.4}
 .revbar{margin-bottom:10px}
@@ -252,7 +252,13 @@ const SIDS=SLOTS.map(s=>s.id);
 const RKEY="dorm-plan-v1", MKEY="dorm-mirror-v1", NPRE="dn:";
 const IC={
   tick:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.6l4.6 4.6L19 7.2"/></svg>`,
-  ex:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 6.6l10.8 10.8M17.4 6.6L6.6 17.4"/></svg>`
+  ex:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 6.6l10.8 10.8M17.4 6.6L6.6 17.4"/></svg>`,
+  people:`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.9 3.1-6.5 7-6.5s7 2.6 7 6.5"/></svg>`,
+  undo:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7H15.5A4.5 4.5 0 0 1 20 11.5A4.5 4.5 0 0 1 15.5 16H10"/><path d="M10.5 3.5L6 7l4.5 3.5"/></svg>`,
+  eye:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>`,
+  grid:`<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.3"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.3"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.3"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.3"/></svg>`,
+  one:`<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/></svg>`,
+  today:`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/></svg>`
 };
 
 /* ---- people ---- */
@@ -600,30 +606,27 @@ function headHTML(){
   const rooms=PLAN.map((r,i)=>`<button data-a="jump" data-i="${i}" data-rp="${r.id}"
       class="${i===state.room?"on":""}">${i+1}</button>`).join("");
   return `<div class="hd">
-      <div class="h1">
-        <div><div class="hdate">${esc(hebDate(state.dateKey))}</div>
-        <div class="gdate">${esc(longDate(state.dateKey))}</div></div>
-        <div style="text-align:right"><div class="sv" id="sv">${esc(savedText())}</div>
-        <button class="pill" style="margin-top:7px" data-a="tab" data-t="names">Names</button></div>
+      <div class="topbar">
+        <button class="ibtn" data-a="day" data-d="-1" aria-label="Previous night">‹</button>
+        <button class="dtap" data-a="cal" aria-label="Open calendar">
+          <span class="hdate">${esc(hebDate(state.dateKey))}</span>
+          <span class="gdate">${esc(longDate(state.dateKey))}</span>
+        </button>
+        <button class="ibtn" data-a="day" data-d="1" aria-label="Next night">›</button>
+        ${state.dateKey!==tonightKey()?`<button class="ibtn" data-a="today" aria-label="Jump to tonight">${IC.today}</button>`:``}
+        <button class="ibtn" data-a="tab" data-t="names" aria-label="Names">${IC.people}</button>
+        ${isLocked()?``:`<button class="ibtn" data-a="undo" aria-label="Undo">${IC.undo}</button>`}
       </div>
-      <div class="h2">
-        <button data-a="day" data-d="-1">‹</button>
-        <button data-a="day" data-d="1">›</button>
-        <button data-a="cal">Calendar</button>
-        ${state.dateKey!==tonightKey()?`<button data-a="today">Tonight</button>`:``}
-        ${isLocked()?``:`<button data-a="undo" style="margin-left:auto">Undo</button>`}
-      </div>
+      <div class="sv" id="sv">${esc(savedText())}</div>
     </div>
     ${showingReview()?``:`<div class="stick">
       <div class="seg3">${times}</div>
       <div class="viewrow">
-        <div class="seg2">
-          <button class="${state.mode==="one"?"on":""}" data-a="mode" data-m="one">One room</button>
-          <button class="${state.mode==="scroll"?"on":""}" data-a="mode" data-m="scroll">Scroll all</button>
-        </div>
-        <button class="revlink" data-a="review">Review</button>
+        <button class="ibtn" data-a="mode" data-m="${state.mode==="one"?"scroll":"one"}"
+          aria-label="${state.mode==="one"?"Show all rooms":"Show one room"}">${state.mode==="one"?IC.grid:IC.one}</button>
+        <div class="rooms">${rooms}</div>
+        <button class="ibtn" data-a="review" aria-label="Review">${IC.eye}</button>
       </div>
-      <div class="rooms">${rooms}</div>
     </div>`}`;
 }
 const GLYPH={in:'<span class="rv g" title="here">✓</span>',
@@ -947,7 +950,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.1.1";
+const APP_VERSION="1.2.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
