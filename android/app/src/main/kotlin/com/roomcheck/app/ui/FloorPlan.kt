@@ -1,5 +1,6 @@
 package com.roomcheck.app.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,16 +15,88 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.roomcheck.app.data.Bed
+import com.roomcheck.app.data.Door
+import com.roomcheck.app.data.DoorWall
 import com.roomcheck.app.data.Mark
 import com.roomcheck.app.data.Room
 
 private const val PLAN_H = 112f // room aspect: 100 wide x 112 tall, matches the web app's viewBox
+private const val GAP = 6f          // half the doorway width, in the same 0-100/0-112 units as beds
+private const val DOOR_R = GAP * 2  // door-swing radius: full doorway width
+
+/**
+ * Walls with a doorway gap and a swing arc, in the same 100x112 percentage coordinate system as
+ * beds. The arc's start/end angles were solved and verified independently (not guessed) for each
+ * wall - see the derivation this mirrors: hinge = the gap edge nearer the room corner the door
+ * swings away from; the arc spans exactly 90 degrees between the along-the-wall point and the
+ * point straight out from the hinge at radius DOOR_R.
+ */
+private fun DrawScope.drawRoomWalls(door: Door, sx: Float, sy: Float, color: Color) {
+    val inset = 0.8f
+    val left = inset; val top = inset
+    val right = 100f - inset; val bottom = PLAN_H - inset
+    val pos = door.pos
+    val a = pos - GAP
+    val b = pos + GAP
+    val strokeWidth = 1.6f * ((sx + sy) / 2f)
+    fun p(x: Float, y: Float) = Offset(x * sx, y * sy)
+    fun line(x1: Float, y1: Float, x2: Float, y2: Float) =
+        drawLine(color, p(x1, y1), p(x2, y2), strokeWidth = strokeWidth, cap = StrokeCap.Square)
+
+    // the three walls without a door, or the full run when the door isn't on that wall
+    if (door.wall != DoorWall.TOP) line(left, top, right, top)
+    if (door.wall != DoorWall.BOTTOM) line(left, bottom, right, bottom)
+    if (door.wall != DoorWall.LEFT) line(left, top, left, bottom)
+    if (door.wall != DoorWall.RIGHT) line(right, top, right, bottom)
+
+    val geom = when (door.wall) {
+        DoorWall.BOTTOM -> {
+            line(left, bottom, a, bottom); line(b, bottom, right, bottom)
+            DoorGeom(a, bottom, 0f, -90f, a, bottom - DOOR_R)
+        }
+        DoorWall.TOP -> {
+            line(left, top, a, top); line(b, top, right, top)
+            DoorGeom(a, top, 0f, 90f, a, top + DOOR_R)
+        }
+        DoorWall.LEFT -> {
+            line(left, top, left, a); line(left, b, left, bottom)
+            DoorGeom(left, a, 90f, -90f, left + DOOR_R, a)
+        }
+        DoorWall.RIGHT -> {
+            line(right, top, right, a); line(right, b, right, bottom)
+            DoorGeom(right, a, 90f, 90f, right - DOOR_R, a)
+        }
+    }
+
+    val diameter = DOOR_R * 2
+    drawArc(
+        color = RC.swing,
+        startAngle = geom.startAngle,
+        sweepAngle = geom.sweepAngle,
+        useCenter = false,
+        topLeft = Offset((geom.hingeX - DOOR_R) * sx, (geom.hingeY - DOOR_R) * sy),
+        size = Size(diameter * sx, diameter * sy),
+        style = Stroke(width = 0.8f * ((sx + sy) / 2f))
+    )
+    drawLine(RC.swing, p(geom.hingeX, geom.hingeY), p(geom.leafX, geom.leafY), strokeWidth = 0.8f * ((sx + sy) / 2f))
+}
+
+private data class DoorGeom(
+    val hingeX: Float, val hingeY: Float,
+    val startAngle: Float, val sweepAngle: Float,
+    val leafX: Float, val leafY: Float
+)
 
 /**
  * Draws one room's floor plan: a plain wall outline and every bed positioned by the same
@@ -43,10 +116,12 @@ fun FloorPlanCanvas(
             .aspectRatio(100f / PLAN_H)
             .clip(RoundedCornerShape(4.dp))
             .background(bg)
-            .border(1.5.dp, RC.wall, RoundedCornerShape(4.dp))
     ) {
         val wPx = maxWidth
         val hPx = maxHeight
+        Canvas(Modifier.fillMaxSize()) {
+            drawRoomWalls(room.door, size.width / 100f, size.height / PLAN_H, RC.wall)
+        }
         room.beds.forEach { bed ->
             Box(
                 Modifier
@@ -137,15 +212,25 @@ fun PersonSlot(
         Mark.EXC -> RC.grey
         else -> RC.text
     }
-    // The bunk label ("top"/"bottom") is a normal first line in the column below, not an overlay -
-    // an absolute-positioned label sitting on top of centered name text is what caused the two to
-    // visually collide before.
-    Column(modifier.fillMaxSize().background(bgColor).padding(6.dp, 5.dp)) {
+    // No weight() in this vertical stack: a Column asked to fill a height that isn't reliably
+    // bounded can silently collapse a weighted child to zero - that's what was swallowing the
+    // mark buttons. Arrangement.Center groups [label?, content] as a block without needing weight
+    // at all. Name text is capped to one line with ellipsis so a long name can never grow enough
+    // to threaten the buttons' space - the bunk label sits as a normal line above it, in-flow, so
+    // it can't overlap the name either.
+    Column(
+        modifier.fillMaxSize().background(bgColor).padding(6.dp, 5.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         bunkLabel?.let {
-            Text(it, fontSize = 9.sp, color = Color(0xFFB7B9C2), modifier = Modifier.padding(bottom = 2.dp))
+            Text(
+                it, fontSize = 9.sp, color = Color(0xFFB7B9C2),
+                modifier = Modifier.align(Alignment.Start).padding(bottom = 2.dp)
+            )
         }
         if (row) {
-            Row(Modifier.weight(1f).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).clickable(onClick = onNameClick)) {
                     Text(last, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = nameColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(first, fontSize = 9.sp, color = RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -153,10 +238,10 @@ fun PersonSlot(
                 MarkButtons(status, compact = true, onSet = onMark)
             }
         } else {
-            Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Column(Modifier.clickable(onClick = onNameClick), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(last, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = nameColor, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 2)
-                    Text(first, fontSize = 9.5.sp, color = RC.sub, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 2)
+                    Text(last, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = nameColor, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(first, fontSize = 9.5.sp, color = RC.sub, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Spacer(Modifier.height(4.dp))
                 MarkButtons(status, compact = false, onSet = onMark)
