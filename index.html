@@ -253,12 +253,11 @@ const RKEY="dorm-plan-v1", MKEY="dorm-mirror-v1", NPRE="dn:";
 const IC={
   tick:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.6l4.6 4.6L19 7.2"/></svg>`,
   ex:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 6.6l10.8 10.8M17.4 6.6L6.6 17.4"/></svg>`,
-  people:`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.9 3.1-6.5 7-6.5s7 2.6 7 6.5"/></svg>`,
   undo:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7H15.5A4.5 4.5 0 0 1 20 11.5A4.5 4.5 0 0 1 15.5 16H10"/><path d="M10.5 3.5L6 7l4.5 3.5"/></svg>`,
   eye:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>`,
   grid:`<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.3"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.3"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.3"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.3"/></svg>`,
   one:`<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/></svg>`,
-  today:`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/></svg>`
+  more:`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.8" fill="currentColor" stroke="none"/></svg>`
 };
 
 /* ---- people ---- */
@@ -613,9 +612,9 @@ function headHTML(){
           <span class="gdate">${esc(longDate(state.dateKey))}</span>
         </button>
         <button class="ibtn" data-a="day" data-d="1" aria-label="Next night">›</button>
-        ${state.dateKey!==tonightKey()?`<button class="ibtn" data-a="today" aria-label="Jump to tonight">${IC.today}</button>`:``}
-        <button class="ibtn" data-a="tab" data-t="names" aria-label="Names">${IC.people}</button>
+        ${state.dateKey!==tonightKey()?`<button class="pill" data-a="today">Tonight</button>`:``}
         ${isLocked()?``:`<button class="ibtn" data-a="undo" aria-label="Undo">${IC.undo}</button>`}
+        <button class="ibtn" data-a="tab" data-t="names" aria-label="More">${IC.more}</button>
       </div>
       <div class="sv" id="sv">${esc(savedText())}</div>
     </div>
@@ -950,7 +949,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.2.0";
+const APP_VERSION="1.2.1";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
