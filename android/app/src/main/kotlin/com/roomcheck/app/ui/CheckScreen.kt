@@ -242,13 +242,13 @@ private fun RoomBlock(vm: AppViewModel, state: UiState, logic: NightLogic, room:
             room = room,
             allIn = logic.roomAllIn(room, state.curSlot),
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
-        ) { bed, pid, bunkLabel ->
+        ) { _, pid, bunkLabel, wideCard ->
             PersonSlot(
                 first = logic.first(pid),
                 last = logic.last(pid),
                 bunkLabel = bunkLabel,
                 status = logic.statusOf(pid, state.curSlot),
-                row = bed.row && bed.slots.size == 1, // a bunk always uses the stacked card style
+                row = wideCard,
                 onNameClick = { onOpenPerson(pid) },
                 onMark = { mark -> vm.setMark(pid, state.curSlot, mark) }
             )

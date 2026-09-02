@@ -16,11 +16,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -32,119 +30,125 @@ import com.roomcheck.app.data.Mark
 import com.roomcheck.app.data.Room
 
 private const val PLAN_H = 112f // room aspect: 100 wide x 112 tall, matches the web app's viewBox
-private const val GAP = 6f          // half the doorway width, in the same 0-100/0-112 units as beds
-private const val DOOR_R = GAP * 2  // door-swing radius: full doorway width
+private const val MARGIN = 5f   // space outside the walls so a door box can sit outside, per the sketch
+private const val GAP = 7f      // half the doorway width, in room-interior units
+private const val DOOR_D = 4f   // how far the three-sided door box juts out past the wall
 
 /**
- * Walls with a doorway gap and a swing arc, in the same 100x112 percentage coordinate system as
- * beds. The arc's start/end angles were solved and verified independently (not guessed) for each
- * wall - see the derivation this mirrors: hinge = the gap edge nearer the room corner the door
- * swings away from; the arc spans exactly 90 degrees between the along-the-wall point and the
- * point straight out from the hinge at radius DOOR_R.
+ * Walls plus a doorway drawn the way the sketch draws it: a gap in the wall with a small
+ * three-sided box sitting just outside it. No swing arc.
+ *
+ * Coordinates coming in are room-interior units (0-100 x 0-112); [ix]/[iy] map those onto the
+ * inset wall rectangle so the door boxes have somewhere to go outside the walls.
  */
-private fun DrawScope.drawRoomWalls(door: Door, sx: Float, sy: Float, color: Color) {
-    val inset = 0.8f
-    val left = inset; val top = inset
-    val right = 100f - inset; val bottom = PLAN_H - inset
-    val pos = door.pos
-    val a = pos - GAP
-    val b = pos + GAP
-    val strokeWidth = 1.6f * ((sx + sy) / 2f)
-    fun p(x: Float, y: Float) = Offset(x * sx, y * sy)
+private fun DrawScope.drawRoomWalls(door: Door, ix: (Float) -> Float, iy: (Float) -> Float, color: Color) {
+    val left = ix(0f); val right = ix(100f)
+    val top = iy(0f); val bottom = iy(PLAN_H)
+    val strokeWidth = with(size) { 1.6f * ((width / 100f + height / PLAN_H) / 2f) }
+    val a: Float; val b: Float
     fun line(x1: Float, y1: Float, x2: Float, y2: Float) =
-        drawLine(color, p(x1, y1), p(x2, y2), strokeWidth = strokeWidth, cap = StrokeCap.Square)
+        drawLine(color, Offset(x1, y1), Offset(x2, y2), strokeWidth = strokeWidth, cap = StrokeCap.Square)
 
-    // the three walls without a door, or the full run when the door isn't on that wall
+    // walls without the door run their full length; the door's wall is split around the gap
+    if (door.wall == DoorWall.TOP || door.wall == DoorWall.BOTTOM) {
+        a = ix(door.pos - GAP); b = ix(door.pos + GAP)
+    } else {
+        a = iy(door.pos - GAP); b = iy(door.pos + GAP)
+    }
+    val depthX = ix(DOOR_D) - ix(0f)
+    val depthY = iy(DOOR_D) - iy(0f)
+
     if (door.wall != DoorWall.TOP) line(left, top, right, top)
     if (door.wall != DoorWall.BOTTOM) line(left, bottom, right, bottom)
     if (door.wall != DoorWall.LEFT) line(left, top, left, bottom)
     if (door.wall != DoorWall.RIGHT) line(right, top, right, bottom)
 
-    val geom = when (door.wall) {
+    when (door.wall) {
         DoorWall.BOTTOM -> {
             line(left, bottom, a, bottom); line(b, bottom, right, bottom)
-            DoorGeom(a, bottom, 0f, -90f, a, bottom - DOOR_R)
+            val out = bottom + depthY
+            line(a, bottom, a, out); line(a, out, b, out); line(b, out, b, bottom)
         }
         DoorWall.TOP -> {
             line(left, top, a, top); line(b, top, right, top)
-            DoorGeom(a, top, 0f, 90f, a, top + DOOR_R)
+            val out = top - depthY
+            line(a, top, a, out); line(a, out, b, out); line(b, out, b, top)
         }
         DoorWall.LEFT -> {
             line(left, top, left, a); line(left, b, left, bottom)
-            DoorGeom(left, a, 90f, -90f, left + DOOR_R, a)
+            val out = left - depthX
+            line(left, a, out, a); line(out, a, out, b); line(out, b, left, b)
         }
         DoorWall.RIGHT -> {
             line(right, top, right, a); line(right, b, right, bottom)
-            DoorGeom(right, a, 90f, 90f, right - DOOR_R, a)
+            val out = right + depthX
+            line(right, a, out, a); line(out, a, out, b); line(out, b, right, b)
         }
     }
-
-    val diameter = DOOR_R * 2
-    drawArc(
-        color = RC.swing,
-        startAngle = geom.startAngle,
-        sweepAngle = geom.sweepAngle,
-        useCenter = false,
-        topLeft = Offset((geom.hingeX - DOOR_R) * sx, (geom.hingeY - DOOR_R) * sy),
-        size = Size(diameter * sx, diameter * sy),
-        style = Stroke(width = 0.8f * ((sx + sy) / 2f))
-    )
-    drawLine(RC.swing, p(geom.hingeX, geom.hingeY), p(geom.leafX, geom.leafY), strokeWidth = 0.8f * ((sx + sy) / 2f))
 }
 
-private data class DoorGeom(
-    val hingeX: Float, val hingeY: Float,
-    val startAngle: Float, val sweepAngle: Float,
-    val leafX: Float, val leafY: Float
-)
-
 /**
- * Draws one room's floor plan: a plain wall outline and every bed positioned by the same
- * x/y/w/h percentages the web app uses. Each bed's slots (1 or 2 people) are rendered via
- * [slotContent] so callers can wire in real status/handlers.
+ * Draws one room's floor plan from the sketch: walls with a three-sided doorway, and every bed
+ * where the sketch puts it. Bed coordinates are room-interior units, mapped inside the walls so
+ * the door box has room to sit outside them. Each slot is rendered via [slotContent], which is
+ * told whether that slot is wide enough for the side-by-side card layout.
  */
 @Composable
 fun FloorPlanCanvas(
     room: Room,
     allIn: Boolean,
     modifier: Modifier = Modifier,
-    slotContent: @Composable (bed: Bed, pid: String, bunkLabel: String?) -> Unit
+    slotContent: @Composable (bed: Bed, pid: String, bunkLabel: String?, wideCard: Boolean) -> Unit
 ) {
     val bg = if (allIn) Color(0xFFF7FCFA) else RC.floor
+    // room interior sits inside a margin, leaving space outside the walls for the door box
+    val spanX = (100f - 2 * MARGIN) / 100f
+    val spanY = (PLAN_H - 2 * MARGIN) / PLAN_H
+    val originX = MARGIN / 100f
+    val originY = MARGIN / PLAN_H
     BoxWithConstraints(
-        modifier
-            .aspectRatio(100f / PLAN_H)
-            .clip(RoundedCornerShape(4.dp))
-            .background(bg)
+        modifier.aspectRatio(100f / PLAN_H).clip(RoundedCornerShape(4.dp)).background(bg)
     ) {
         val wPx = maxWidth
         val hPx = maxHeight
         Canvas(Modifier.fillMaxSize()) {
-            drawRoomWalls(room.door, size.width / 100f, size.height / PLAN_H, RC.wall)
+            drawRoomWalls(
+                room.door,
+                ix = { v -> size.width * (originX + (v / 100f) * spanX) },
+                iy = { v -> size.height * (originY + (v / PLAN_H) * spanY) },
+                color = RC.wall
+            )
         }
         room.beds.forEach { bed ->
+            // A bunk always stacks its people top/bottom - never splits the width - so each person
+            // keeps the bed's full width. Whether a slot uses the wide (name beside buttons) or tall
+            // (name above buttons) card follows the slot's real shape, so neither one gets squeezed.
+            val slotCount = bed.slots.size
+            val wideCard = bed.w > (bed.h / slotCount) * 1.4f
             Box(
                 Modifier
-                    .offset(x = wPx * (bed.x / 100f), y = hPx * (bed.y / PLAN_H))
-                    .size(width = wPx * (bed.w / 100f), height = hPx * (bed.h / PLAN_H))
+                    .offset(
+                        x = wPx * (originX + (bed.x / 100f) * spanX),
+                        y = hPx * (originY + (bed.y / PLAN_H) * spanY)
+                    )
+                    .size(
+                        width = wPx * (bed.w / 100f) * spanX,
+                        height = hPx * (bed.h / PLAN_H) * spanY
+                    )
                     .background(Color.White, RoundedCornerShape(5.dp))
                     .border(1.5.dp, Color(0xFFC9CBD2), RoundedCornerShape(5.dp))
             ) {
-                // A bunk (2+ people in one bed) always stacks top/bottom - never splits the width -
-                // so each occupant's name+buttons keeps the bed's full width. Splitting side-by-side
-                // is what silently squeezed names down to nothing before. Only a single occupant's
-                // card orientation follows the bed's own row/column shape.
-                if (bed.slots.size > 1) {
+                if (slotCount > 1) {
                     Column(Modifier.fillMaxSize()) {
                         bed.slots.forEachIndexed { i, pid ->
                             Box(Modifier.weight(1f).fillMaxWidth()) {
-                                slotContent(bed, pid, if (i == 0) "top" else "bottom")
+                                slotContent(bed, pid, if (i == 0) "top" else "bottom", wideCard)
                             }
                         }
                     }
                 } else {
                     Box(Modifier.fillMaxSize()) {
-                        slotContent(bed, bed.slots[0], null)
+                        slotContent(bed, bed.slots[0], null, wideCard)
                     }
                 }
             }
@@ -240,7 +244,9 @@ fun PersonSlot(
         } else {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Column(Modifier.clickable(onClick = onNameClick), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(last, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = nameColor, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    // a long surname in a narrow bed (Heidingsfeld, Levitansky) may take two lines;
+                    // those beds are tall enough for it, and the first name stays capped at one
+                    Text(last, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = nameColor, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(first, fontSize = 9.5.sp, color = RC.sub, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Spacer(Modifier.height(4.dp))
