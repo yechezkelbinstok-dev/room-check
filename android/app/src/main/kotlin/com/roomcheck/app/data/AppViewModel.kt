@@ -20,6 +20,7 @@ data class UiState(
     val reviewing: Boolean = false,
     val editing: Boolean = false,
     val onlyOut: Boolean = false,
+    val rev: Int = 0,
     val toast: String? = null
 )
 
@@ -60,7 +61,14 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         return n
     }
 
-    private fun update(f: (UiState) -> UiState) { _state.value = f(_state.value) }
+    // Night/marks/notes/etc. are mutated in place for simplicity, so the resulting UiState can be
+    // structurally `equal` (even reference-identical) to the previous one. MutableStateFlow drops
+    // an assignment that's `equal` to its current value, which would silently swallow every mark/
+    // undo/room-toggle. Bumping `rev` on every update guarantees StateFlow always sees a change.
+    private fun update(f: (UiState) -> UiState) {
+        val next = f(_state.value)
+        _state.value = next.copy(rev = next.rev + 1)
+    }
 
     private fun snap() { undoStack.addLast(deepCopy(_state.value.night)); if (undoStack.size > 40) undoStack.removeFirst() }
 

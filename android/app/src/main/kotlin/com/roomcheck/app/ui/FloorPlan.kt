@@ -1,6 +1,5 @@
 package com.roomcheck.app.ui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,81 +15,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Matrix
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.roomcheck.app.data.Bed
-import com.roomcheck.app.data.DoorWall
 import com.roomcheck.app.data.Mark
 import com.roomcheck.app.data.Room
 
 private const val PLAN_H = 112f // room aspect: 100 wide x 112 tall, matches the web app's viewBox
-private const val GAP = 6f
-private const val R = GAP * 2
-
-/** Wall + doorway geometry, a direct port of the web app's doorSVG()/wallsSVG(). */
-private fun wallPath(room: Room): Path {
-    val p = Path()
-    val w = 100f
-    val inset = 0.8f
-    p.moveTo(inset, inset); p.lineTo(w - inset, inset); p.lineTo(w - inset, PLAN_H - inset)
-    p.lineTo(inset, PLAN_H - inset); p.close()
-    return p
-}
-
-private fun doorGapPath(room: Room): Path {
-    val p = Path()
-    val w = 100f
-    val pos = room.door.pos
-    val a = pos - GAP; val b = pos + GAP
-    when (room.door.wall) {
-        DoorWall.BOTTOM -> { val y = PLAN_H - 0.8f; p.moveTo(0f, y); p.lineTo(a, y); p.moveTo(b, y); p.lineTo(w, y) }
-        DoorWall.TOP -> { val y = 0.8f; p.moveTo(0f, y); p.lineTo(a, y); p.moveTo(b, y); p.lineTo(w, y) }
-        DoorWall.LEFT -> { val x = 0.8f; p.moveTo(x, 0f); p.lineTo(x, a); p.moveTo(x, b); p.lineTo(x, PLAN_H) }
-        DoorWall.RIGHT -> { val x = w - 0.8f; p.moveTo(x, 0f); p.lineTo(x, a); p.moveTo(x, b); p.lineTo(x, PLAN_H) }
-    }
-    return p
-}
-
-private fun doorSwingPath(room: Room): Path {
-    val p = Path()
-    val w = 100f
-    val pos = room.door.pos
-    val a = pos - GAP; val b = pos + GAP
-    when (room.door.wall) {
-        DoorWall.BOTTOM -> {
-            val y = PLAN_H - 0.8f
-            p.moveTo(b, y); p.arcTo(androidx.compose.ui.geometry.Rect(a - R, y - 2 * R, a + R, y), 0f, -90f, false)
-            p.moveTo(a, y); p.lineTo(a, y - R)
-        }
-        DoorWall.TOP -> {
-            val y = 0.8f
-            p.moveTo(b, y); p.arcTo(androidx.compose.ui.geometry.Rect(a - R, y, a + R, y + 2 * R), 0f, 90f, false)
-            p.moveTo(a, y); p.lineTo(a, y + R)
-        }
-        DoorWall.LEFT -> {
-            val x = 0.8f
-            p.moveTo(x, b); p.arcTo(androidx.compose.ui.geometry.Rect(x, a - R, x + 2 * R, a + R), 180f, 90f, false)
-            p.moveTo(x, a); p.lineTo(x + R, a)
-        }
-        DoorWall.RIGHT -> {
-            val x = w - 0.8f
-            p.moveTo(x, b); p.arcTo(androidx.compose.ui.geometry.Rect(x - 2 * R, a - R, x, a + R), 0f, -90f, false)
-            p.moveTo(x, a); p.lineTo(x - R, a)
-        }
-    }
-    return p
-}
 
 /**
- * Draws one room's floor plan: walls, a doorway gap with a swing arc, and every bed
- * positioned by the same x/y/w/h percentages the web app uses. Each bed's slots (1 or 2
- * people) are rendered via [slotContent] so callers can wire in real status/handlers.
+ * Draws one room's floor plan: a plain wall outline and every bed positioned by the same
+ * x/y/w/h percentages the web app uses. Each bed's slots (1 or 2 people) are rendered via
+ * [slotContent] so callers can wire in real status/handlers.
  */
 @Composable
 fun FloorPlanCanvas(
@@ -105,21 +43,8 @@ fun FloorPlanCanvas(
             .aspectRatio(100f / PLAN_H)
             .clip(RoundedCornerShape(4.dp))
             .background(bg)
+            .border(1.5.dp, RC.wall, RoundedCornerShape(4.dp))
     ) {
-        Canvas(Modifier.fillMaxSize()) {
-            val sx = size.width / 100f
-            val sy = size.height / PLAN_H
-            fun scaled(path: Path): Path {
-                val out = Path(); out.addPath(path)
-                val m = Matrix(); m.scale(sx, sy, 1f)
-                out.transform(m)
-                return out
-            }
-            val avg = (sx + sy) / 2
-            drawPath(scaled(wallPath(room)), color = RC.wall, style = Stroke(width = 1.6f * avg, cap = StrokeCap.Square))
-            drawPath(scaled(doorGapPath(room)), color = bg, style = Stroke(width = 1.9f * avg, cap = StrokeCap.Square))
-            drawPath(scaled(doorSwingPath(room)), color = RC.swing, style = Stroke(width = 0.7f * avg))
-        }
         val wPx = maxWidth
         val hPx = maxHeight
         room.beds.forEach { bed ->
