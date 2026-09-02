@@ -29,28 +29,37 @@ object Roster {
     )
     val byId: Map<String, Person> = PEOPLE.associateBy { it.id }
 
-    private const val BW = 36f
-    private const val BH = 46f
-    private fun bedV(x: Float, y: Float, slots: List<String>) = Bed(x, y, BW, BH, slots, row = false)
-    private fun bedH(x: Float, y: Float, slots: List<String>) = Bed(x, y, BH, BW, slots, row = true)
+    // Real twin-bed proportions (~39"x75", roughly 1:1.9) rather than the old squarish boxes.
+    // A bunk (2 slots) keeps a single bed's footprint conceptually but is drawn a bit taller so
+    // each occupant's name+buttons gets its own full-width row, stacked top/bottom - never split
+    // side-by-side, which is what silently squeezed names to nothing before. Every bed sits flush
+    // against a wall, with two-bed rooms using opposite walls rather than floating mid-room.
+    private const val BUNK_W = 28f
+    private const val BUNK_H = 64f
+    private const val SINGLE_W = 26f
+    private const val SINGLE_H = 52f
+    private fun bunkLeft(slots: List<String>) = Bed(5f, 6f, BUNK_W, BUNK_H, slots, row = false)
+    private fun bunkRight(slots: List<String>) = Bed(67f, 6f, BUNK_W, BUNK_H, slots, row = false)
+    private fun singleRightVertical(slots: List<String>) = Bed(67f, 6f, SINGLE_W, SINGLE_H, slots, row = false)
+    private fun singleBottomHorizontal(slots: List<String>) = Bed(5f, 74f, SINGLE_H, SINGLE_W, slots, row = true)
 
     val PLAN: List<Room> = listOf(
         Room("r1", "Room 1", Door(DoorWall.BOTTOM, 38f), listOf(
-            bedV(9f, 26f, listOf("p2", "p1")), bedV(55f, 26f, listOf("p3", "p4")))),
+            bunkLeft(listOf("p2", "p1")), bunkRight(listOf("p3", "p4")))),
         Room("r2", "Room 2", Door(DoorWall.BOTTOM, 85f), listOf(
-            bedV(9f, 26f, listOf("p8", "p5")), bedV(55f, 26f, listOf("p7", "p6")))),
+            bunkLeft(listOf("p8", "p5")), bunkRight(listOf("p7", "p6")))),
         Room("r3", "Room 3", Door(DoorWall.BOTTOM, 70f), listOf(
-            bedH(7f, 7f, listOf("p10")), bedV(7f, 49f, listOf("p9")), bedV(57f, 7f, listOf("p11", "p12")))),
+            bunkLeft(listOf("p11", "p12")), singleRightVertical(listOf("p9")), singleBottomHorizontal(listOf("p10")))),
         Room("r4", "Room 4", Door(DoorWall.BOTTOM, 24f), listOf(
-            bedV(7f, 8f, listOf("p15")), bedH(47f, 8f, listOf("p14")), bedH(47f, 52f, listOf("p13", "p16")))),
+            bunkLeft(listOf("p13", "p16")), singleRightVertical(listOf("p15")), singleBottomHorizontal(listOf("p14")))),
         Room("r5", "Room 5", Door(DoorWall.LEFT, 82f), listOf(
-            bedV(9f, 18f, listOf("p20", "p18")), bedV(55f, 18f, listOf("p17", "p19")))),
+            bunkLeft(listOf("p20", "p18")), bunkRight(listOf("p17", "p19")))),
         Room("r6", "Room 6", Door(DoorWall.TOP, 72f), listOf(
-            bedV(9f, 32f, listOf("p22", "p21")), bedV(55f, 32f, listOf("p23", "p24")))),
+            bunkLeft(listOf("p22", "p21")), bunkRight(listOf("p23", "p24")))),
         Room("r7", "Room 7", Door(DoorWall.BOTTOM, 14f), listOf(
-            bedH(27f, 10f, listOf("p26", "p27")), bedH(27f, 54f, listOf("p25")))),
+            bunkLeft(listOf("p26", "p27")), singleRightVertical(listOf("p25")))),
         Room("r8", "Room 8", Door(DoorWall.BOTTOM, 16f), listOf(
-            bedH(7f, 10f, listOf("p29", "p30")), bedV(57f, 10f, listOf("p28"))))
+            bunkLeft(listOf("p29", "p30")), singleRightVertical(listOf("p28"))))
     )
 
     val roomOf: Map<String, Room> = buildMap {

@@ -55,22 +55,21 @@ fun FloorPlanCanvas(
                     .background(Color.White, RoundedCornerShape(5.dp))
                     .border(1.5.dp, Color(0xFFC9CBD2), RoundedCornerShape(5.dp))
             ) {
-                val multi = bed.slots.size > 1
-                if (bed.row) {
-                    Row(Modifier.fillMaxSize()) {
+                // A bunk (2+ people in one bed) always stacks top/bottom - never splits the width -
+                // so each occupant's name+buttons keeps the bed's full width. Splitting side-by-side
+                // is what silently squeezed names down to nothing before. Only a single occupant's
+                // card orientation follows the bed's own row/column shape.
+                if (bed.slots.size > 1) {
+                    Column(Modifier.fillMaxSize()) {
                         bed.slots.forEachIndexed { i, pid ->
-                            Box(Modifier.weight(1f).fillMaxHeight()) {
-                                slotContent(bed, pid, if (multi) (if (i == 0) "top" else "bottom") else null)
+                            Box(Modifier.weight(1f).fillMaxWidth()) {
+                                slotContent(bed, pid, if (i == 0) "top" else "bottom")
                             }
                         }
                     }
                 } else {
-                    Column(Modifier.fillMaxSize()) {
-                        bed.slots.forEachIndexed { i, pid ->
-                            Box(Modifier.weight(1f).fillMaxWidth()) {
-                                slotContent(bed, pid, if (multi) (if (i == 0) "top" else "bottom") else null)
-                            }
-                        }
+                    Box(Modifier.fillMaxSize()) {
+                        slotContent(bed, bed.slots[0], null)
                     }
                 }
             }
@@ -138,12 +137,15 @@ fun PersonSlot(
         Mark.EXC -> RC.grey
         else -> RC.text
     }
-    Box(modifier.fillMaxSize().background(bgColor).padding(6.dp, 5.dp)) {
+    // The bunk label ("top"/"bottom") is a normal first line in the column below, not an overlay -
+    // an absolute-positioned label sitting on top of centered name text is what caused the two to
+    // visually collide before.
+    Column(modifier.fillMaxSize().background(bgColor).padding(6.dp, 5.dp)) {
         bunkLabel?.let {
-            Text(it, fontSize = 9.sp, color = Color(0xFFB7B9C2), modifier = Modifier.align(Alignment.TopStart))
+            Text(it, fontSize = 9.sp, color = Color(0xFFB7B9C2), modifier = Modifier.padding(bottom = 2.dp))
         }
         if (row) {
-            Row(Modifier.fillMaxSize().padding(top = if (bunkLabel != null) 10.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).clickable(onClick = onNameClick)) {
                     Text(last, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = nameColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(first, fontSize = 9.sp, color = RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -151,8 +153,8 @@ fun PersonSlot(
                 MarkButtons(status, compact = true, onSet = onMark)
             }
         } else {
-            Column(Modifier.fillMaxSize().padding(top = if (bunkLabel != null) 6.dp else 0.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Column(Modifier.weight(1f).clickable(onClick = onNameClick), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Column(Modifier.clickable(onClick = onNameClick), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(last, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = nameColor, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 2)
                     Text(first, fontSize = 9.5.sp, color = RC.sub, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 2)
                 }
