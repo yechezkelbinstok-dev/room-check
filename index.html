@@ -160,11 +160,14 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .bar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;align-items:center;gap:10px;
   padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(242,242,247,.94);
   backdrop-filter:blur(14px);border-top:.5px solid var(--sep)}
-.bar .st{flex:1;min-width:0;font-size:13px;color:var(--sub2)}
+.bar .st{flex:1;min-width:0;font-size:13px;color:var(--sub2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bar .st b{color:var(--text);font-weight:600}
 .bar .st b.r{color:var(--red)}
+.bar .fbtn{flex:none;background:var(--blue);color:#fff;font-size:15px;font-weight:650;
+  border-radius:10px;padding:12px 18px}
+.bar .fbtn:active{opacity:.8}
 .bar .cp{flex:none;background:var(--text);color:#fff;font-size:15px;font-weight:650;
-  border-radius:10px;padding:12px 26px}
+  border-radius:10px;padding:12px 22px}
 .bar .cp:active{opacity:.8}
 
 /* panels */
@@ -423,6 +426,7 @@ async function loadNight(k){
   const raw=await store.get(NPRE+k); let p=null;
   if(raw){try{p=JSON.parse(raw);}catch(e){}}
   state.dateKey=k; state.night=norm(p); undoStack=[]; state.editing=false; state.review=false;
+  if(k!==tonightKey()&&!state.night.closed){state.night.closed=true;save();}
 }
 function statusOf(pid,sid){
   if(isAlways(pid))return "exc";
@@ -575,19 +579,16 @@ function roomBlock(i){
     </div>
   </div>`;
 }
-function doneBtn(){
-  return `<div class="fin"><button data-a="closenight">Done for tonight</button>
-    <div class="finnote">Locks it to a read-only record. It closes on its own at 6am anyway.</div></div>`;
-}
 function marksHTML(){
   if(state.mode==="scroll")
-    return `<div class="wrap">${PLAN.map((r,i)=>roomBlock(i)).join("")}${doneBtn()}</div>`;
+    return `<div class="wrap">${PLAN.map((r,i)=>roomBlock(i)).join("")}<div class="finnote">Locks tonight to a read-only record — tap Finish below. It closes on its own at 6am anyway.</div></div>`;
   return `<div class="wrap">${roomBlock(state.room)}
     <div class="legend">Doorway is on the wall you walk in from. Swipe the plan for the next room.</div>
     <div class="next">
       <button data-a="room" data-d="-1" ${state.room===0?"disabled":""}>‹ ${state.room>0?esc(PLAN[state.room-1].label):""}</button>
       <button data-a="room" data-d="1" ${state.room===PLAN.length-1?"disabled":""}>${state.room<PLAN.length-1?esc(PLAN[state.room+1].label):""} ›</button>
-    </div>${doneBtn()}</div>`;
+    </div>
+    <div class="finnote">Locks tonight to a read-only record — tap Finish below. It closes on its own at 6am anyway.</div></div>`;
 }
 
 /* ---------- screens ---------- */
@@ -690,7 +691,7 @@ function checkScreen(){
   return headHTML()+
     (showingReview()?reviewHTML():
       (state.editing?`<div class="lock" style="margin-bottom:0"><span>Editing a closed night</span><button data-a="done">Done</button></div>`:``)+marksHTML())+
-    `<div class="bar"><div class="st" id="stat"></div><button class="cp" data-a="copy">Copy</button></div>`;
+    `<div class="bar"><div class="st" id="stat"></div>${showingReview()?``:`<button class="fbtn" data-a="closenight">Finish</button>`}<button class="cp" data-a="copy">Copy</button></div>`;
 }
 function peopleScreen(){
   const exc=allP().filter(({pid})=>isAlways(pid));
@@ -758,7 +759,7 @@ function sync(){
   const st=stats(sid), sl=document.getElementById("stat");
   if(sl){
     const bits=[st.out?`<b class="r">${st.out} out</b>`:`<b>Nobody out</b>`];
-    if(st.left)bits.push(st.left+" room"+(st.left>1?"s":"")+" left");
+    if(st.left)bits.push(st.left+" left");
     if(st.exc)bits.push(st.exc+" excused");
     sl.innerHTML=label(sid)+" · "+bits.join(" · ");
   }
@@ -949,7 +950,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.2.1";
+const APP_VERSION="1.3.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
