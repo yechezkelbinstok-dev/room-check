@@ -95,6 +95,22 @@ class AppScreenshotTest {
         }
     }
 
+    /**
+     * The closed, read-only night. It had no snapshot until its list turned out to be clipping
+     * its own last rooms away, which is exactly the kind of thing only a render shows.
+     */
+    @Test
+    fun closedNight() {
+        val vm = viewModel()
+        val slot = vm.state.value.curSlot
+        Roster.PEOPLE.forEach { vm.setMark(it.id, slot, Mark.IN) }
+        listOf("p3", "p11", "p24").forEach { vm.setMark(it, slot, Mark.OUT) }
+        vm.closeNight()
+        paparazzi.snapshot(name = "closed-night") {
+            RoomCheckTheme { CheckScreen(vm) }
+        }
+    }
+
     @Test
     fun settingsScreen() {
         val vm = viewModel()

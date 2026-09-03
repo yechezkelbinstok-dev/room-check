@@ -49,7 +49,10 @@ fun ReviewScreen(vm: AppViewModel, state: UiState, logic: NightLogic) {
             val list = if (state.onlyOut) ppl.filter { pid -> Roster.SIDS.any { logic.statusOf(pid, it) == Mark.OUT } } else ppl
             if (list.isNotEmpty()) room to list else null
         }
-        LazyColumn(Modifier.weight(1f).padding(bottom = 100.dp)) {
+        // Bottom room goes in contentPadding, not in the modifier: padding on the modifier shrinks
+        // the scrolling viewport itself, so the last 100dp of the list was being clipped away
+        // rather than scrolled to. The bottom bar is a sibling below this, not an overlay on it.
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
             if (roomsWithPeople.isEmpty()) {
                 item {
                     Text(
@@ -85,13 +88,6 @@ fun ReviewScreen(vm: AppViewModel, state: UiState, logic: NightLogic) {
                         }
                     }
                 }
-            }
-            item {
-                Text(
-                    "✓ here · ✕ not here · E excused · – not marked",
-                    fontSize = 13.5.sp, color = RC.sub, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 24.dp)
-                )
             }
         }
     }
