@@ -130,9 +130,10 @@ object NightImage {
         val c = Canvas(bmp)
         c.drawColor(Color.WHITE)
 
-        drawHeader(c, dateKey, w)
-        drawSummary(c, summaries, HEADER_H)
-        drawSheet(c, logic, hebrew, HEADER_H + summaryH(summaries), w)
+        val d = Dir(w, rtl = hebrew)
+        drawHeader(c, dateKey, d)
+        drawSummary(c, summaries, HEADER_H, d)
+        drawSheet(c, logic, hebrew, HEADER_H + summaryH(summaries), d)
         return bmp
     }
 
@@ -154,66 +155,90 @@ object NightImage {
         return HEADER_H + summaryH(summaries) + BAND_H + maxOf(left, right) + PAD
     }
 
-    private fun drawHeader(c: Canvas, dateKey: String, w: Float) {
-        c.drawText(Dates.hebrewDayMonth(dateKey), PAD, 104f, paint(64f, ink, bold = true))
-        c.drawText(Dates.longDate(dateKey), PAD, 156f, paint(34f, sub))
-        c.drawLine(PAD, 186f, w - PAD, 186f, Paint().apply { color = hair; strokeWidth = 2f })
+    /**
+     * Mirrors the whole sheet for a Hebrew night. Everything is still laid out left-to-right and
+     * then flipped here, so there is one layout to reason about rather than two. A Hebrew sheet
+     * that only translated the words still read from the left - names on the left, first column on
+     * the left, 11:15 nearest the wrong edge - which is not how the page is scanned.
+     */
+    private class Dir(val w: Float, val rtl: Boolean) {
+        /** A point measured in from the edge you start reading at. */
+        fun p(x: Float) = if (rtl) w - x else x
+
+        /** Left edge of a box whose left-to-right left edge is [x]. */
+        fun box(x: Float, boxW: Float) = if (rtl) w - x - boxW else x
+
+        /** Text grows away from the reading edge, so its anchor flips with the direction. */
+        fun align(p: Paint) = p.apply { textAlign = if (rtl) Paint.Align.RIGHT else Paint.Align.LEFT }
+    }
+
+    private fun drawHeader(c: Canvas, dateKey: String, d: Dir) {
+        c.drawText(Dates.hebrewDayMonth(dateKey), d.p(PAD), 104f, d.align(paint(64f, ink, bold = true)))
+        c.drawText(Dates.longDate(dateKey), d.p(PAD), 156f, d.align(paint(34f, sub)))
+        c.drawLine(PAD, 186f, d.w - PAD, 186f, Paint().apply { color = hair; strokeWidth = 2f })
     }
 
     /** Who was missing, at the top, so it answers the question before anything is opened. */
-    private fun drawSummary(c: Canvas, summaries: List<Summary>, startY: Float) {
+    private fun drawSummary(c: Canvas, summaries: List<Summary>, startY: Float, d: Dir) {
         var y = startY + 28f
-        c.drawText(TITLE, PAD, y + 46f, paint(50f, ink, bold = true))
+        c.drawText(TITLE, d.p(PAD), y + 46f, d.align(paint(50f, ink, bold = true)))
         y += TITLE_H
         summaries.forEach { s ->
-            c.drawText(s.label, PAD, y + 42f, paint(42f, ink, bold = true))
-            val p = paint(38f, if (s.missing) red else green)
-            s.lines.forEachIndexed { i, line -> c.drawText(line, PAD + GUTTER, y + 42f + i * 50f, p) }
+            c.drawText(s.label, d.p(PAD), y + 42f, d.align(paint(42f, ink, bold = true)))
+            val p = d.align(paint(38f, if (s.missing) red else green))
+            s.lines.forEachIndexed { i, line -> c.drawText(line, d.p(PAD + GUTTER), y + 42f + i * 50f, p) }
             y += 60f + s.lines.size * 50f + 22f
         }
     }
 
     /** The filled-in sheet: every bochur, every time, in two columns so it all fits above the fold. */
-    private fun drawSheet(c: Canvas, logic: NightLogic, hebrew: Boolean, startY: Float, w: Float) {
-        val colW = (w - 2 * PAD - GAP) / 2f
+    private fun drawSheet(c: Canvas, logic: NightLogic, hebrew: Boolean, startY: Float, d: Dir) {
+        val colW = (d.w - 2 * PAD - GAP) / 2f
         val colX = floatArrayOf(PAD, PAD + colW + GAP)
 
-        c.drawRect(0f, startY, w, startY + BAND_H, Paint().apply { color = panel })
+        c.drawRect(0f, startY, d.w, startY + BAND_H, Paint().apply { color = panel })
         colX.forEach { x ->
             Roster.SLOTS.forEachIndexed { i, (_, label) ->
-                val p = paint(28f, sub, bold = true)
-                val cx = x + colW - (2.5f - i) * COL_W
-                c.drawText(label, cx - p.measureText(label) / 2f, startY + 48f, p)
+                val p = paint(28f, sub, bold = true).apply { textAlign = Paint.Align.CENTER }
+                c.drawText(label, d.p(x + colW - (2.5f - i) * COL_W), startY + 48f, p)
             }
         }
 
+        // Mirroring puts the first group of rooms in the right-hand column on its own.
         val split = splitPoint()
-        drawColumn(c, logic, hebrew, Roster.PLAN.take(split), colX[0], startY + BAND_H, colW)
-        drawColumn(c, logic, hebrew, Roster.PLAN.drop(split), colX[1], startY + BAND_H, colW)
+        drawColumn(c, logic, hebrew, Roster.PLAN.take(split), colX[0], startY + BAND_H, colW, d)
+        drawColumn(c, logic, hebrew, Roster.PLAN.drop(split), colX[1], startY + BAND_H, colW, d)
     }
 
-    private fun drawColumn(c: Canvas, logic: NightLogic, hebrew: Boolean, rooms: List<Room>, x: Float, top: Float, colW: Float) {
+    private fun drawColumn(
+        c: Canvas, logic: NightLogic, hebrew: Boolean, rooms: List<Room>,
+        x: Float, top: Float, colW: Float, d: Dir
+    ) {
         val hairline = Paint().apply { color = hair; strokeWidth = 1.5f }
         var y = top
         rooms.forEach { room ->
-            c.drawText(if (hebrew) room.hebLabel else room.label.uppercase(), x, y + 44f, paint(28f, faint, bold = true))
+            val label = if (hebrew) room.hebLabel else room.label.uppercase()
+            c.drawText(label, d.p(x), y + 44f, d.align(paint(28f, faint, bold = true)))
             y += ROOM_HEAD_H
             room.beds.forEach { bed ->
                 bed.slots.forEach { pid ->
-                    drawPersonRow(c, logic, hebrew, pid, x, y, colW)
-                    c.drawLine(x, y + ROW_H, x + colW, y + ROW_H, hairline)
+                    drawPersonRow(c, logic, hebrew, pid, x, y, colW, d)
+                    c.drawLine(d.p(x), y + ROW_H, d.p(x + colW), y + ROW_H, hairline)
                     y += ROW_H
                 }
             }
         }
     }
 
-    private fun drawPersonRow(c: Canvas, logic: NightLogic, hebrew: Boolean, pid: String, x: Float, y: Float, colW: Float) {
+    private fun drawPersonRow(
+        c: Canvas, logic: NightLogic, hebrew: Boolean, pid: String,
+        x: Float, y: Float, colW: Float, d: Dir
+    ) {
         val mid = y + ROW_H / 2f
-        c.drawText(logic.nameOf(pid, hebrew), x, mid + 12f, namePaint())
+        c.drawText(logic.nameOf(pid, hebrew), d.p(x), mid + 12f, d.align(namePaint()))
         Roster.SIDS.forEachIndexed { i, sid ->
             val cx = x + colW - (3 - i) * COL_W + (COL_W - CHIP) / 2f
-            drawChip(c, logic.statusOf(pid, sid), cx, mid - CHIP / 2f)
+            drawChip(c, logic.statusOf(pid, sid), d.box(cx, CHIP), mid - CHIP / 2f)
         }
     }
 
