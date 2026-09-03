@@ -1,6 +1,8 @@
 /* Room Check — offline shell. Bump CACHE whenever the app changes. */
-const CACHE = "roomcheck-v1.6.0";
-const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./robots.txt"];
+const CACHE = "roomcheck-v1.6.1";
+const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./robots.txt",
+  "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png",
+  "./icons/favicon-64.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
