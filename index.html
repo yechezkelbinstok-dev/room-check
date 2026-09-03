@@ -85,11 +85,10 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 
 /* plan */
 .planwrap{padding:0 12px;touch-action:pan-y}
-.plan{position:relative;width:100%;aspect-ratio:100/112;background:var(--floor);
+.plan{position:relative;width:100%;background:var(--floor);
   border-radius:4px;overflow:hidden}
 .plan>svg.walls{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .wall{stroke:var(--wall);stroke-width:1.6;fill:none;stroke-linecap:square}
-.swing{stroke:#BFC1C7;stroke-width:.7;fill:none}
 .plan.allin{background:#F7FCFA}
 .bed{position:absolute;display:flex;flex-direction:column;background:#fff;
   border:1.5px solid #C9CBD2;border-radius:5px;overflow:hidden}
@@ -108,10 +107,10 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .slot.row .ln{white-space:nowrap;text-overflow:ellipsis}
 .slot.col .ln{white-space:normal;overflow-wrap:anywhere}
 .fn{display:block;font-size:9.5px;color:var(--sub);line-height:1.16;overflow:hidden;
-  white-space:normal;overflow-wrap:anywhere}
+  white-space:nowrap;text-overflow:ellipsis}
 .slot.row .fn{font-size:9px}
-.slot.row .mk button{width:29px}
-.slot.row .mk .e{width:23px}
+.slot.row .mk button{width:26px;height:26px}
+.slot.row .mk .e{width:22px}
 .slot.out .ln{color:var(--red)}
 .slot.exc .ln,.slot.exc .fn{color:var(--grey)}
 .bunk{position:absolute;top:3px;left:7px;font-size:9px;font-weight:500;color:#B7B9C2}
@@ -125,13 +124,11 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .mk .v-in.on{background:var(--green);color:#fff}
 .mk .v-out.on{background:var(--red);color:#fff}
 .mk .e.on{background:var(--grey);color:#fff}
-.legend{padding:9px 16px 4px;font-size:11.5px;color:var(--sub)}
 .viewrow{display:flex;align-items:center;gap:6px;margin-top:8px}
 .seg2{display:flex;background:#E7E7EC;border-radius:9px;padding:2px;gap:2px;flex:1}
 .seg2 button{flex:1;border-radius:7px;padding:7px 4px;font-size:13px;font-weight:550;color:var(--sub2)}
 .seg2 button.on{background:#fff;color:var(--text);font-weight:650;box-shadow:0 1px 2px rgba(0,0,0,.13)}
 .roomblock{margin-bottom:6px;scroll-margin-top:150px}
-.finnote{font-size:11.5px;color:var(--sub);text-align:center;padding:7px 10px 0;line-height:1.4}
 .revbar{margin-bottom:10px}
 .rvhead{display:flex;justify-content:flex-end;gap:0;padding:0 18px 4px 0}
 .rvhead span{width:34px;text-align:center;font-size:10.5px;color:var(--sub);font-weight:600}
@@ -181,6 +178,11 @@ h2{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
 .li .z{font-size:13px;color:var(--sub);flex:none}
 .li .lnk{color:var(--blue);font-weight:550}
 .li.dz .a{color:var(--red)}
+.sw{flex:none;width:44px;height:26px;border-radius:13px;background:#D7D8DE;position:relative;transition:background .15s}
+.sw i{position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
+.sw.on{background:var(--blue)}
+.sw.on i{transform:translateX(18px)}
 .ck{width:22px;height:22px;border-radius:7px;border:1.5px solid #C6C8D4;flex:none;position:relative;background:#fff}
 .ck.on{background:var(--green);border-color:var(--green)}
 .ck.on::after{content:"";position:absolute;left:7px;top:3px;width:5px;height:10px;
@@ -212,7 +214,6 @@ h2{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
 .cell.on .h{color:#fff} .cell.on .g{color:rgba(255,255,255,.75)}
 .cell.on.has::after{background:#fff}
 .cell.empty{visibility:hidden}
-.cnote{font-size:12px;color:var(--sub);padding:0 16px 14px;line-height:1.45}
 
 /* sheet */
 .scrim{position:fixed;inset:0;background:rgba(10,10,20,.4);z-index:70;opacity:0;pointer-events:none;transition:opacity .18s}
@@ -282,31 +283,39 @@ const P={
  p29:["Yehuda","Fehler"],           p30:["Meir Shlomo","Ceitlin"]
 };
 
-/* ---- floor plans: x/y/w/h in % of the room, slots top-to-bottom ---- */
-const BW=36, BH=46;   /* every bed, upright */
-const bedV=(x,y,slots,lay)=>({x,y,w:BW,h:BH,slots,lay:lay||"col"});
-const bedH=(x,y,slots,lay)=>({x,y,w:BH,h:BW,slots,lay:lay||"row"});
+/* ---- floor plans ----
+   Kept identical to the Android app, on purpose: same rooms, same beds, same doors, so whoever
+   is covering sees the same picture whichever one they open. Coordinates are the room INTERIOR
+   in bed units; every room carries its own w and h, because they are not all the same size.
+   One bed footprint everywhere, turned 90 degrees to run along whichever wall it is against. */
+const BED_SHORT=32, BED_LONG=60;
+const bedV=(x,y,slots)=>({x,y,w:BED_SHORT,h:BED_LONG,slots});   /* against a side wall */
+const bedH=(x,y,slots)=>({x,y,w:BED_LONG,h:BED_SHORT,slots});   /* against the top or bottom */
 const PLAN=[
- {id:"r1",label:"Room 1",door:{wall:"bottom",pos:38},beds:[
-   bedV(9,26,["p2","p1"]), bedV(55,26,["p3","p4"])]},
- {id:"r2",label:"Room 2",door:{wall:"bottom",pos:85},beds:[
-   bedV(9,26,["p8","p5"]), bedV(55,26,["p7","p6"])]},
- {id:"r3",label:"Room 3",door:{wall:"bottom",pos:70},beds:[
-   bedH(7,7,["p10"]), bedV(7,49,["p9"]), bedV(57,7,["p11","p12"])]},
- {id:"r4",label:"Room 4",door:{wall:"bottom",pos:24},beds:[
-   bedV(7,8,["p15"]), bedH(47,8,["p14"]), bedH(47,52,["p13","p16"])]},
- {id:"r5",label:"Room 5",door:{wall:"left",pos:82},beds:[
-   bedV(9,18,["p20","p18"]), bedV(55,18,["p17","p19"])]},
- {id:"r6",label:"Room 6",door:{wall:"top",pos:72},beds:[
-   bedV(9,32,["p22","p21"]), bedV(55,32,["p23","p24"])]},
- {id:"r7",label:"Room 7",door:{wall:"bottom",pos:14},beds:[
-   bedH(27,10,["p26","p27"]), bedH(27,54,["p25"])]},
- {id:"r8",label:"Room 8",door:{wall:"bottom",pos:16},beds:[
-   bedH(7,10,["p29","p30"]), bedV(57,10,["p28"])]}
+ {id:"r1",label:"Room 1",w:100,h:78,door:{wall:"bottom",pos:38},beds:[
+   bedV(2,2,["p2","p1"]), bedV(66,2,["p3","p4"])]},
+ {id:"r2",label:"Room 2",w:100,h:78,door:{wall:"bottom",pos:85},beds:[
+   bedV(2,2,["p8","p5"]), bedH(38,2,["p7","p6"])]},
+ {id:"r3",label:"Room 3",w:100,h:106,door:{wall:"bottom",pos:70},beds:[
+   bedH(2,2,["p10"]), bedV(2,42,["p9"]), bedV(66,28,["p11","p12"])]},
+ /* wider room: the two singles lie end to end along the top wall, bunk on the right wall */
+ {id:"r4",label:"Room 4",w:126,h:104,door:{wall:"bottom",pos:26},beds:[
+   bedH(2,2,["p15"]), bedH(64,2,["p14"]), bedV(92,42,["p13","p16"])]},
+ {id:"r5",label:"Room 5",w:100,h:92,door:{wall:"left",pos:76},beds:[
+   bedV(2,2,["p20","p18"]), bedV(66,2,["p17","p19"])]},
+ /* real door is on the far wall; drawn a half-turn round so you see it as you walk in */
+ {id:"r6",label:"Room 6",w:100,h:78,door:{wall:"bottom",pos:28},beds:[
+   bedV(2,2,["p23","p24"]), bedV(66,2,["p22","p21"])]},
+ {id:"r7",label:"Room 7",w:100,h:88,door:{wall:"bottom",pos:14},beds:[
+   bedH(38,2,["p26","p27"]), bedH(38,54,["p25"])]},
+ {id:"r8",label:"Room 8",w:100,h:96,door:{wall:"bottom",pos:16},beds:[
+   bedH(2,2,["p29","p30"]), bedV(66,32,["p28"])]}
 ];
 
 let state={night:null,dateKey:null,cur:"1115",room:0,tab:"check",who:null,mode:"one",review:false,onlyOut:false,
-  ok:true,persist:true,lastSave:null,editing:false,cal:null,calHas:{},extra:{}};
+  ok:true,persist:true,lastSave:null,editing:false,cal:null,calHas:{},extra:{},
+  /* off by default: the plan reads cleaner without them, and Names can switch them back on */
+  settings:{bunkLabels:false}};
 let undoStack=[];
 
 /* ---------- storage ---------- */
@@ -336,7 +345,7 @@ function save(){clearTimeout(sT);sT=setTimeout(flush,250);}
 async function flush(){
   clearTimeout(sT); if(saving)return; saving=true;
   try{
-    await store.set(RKEY,JSON.stringify({extra:state.extra,mode:state.mode}));
+    await store.set(RKEY,JSON.stringify({extra:state.extra,mode:state.mode,settings:state.settings}));
     await store.set(NPRE+state.dateKey,JSON.stringify(state.night));
     await store.set(MKEY,JSON.stringify({at:Date.now(),date:state.dateKey,night:state.night,extra:state.extra}));
     state.lastSave=new Date();
@@ -404,6 +413,8 @@ function hNum(n){
 const ger=s=>s.length===1?s+"׳":s.slice(0,-1)+"״"+s.slice(-1);
 const hebParts=k=>absToH(absOfKey(k)+1);
 const hebDate=k=>{const h=hebParts(k);return ger(hNum(h.d))+" "+hMName(h.m,h.y)+" "+ger(hNum(h.y%1000));};
+/* day and month with no year - how the date is written at the top of a nightly report */
+const hebDayMonth=k=>{const h=hebParts(k);return ger(hNum(h.d))+" "+hMName(h.m,h.y);};
 
 /* ---------- model ---------- */
 const allP=()=>{const o=[];PLAN.forEach(r=>r.beds.forEach(b=>b.slots.forEach(pid=>o.push({pid,room:r}))));return o;};
@@ -478,66 +489,43 @@ function markRoom(room,sid){
 function undo(){const u=undoStack.pop();if(!u){toast("Nothing to undo");return;}state.night=u;save();render();toast("Undone");}
 
 /* ---------- report ---------- */
+/* Everyone marked out at this time, in room order then bed order - the order you walked them. */
+const missingAt=sid=>allP().filter(({pid})=>statusOf(pid,sid)==="out").map(({pid})=>pid);
+/* The night as plain text to paste into a message: the date, then each time and just the names
+   of whoever wasn't there. Same shape as the app, so it does not matter which one sent it. */
 function report(){
-  const L=[hebDate(state.dateKey)];
+  const L=[hebDayMonth(state.dateKey)];
   SIDS.forEach(sid=>{
     L.push("",label(sid));
-    if(!stats(sid).started){L.push("not done");return;}
-    let any=false;
-    PLAN.forEach(room=>{
-      if(!roomChecked(room,sid))return;
-      const o=outIn(room,sid);
-      if(o.length){any=true;L.push(room.label+": "+o.map(nameOf).join(", "));}
-    });
-    if(!any)L.push("Everyone in.");
+    const miss=missingAt(sid);
+    L.push(miss.length?miss.map(nameOf).join(", "):(stats(sid).started?"Everybody there":"Not checked yet"));
     const u=PLAN.filter(r=>!roomChecked(r,sid));
-    if(u.length)L.push("(not checked: "+u.map(r=>r.label).join(", ")+")");
+    if(stats(sid).started&&u.length)L.push("(still to check: "+u.map(r=>r.label).join(", ")+")");
   });
-  const done=SIDS.filter(s=>stats(s).started);
-  if(done.length>1){
-    const a=allP().filter(({pid})=>done.every(s=>statusOf(pid,s)==="out")).map(({pid,room})=>nameOf(pid)+" ("+room.label+")");
-    if(a.length)L.push("","Out all "+done.length+" times: "+a.join(", "));
-  }
   return L.join("\n");
 }
 
-/* ---------- floor plan drawing ---------- */
-const H=112, GAP=6;
-const R=GAP*2;                      /* swing radius must equal the doorway width */
-function doorSVG(d){
-  const p=d.pos, W=100, seg=[];
-  let arc="",leaf="";
-  if(d.wall==="bottom"){
-    const y=H-.8, a=p-GAP, b=p+GAP;
-    seg.push(`M0 ${y}H${a}`,`M${b} ${y}H${W}`);
-    arc=`M${b} ${y}A${R} ${R} 0 0 0 ${a} ${y-R}`; leaf=`M${a} ${y}V${y-R}`;
-  }else if(d.wall==="top"){
-    const y=.8, a=p-GAP, b=p+GAP;
-    seg.push(`M0 ${y}H${a}`,`M${b} ${y}H${W}`);
-    arc=`M${b} ${y}A${R} ${R} 0 0 1 ${a} ${y+R}`; leaf=`M${a} ${y}V${y+R}`;
-  }else if(d.wall==="left"){
-    const x=.8, a=p-GAP, b=p+GAP;
-    seg.push(`M${x} 0V${a}`,`M${x} ${b}V${H}`);
-    arc=`M${x} ${b}A${R} ${R} 0 0 1 ${x+R} ${a}`; leaf=`M${x} ${a}H${x+R}`;
-  }else{
-    const x=W-.8, a=p-GAP, b=p+GAP;
-    seg.push(`M${x} 0V${a}`,`M${x} ${b}V${H}`);
-    arc=`M${x} ${b}A${R} ${R} 0 0 0 ${x-R} ${a}`; leaf=`M${x} ${a}H${x-R}`;
-  }
-  return {seg,arc,leaf};
-}
+/* ---------- floor plan drawing ----------
+   The room sits inside a MARGIN of outside floor so a doorway box has somewhere to stand. Both
+   axes divide by the same total, so one unit across is one unit down and a bed turned sideways
+   measures exactly as long as it does upright. */
+const MARGIN=5, GAP=7, DOOR_D=4;    /* GAP is half the doorway; DOOR_D how far the box juts out */
+const totalW=r=>r.w+2*MARGIN, totalH=r=>r.h+2*MARGIN;
 function wallsSVG(room){
-  const d=doorSVG(room.door), W=100;
-  const full={bottom:`M.8 .8H${W-.8}V${H-.8}H.8Z`};
-  let base;
-  if(room.door.wall==="bottom") base=`M.8 ${H-.8}V.8H${W-.8}V${H-.8}`;
-  else if(room.door.wall==="top") base=`M.8 .8V${H-.8}H${W-.8}V.8`;
-  else if(room.door.wall==="left") base=`M.8 .8H${W-.8}V${H-.8}H.8`;
-  else base=`M${W-.8} .8H.8V${H-.8}H${W-.8}`;
-  return `<svg class="walls" viewBox="0 0 100 ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-    <path class="wall" d="${base}"/>
-    ${d.seg.map(s=>`<path class="wall" d="${s}"/>`).join("")}
-    <path class="swing" d="${d.arc}"/><path class="swing" d="${d.leaf}"/>
+  const W=room.w, H=room.h, d=room.door, p=d.pos, seg=[];
+  const L=(x1,y1,x2,y2)=>seg.push(`M${x1} ${y1}L${x2} ${y2}`);
+  const a=p-GAP, b=p+GAP;
+  if(d.wall!=="top")    L(0,0,W,0);
+  if(d.wall!=="bottom") L(0,H,W,H);
+  if(d.wall!=="left")   L(0,0,0,H);
+  if(d.wall!=="right")  L(W,0,W,H);
+  /* the door's own wall is split around the gap, with a three-sided box just outside it */
+  if(d.wall==="bottom"){L(0,H,a,H);L(b,H,W,H);const o=H+DOOR_D;L(a,H,a,o);L(a,o,b,o);L(b,o,b,H);}
+  if(d.wall==="top")   {L(0,0,a,0);L(b,0,W,0);const o=-DOOR_D;   L(a,0,a,o);L(a,o,b,o);L(b,o,b,0);}
+  if(d.wall==="left")  {L(0,0,0,a);L(0,b,0,H);const o=-DOOR_D;   L(0,a,o,a);L(o,a,o,b);L(o,b,0,b);}
+  if(d.wall==="right") {L(W,0,W,a);L(W,b,W,H);const o=W+DOOR_D;  L(W,a,o,a);L(o,a,o,b);L(o,b,W,b);}
+  return `<svg class="walls" viewBox="${-MARGIN} ${-MARGIN} ${totalW(room)} ${totalH(room)}" aria-hidden="true">
+    ${seg.map(s=>`<path class="wall" d="${s}"/>`).join("")}
   </svg>`;
 }
 function lnStyle(n,wide){
@@ -547,11 +535,14 @@ function lnStyle(n,wide){
   if(L>9)return ' style="font-size:11.5px"';
   return "";
 }
-function bedHTML(bed){
+function bedHTML(bed,room){
   const n=bed.slots.length;
-  const wide=bed.lay==="row";
+  /* a bunk always stacks its people, so each keeps the bed's full width; whether a slot uses the
+     wide card (name beside buttons) or the tall one follows the slot's real shape */
+  const wide=bed.w>(bed.h/n)*1.4;
+  const tw=totalW(room), th=totalH(room);
   const rows=bed.slots.map((pid,i)=>{
-    const bunk=n>1?(i===0?"top":"bottom"):"";
+    const bunk=(state.settings.bunkLabels&&n>1)?(i===0?"top":"bottom"):"";
     return `<div class="slot ${wide?"row":"col"}" data-slot="${pid}">
       ${bunk?`<span class="bunk">${bunk}</span>`:``}
       <button class="nb" data-a="who" data-p="${pid}">
@@ -565,7 +556,9 @@ function bedHTML(bed){
       </div>
     </div>`;
   }).join("");
-  return `<div class="bed" style="left:${bed.x}%;top:${bed.y}%;width:${bed.w}%;height:${bed.h}%">${rows}</div>`;
+  const pc=(v,t)=>(v/t*100).toFixed(3)+"%";
+  return `<div class="bed" style="left:${pc(MARGIN+bed.x,tw)};top:${pc(MARGIN+bed.y,th)};`
+    +`width:${pc(bed.w,tw)};height:${pc(bed.h,th)}">${rows}</div>`;
 }
 function roomBlock(i){
   const room=PLAN[i];
@@ -575,20 +568,19 @@ function roomBlock(i){
       <button data-a="allin" data-r="${room.id}"><span data-ain="${room.id}">Everyone in</span></button>
     </div>
     <div class="planwrap"${i===state.room&&state.mode==="one"?' id="pw"':''}>
-      <div class="plan" data-plan="${room.id}">${wallsSVG(room)}${room.beds.map(bedHTML).join("")}</div>
+      <div class="plan" data-plan="${room.id}" style="aspect-ratio:${totalW(room)}/${totalH(room)}">${wallsSVG(room)}${room.beds.map(b=>bedHTML(b,room)).join("")}</div>
     </div>
   </div>`;
 }
 function marksHTML(){
   if(state.mode==="scroll")
-    return `<div class="wrap">${PLAN.map((r,i)=>roomBlock(i)).join("")}<div class="finnote">Locks tonight to a read-only record — tap Finish below. It closes on its own at 6am anyway.</div></div>`;
+    return `<div class="wrap">${PLAN.map((r,i)=>roomBlock(i)).join("")}</div>`;
   return `<div class="wrap">${roomBlock(state.room)}
-    <div class="legend">Doorway is on the wall you walk in from. Swipe the plan for the next room.</div>
     <div class="next">
       <button data-a="room" data-d="-1" ${state.room===0?"disabled":""}>‹ ${state.room>0?esc(PLAN[state.room-1].label):""}</button>
       <button data-a="room" data-d="1" ${state.room===PLAN.length-1?"disabled":""}>${state.room<PLAN.length-1?esc(PLAN[state.room+1].label):""} ›</button>
     </div>
-    <div class="finnote">Locks tonight to a read-only record — tap Finish below. It closes on its own at 6am anyway.</div></div>`;
+    </div>`;
 }
 
 /* ---------- screens ---------- */
@@ -707,6 +699,11 @@ function peopleScreen(){
         <span class="a">${esc(nameOf(pid))}<i>${b.slots.length>1?(i===0?"top bunk":"bottom bunk"):"single bed"}</i></span>
         ${isAlways(pid)?`<span class="z">excused</span>`:``}</button>`).join("")).join("")
     }</div>`).join("")}
+    <h2>Settings</h2>
+    <div class="blk">
+      <button class="li" data-a="set" data-k="bunkLabels"><span class="a">Bunk labels on the plan</span>
+        <span class="sw${state.settings.bunkLabels?" on":""}"><i></i></span></button>
+    </div>
     <h2>Backup</h2>
     <div class="blk">
       <button class="li" data-a="dl"><span class="a lnk">Save a backup file</span></button>
@@ -718,7 +715,7 @@ function peopleScreen(){
       <button class="li" id="updrow" style="display:none" data-a="reload"><span class="a lnk">Update ready — tap to reload</span></button>
       <button class="li" data-a="checkupd"><span class="a">Check for an update<i>Version ${APP_VERSION}</i></span><span class="z">Check</span></button>
     </div>
-    <div class="none" style="padding-bottom:30px">Everything saves on this device as you tap. Works with no signal.</div>
+    <div style="height:30px"></div>
     </div>`;
 }
 
@@ -821,7 +818,6 @@ function drawCal(){
         <button data-a="calm" data-d="1">›</button></div>
       <div class="dow"><div>א</div><div>ב</div><div>ג</div><div>ד</div><div>ה</div><div>ו</div><div>ש</div></div>
       <div class="grid">${cells.join("")}</div>
-      <div class="cnote">Nights sit under their Hebrew date, so the night of 8/30 is י״ח אלול. The small number is that evening's English date. A dot means marks are saved.</div>
     </div><button class="cancel" data-a="close">Cancel</button>`);
 }
 function showPop(h){const p=document.getElementById("pop");p.innerHTML=h;p.scrollTop=0;p.classList.add("on");document.getElementById("scrim").classList.add("on");}
@@ -897,6 +893,7 @@ document.addEventListener("click",async e=>{
   if(a==="who"){openWho(t.dataset.p);return;}
   if(a==="editp"){editPerson(t.dataset.p);return;}
   if(a==="wset"){setMark(state.who,t.dataset.s,t.dataset.v);openWho(state.who);render();return;}
+  if(a==="set"){const k=t.dataset.k;state.settings[k]=!state.settings[k];save();render();return;}
   if(a==="exctn"){const pid=state.who;snap();
     const i=state.night.tonight.indexOf(pid);
     if(i>=0)state.night.tonight.splice(i,1);
@@ -936,7 +933,7 @@ document.addEventListener("click",async e=>{
     if(!d.nights&&!d.extra){toast("Not a backup");return;}
     state.extra=d.extra||{};
     if(d.nights)for(const k of Object.keys(d.nights))await store.set(k,d.nights[k]);
-    await store.set(RKEY,JSON.stringify({extra:state.extra,mode:state.mode}));
+    await store.set(RKEY,JSON.stringify({extra:state.extra,mode:state.mode,settings:state.settings}));
     await loadNight(state.dateKey);closePop();render();toast("Restored");return;}
 });
 document.getElementById("scrim").addEventListener("click",closePop);
@@ -950,7 +947,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.3.0";
+const APP_VERSION="1.4.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
@@ -1022,7 +1019,8 @@ async function boot(){
   let raw=await store.get(RKEY);
   if(!raw){const m=await store.get(MKEY);
     if(m){try{const d=JSON.parse(m);if(d.extra)raw=JSON.stringify({extra:d.extra});}catch(e){}}}
-  if(raw){try{const d=JSON.parse(raw);state.extra=d.extra||{};if(d.mode)state.mode=d.mode;}catch(e){state.extra={};}}
+  if(raw){try{const d=JSON.parse(raw);state.extra=d.extra||{};if(d.mode)state.mode=d.mode;
+    if(d.settings)state.settings={...state.settings,...d.settings};}catch(e){state.extra={};}}
   await loadNight(tonightKey());
   const d=new Date(), mn=d.getHours()*60+d.getMinutes();
   state.cur=(mn>=23*60+55||mn<6*60)?"1200":(mn>=23*60+25)?"1130":"1115";

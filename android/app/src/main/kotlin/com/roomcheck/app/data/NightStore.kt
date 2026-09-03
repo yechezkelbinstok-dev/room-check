@@ -59,6 +59,17 @@ data class Night(
 
 data class PersonOverride(var first: String? = null, var last: String? = null, var always: Boolean = false, var reason: String? = null)
 
+/**
+ * The things you can turn on and off, kept off by default: the plan and the sheet read cleaner
+ * without them, and anyone who wants them back can say so in Names.
+ */
+data class Settings(
+    /** "top"/"bottom" written on each half of a bunk. */
+    val bunkLabels: Boolean = false,
+    /** Hebrew names in the sent picture, falling back to English for anyone without one. */
+    val hebrewNames: Boolean = false
+)
+
 private fun JSONObject.optStringOrNull(key: String): String? = if (has(key)) getString(key) else null
 
 /**
@@ -76,6 +87,8 @@ class NightStore(home: File) {
     var extra: MutableMap<String, PersonOverride> = mutableMapOf()
         private set
 
+    var settings: Settings = Settings()
+
     init { loadState() }
 
     private fun loadState() {
@@ -83,6 +96,12 @@ class NightStore(home: File) {
         if (stateFile.exists()) {
             runCatching {
                 val root = JSONObject(stateFile.readText())
+                root.optJSONObject("settings")?.let {
+                    settings = Settings(
+                        bunkLabels = it.optBoolean("bunkLabels", false),
+                        hebrewNames = it.optBoolean("hebrewNames", false)
+                    )
+                }
                 val extraObj = root.optJSONObject("extra")
                 extraObj?.keys()?.forEach { pid ->
                     val po = extraObj.getJSONObject(pid)
@@ -109,6 +128,9 @@ class NightStore(home: File) {
             extraObj.put(pid, o)
         }
         root.put("extra", extraObj)
+        root.put("settings", JSONObject()
+            .put("bunkLabels", settings.bunkLabels)
+            .put("hebrewNames", settings.hebrewNames))
         stateFile.writeText(root.toString())
     }
 

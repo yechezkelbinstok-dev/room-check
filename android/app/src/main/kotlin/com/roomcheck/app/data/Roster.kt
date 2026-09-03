@@ -1,6 +1,11 @@
 package com.roomcheck.app.data
 
-data class Person(val id: String, val first: String, val last: String)
+/**
+ * [hebrew] is the name as it would be written in Hebrew, used by the sent picture when Hebrew
+ * names are switched on. It is blank for everyone until the Hebrew list is filled in; anyone
+ * still blank keeps their English name, so the switch is safe to use half-finished.
+ */
+data class Person(val id: String, val first: String, val last: String, val hebrew: String = "")
 
 data class Bed(val x: Float, val y: Float, val w: Float, val h: Float, val slots: List<String>, val row: Boolean)
 

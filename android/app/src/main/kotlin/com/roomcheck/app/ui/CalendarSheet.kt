@@ -84,10 +84,7 @@ fun CalendarSheet(vm: AppViewModel, state: UiState, onClose: () -> Unit) {
                     }
                 }
             }
-            Text(
-                "Nights sit under their Hebrew date. The small number is that evening's English date. A dot means marks are saved.",
-                fontSize = 12.sp, color = RC.sub, modifier = Modifier.padding(16.dp, 0.dp, 16.dp, 14.dp)
-            )
+            Spacer(Modifier.height(14.dp))
         }
     }
 }

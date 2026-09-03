@@ -9,6 +9,16 @@ class NightLogic(private val night: Night, private val extra: Map<String, Person
     fun last(pid: String): String = extra[pid]?.last ?: Roster.byId.getValue(pid).last
     fun nameOf(pid: String): String = "${first(pid)} ${last(pid)}"
 
+    /** The name to print. Hebrew when asked for and known, English otherwise. */
+    fun nameOf(pid: String, hebrew: Boolean): String {
+        if (!hebrew) return nameOf(pid)
+        val heb = Roster.byId.getValue(pid).hebrew
+        return if (heb.isNotBlank()) heb else nameOf(pid)
+    }
+
+    /** True once at least one person actually has a Hebrew name to switch to. */
+    fun anyHebrewNames(): Boolean = Roster.PEOPLE.any { it.hebrew.isNotBlank() }
+
     fun statusOf(pid: String, sid: String): Mark? {
         if (isAlways(pid)) return Mark.EXC
         if (night.excusedTonight.contains(pid)) return Mark.EXC

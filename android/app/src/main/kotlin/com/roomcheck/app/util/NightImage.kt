@@ -57,7 +57,6 @@ object NightImage {
     }
 
     private fun namePaint() = paint(34f, ink)
-    private fun bunkPaint() = paint(22f, faint)
 
     /** Greedy wrap - the missing-names lines are the only text here long enough to need it. */
     private fun wrap(text: String, p: Paint, maxWidth: Float): List<String> {
@@ -78,12 +77,12 @@ object NightImage {
 
     private class Summary(val label: String, val lines: List<String>, val missing: Boolean)
 
-    private fun summarize(logic: NightLogic, textWidth: Float): List<Summary> {
+    private fun summarize(logic: NightLogic, hebrew: Boolean, textWidth: Float): List<Summary> {
         val p = paint(38f, red)
         return Roster.SIDS.mapIndexed { i, sid ->
             val missing = logic.missingAt(sid)
             val text = when {
-                missing.isNotEmpty() -> missing.joinToString(", ") { logic.nameOf(it) }
+                missing.isNotEmpty() -> missing.joinToString(", ") { logic.nameOf(it, hebrew) }
                 !logic.stats(sid).started -> "Not checked yet"
                 else -> "Everybody there"
             }
@@ -109,23 +108,21 @@ object NightImage {
      * Widest name plus its bunk label, so a column is built around the longest name there is and
      * nothing is ever shortened to fit. The picture's width follows from the roster, not a guess.
      */
-    private fun widestNameWidth(logic: NightLogic): Float {
+    private fun widestNameWidth(logic: NightLogic, hebrew: Boolean): Float {
         val np = namePaint()
-        val bp = bunkPaint()
-        val label = bp.measureText("bottom") + 10f
-        return Roster.PEOPLE.maxOf { np.measureText(logic.nameOf(it.id)) } + label
+        return Roster.PEOPLE.maxOf { np.measureText(logic.nameOf(it.id, hebrew)) }
     }
 
-    fun render(logic: NightLogic, dateKey: String): Bitmap {
-        val colW = widestNameWidth(logic) + 24f + 3 * COL_W
+    fun render(logic: NightLogic, dateKey: String, hebrew: Boolean = false): Bitmap {
+        val colW = widestNameWidth(logic, hebrew) + 40f + 3 * COL_W
         var w = 2 * colW + GAP + 2 * PAD
-        var summaries = summarize(logic, w - 2 * PAD - GUTTER)
+        var summaries = summarize(logic, hebrew, w - 2 * PAD - GUTTER)
         var h = heightOf(summaries)
         // A heavy night makes the summary long. Widen rather than let the thread crop it: the
         // extra width re-wraps the names shorter, so one pass always lands inside the ratio.
         if (h / w > MAX_RATIO) {
             w = h / MAX_RATIO
-            summaries = summarize(logic, w - 2 * PAD - GUTTER)
+            summaries = summarize(logic, hebrew, w - 2 * PAD - GUTTER)
             h = heightOf(summaries)
         }
 
@@ -135,14 +132,15 @@ object NightImage {
 
         drawHeader(c, dateKey, w)
         drawSummary(c, summaries, HEADER_H)
-        drawSheet(c, logic, HEADER_H + summaryH(summaries), w)
+        drawSheet(c, logic, hebrew, HEADER_H + summaryH(summaries), w)
         return bmp
     }
 
     private const val HEADER_H = 190f
+    private const val TITLE_H = 58f      // the "Not here" heading over the names
 
     private fun summaryH(s: List<Summary>): Float =
-        28f + s.sumOf { (60f + it.lines.size * 50f + 22f).toDouble() }.toFloat()
+        28f + TITLE_H + s.sumOf { (60f + it.lines.size * 50f + 22f).toDouble() }.toFloat()
 
     private fun heightOf(summaries: List<Summary>): Float {
         val split = splitPoint()
@@ -160,6 +158,8 @@ object NightImage {
     /** Who was missing, at the top, so it answers the question before anything is opened. */
     private fun drawSummary(c: Canvas, summaries: List<Summary>, startY: Float) {
         var y = startY + 28f
+        c.drawText("Not here", PAD, y + 36f, paint(34f, sub, bold = true))
+        y += TITLE_H
         summaries.forEach { s ->
             c.drawText(s.label, PAD, y + 42f, paint(42f, ink, bold = true))
             val p = paint(38f, if (s.missing) red else green)
@@ -169,12 +169,11 @@ object NightImage {
     }
 
     /** The filled-in sheet: every bochur, every time, in two columns so it all fits above the fold. */
-    private fun drawSheet(c: Canvas, logic: NightLogic, startY: Float, w: Float) {
+    private fun drawSheet(c: Canvas, logic: NightLogic, hebrew: Boolean, startY: Float, w: Float) {
         val colW = (w - 2 * PAD - GAP) / 2f
         val colX = floatArrayOf(PAD, PAD + colW + GAP)
 
         c.drawRect(0f, startY, w, startY + BAND_H, Paint().apply { color = panel })
-        c.drawText("Sheet", PAD, startY + 48f, paint(30f, sub, bold = true))
         colX.forEach { x ->
             Roster.SLOTS.forEachIndexed { i, (_, label) ->
                 val p = paint(28f, sub, bold = true)
@@ -184,20 +183,19 @@ object NightImage {
         }
 
         val split = splitPoint()
-        drawColumn(c, logic, Roster.PLAN.take(split), colX[0], startY + BAND_H, colW)
-        drawColumn(c, logic, Roster.PLAN.drop(split), colX[1], startY + BAND_H, colW)
+        drawColumn(c, logic, hebrew, Roster.PLAN.take(split), colX[0], startY + BAND_H, colW)
+        drawColumn(c, logic, hebrew, Roster.PLAN.drop(split), colX[1], startY + BAND_H, colW)
     }
 
-    private fun drawColumn(c: Canvas, logic: NightLogic, rooms: List<Room>, x: Float, top: Float, colW: Float) {
+    private fun drawColumn(c: Canvas, logic: NightLogic, hebrew: Boolean, rooms: List<Room>, x: Float, top: Float, colW: Float) {
         val hairline = Paint().apply { color = hair; strokeWidth = 1.5f }
         var y = top
         rooms.forEach { room ->
             c.drawText(room.label.uppercase(), x, y + 44f, paint(28f, faint, bold = true))
             y += ROOM_HEAD_H
             room.beds.forEach { bed ->
-                bed.slots.forEachIndexed { i, pid ->
-                    val bunk = if (bed.slots.size > 1) (if (i == 0) "top" else "bottom") else null
-                    drawPersonRow(c, logic, pid, bunk, x, y, colW)
+                bed.slots.forEach { pid ->
+                    drawPersonRow(c, logic, hebrew, pid, x, y, colW)
                     c.drawLine(x, y + ROW_H, x + colW, y + ROW_H, hairline)
                     y += ROW_H
                 }
@@ -205,12 +203,9 @@ object NightImage {
         }
     }
 
-    private fun drawPersonRow(c: Canvas, logic: NightLogic, pid: String, bunk: String?, x: Float, y: Float, colW: Float) {
+    private fun drawPersonRow(c: Canvas, logic: NightLogic, hebrew: Boolean, pid: String, x: Float, y: Float, colW: Float) {
         val mid = y + ROW_H / 2f
-        val np = namePaint()
-        val name = logic.nameOf(pid)
-        c.drawText(name, x, mid + 12f, np)
-        bunk?.let { c.drawText(it, x + np.measureText(name) + 10f, mid + 11f, bunkPaint()) }
+        c.drawText(logic.nameOf(pid, hebrew), x, mid + 12f, namePaint())
         Roster.SIDS.forEachIndexed { i, sid ->
             val cx = x + colW - (3 - i) * COL_W + (COL_W - CHIP) / 2f
             drawChip(c, logic.statusOf(pid, sid), cx, mid - CHIP / 2f)
@@ -255,8 +250,8 @@ object NightImage {
      * Writes the sheet to a cache file and hands it to the share sheet as a picture, and only a
      * picture - no message text riding along with it. Copy text is its own button.
      */
-    fun share(context: Context, logic: NightLogic, dateKey: String) {
-        val bmp = render(logic, dateKey)
+    fun share(context: Context, logic: NightLogic, dateKey: String, hebrew: Boolean = false) {
+        val bmp = render(logic, dateKey, hebrew)
         val dir = File(context.cacheDir, "shared").apply { mkdirs() }
         val file = File(dir, "room-check-$dateKey.png")
         FileOutputStream(file).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }

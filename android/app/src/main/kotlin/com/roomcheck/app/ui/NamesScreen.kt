@@ -86,6 +86,21 @@ fun NamesScreen(vm: AppViewModel) {
                     }
                 }
             }
+            item { SectionHeader("Settings") }
+            item {
+                Card {
+                    SettingRow("Bunk labels on the plan", state.settings.bunkLabels) { on ->
+                        vm.setSettings { it.copy(bunkLabels = on) }
+                    }
+                    HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
+                    SettingRow(
+                        "Hebrew names in the sent picture",
+                        state.settings.hebrewNames,
+                        enabled = logic.anyHebrewNames(),
+                        sub = if (logic.anyHebrewNames()) null else "No Hebrew names added yet"
+                    ) { on -> vm.setSettings { it.copy(hebrewNames = on) } }
+                }
+            }
             item { SectionHeader("Backup") }
             item {
                 Card {
@@ -106,13 +121,7 @@ fun NamesScreen(vm: AppViewModel) {
                     }
                 }
             }
-            item {
-                Text(
-                    "Everything saves on this device — its own private storage, not your browser. Works with no signal.",
-                    fontSize = 13.5.sp, color = RC.sub, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 30.dp)
-                )
-            }
+            item { Spacer(Modifier.height(30.dp)) }
         }
     }
 
@@ -141,6 +150,27 @@ fun NamesScreen(vm: AppViewModel) {
 @Composable
 private fun SectionHeader(text: String) {
     Text(text.uppercase(), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = RC.sub2, modifier = Modifier.padding(4.dp, 20.dp, 4.dp, 7.dp))
+}
+
+@Composable
+private fun SettingRow(
+    label: String,
+    on: Boolean,
+    enabled: Boolean = true,
+    sub: String? = null,
+    onChange: (Boolean) -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(14.dp, 8.dp, 10.dp, 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(label, fontSize = 15.sp, color = if (enabled) RC.text else RC.sub)
+            sub?.let { Text(it, fontSize = 12.sp, color = RC.sub) }
+        }
+        Switch(checked = on, onCheckedChange = onChange, enabled = enabled)
+    }
 }
 
 @Composable

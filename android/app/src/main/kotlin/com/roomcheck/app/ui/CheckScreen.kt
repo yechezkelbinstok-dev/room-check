@@ -168,7 +168,7 @@ private fun RoomsArea(vm: AppViewModel, state: UiState, logic: NightLogic, onOpe
     when (state.mode) {
         RoomMode.SCROLL -> LazyColumn(Modifier.fillMaxSize()) {
             items(Roster.PLAN) { room -> RoomBlock(vm, state, logic, room, onOpenPerson) }
-            item { FinNote() }
+            item { Spacer(Modifier.height(12.dp)) }
         }
         RoomMode.ONE -> {
             val room = Roster.PLAN[state.room]
@@ -185,16 +185,10 @@ private fun RoomsArea(vm: AppViewModel, state: UiState, logic: NightLogic, onOpe
                     }
             ) {
                 RoomBlock(vm, state, logic, room, onOpenPerson)
-                Text(
-                    "Swipe the plan to change rooms.",
-                    fontSize = 11.5.sp, color = RC.sub, maxLines = 1,
-                    modifier = Modifier.padding(16.dp, 9.dp, 16.dp, 0.dp)
-                )
-                Row(Modifier.padding(12.dp, 12.dp, 12.dp, 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.padding(12.dp, 14.dp, 12.dp, 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     NavButton(Modifier.weight(1f), enabled = state.room > 0, label = if (state.room > 0) "‹ ${Roster.PLAN[state.room - 1].label}" else "") { vm.goRoom(-1) }
                     NavButton(Modifier.weight(1f), enabled = state.room < Roster.PLAN.size - 1, label = if (state.room < Roster.PLAN.size - 1) "${Roster.PLAN[state.room + 1].label} ›" else "") { vm.goRoom(1) }
                 }
-                FinNote()
             }
         }
     }
@@ -214,15 +208,6 @@ private fun NavButton(modifier: Modifier, enabled: Boolean, label: String, onCli
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) { Text(label, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, color = RC.blue) }
-}
-
-@Composable
-private fun FinNote() {
-    Text(
-        "Locks tonight to a read-only record — tap Finish below. It closes on its own at 6am anyway.",
-        fontSize = 11.5.sp, color = RC.sub, textAlign = TextAlign.Center,
-        modifier = Modifier.fillMaxWidth().padding(10.dp, 7.dp, 10.dp, 16.dp)
-    )
 }
 
 @Composable
@@ -258,7 +243,7 @@ private fun RoomBlock(vm: AppViewModel, state: UiState, logic: NightLogic, room:
             PersonSlot(
                 first = logic.first(pid),
                 last = logic.last(pid),
-                bunkLabel = bunkLabel,
+                bunkLabel = bunkLabel.takeIf { state.settings.bunkLabels },
                 status = logic.statusOf(pid, state.curSlot),
                 row = wideCard,
                 onNameClick = { onOpenPerson(pid) },
@@ -296,7 +281,7 @@ private fun BottomBar(vm: AppViewModel, state: UiState, logic: NightLogic, revie
                 vm.toast("Copied")
             }
             BarButton(Modifier.weight(1f), "Send image", RC.text) {
-                NightImage.share(context, logic, state.dateKey)
+                NightImage.share(context, logic, state.dateKey, state.settings.hebrewNames)
             }
         }
     }

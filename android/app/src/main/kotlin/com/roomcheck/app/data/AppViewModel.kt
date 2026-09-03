@@ -13,6 +13,7 @@ data class UiState(
     val dateKey: String,
     val night: Night,
     val extra: Map<String, PersonOverride>,
+    val settings: Settings,
     val curSlot: String,
     val room: Int = 0,
     val mode: RoomMode = RoomMode.ONE,
@@ -35,6 +36,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
             dateKey = initialKey,
             night = loadAndMaybeClose(initialKey),
             extra = store.extra,
+            settings = store.settings,
             curSlot = defaultSlot()
         )
     )
@@ -121,6 +123,12 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
     fun setReview(v: Boolean) = update { it.copy(reviewing = v) }
     fun setOnlyOut(v: Boolean) = update { it.copy(onlyOut = v) }
     fun setEditing(v: Boolean) = update { it.copy(editing = v, reviewing = false) }
+
+    fun setSettings(f: (Settings) -> Settings) = update { s ->
+        store.settings = f(store.settings)
+        store.saveState()
+        s.copy(settings = store.settings)
+    }
 
     fun closeNight() = update { s -> s.night.closed = true; persist(s); s.copy(editing = false, reviewing = false) }
 
