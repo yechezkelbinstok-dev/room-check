@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.time.LocalDateTime
 
 enum class RoomMode { ONE, SCROLL }
-enum class Tab { CHECK, NAMES }
+enum class Tab { CHECK, NAMES, SETTINGS }
 
 data class UiState(
     val dateKey: String,

@@ -140,7 +140,8 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .rv.n{color:#C9CBD2}
 .next{padding:12px 12px 6px;display:flex;gap:8px}
 .next button{flex:1;background:#fff;border:1px solid var(--sep);border-radius:11px;padding:13px;
-  font-size:14.5px;font-weight:600;color:var(--blue)}
+  font-size:14.5px;font-weight:600;color:var(--blue);
+  display:flex;align-items:center;justify-content:center;gap:6px}
 .next button:active{background:var(--blue-l)}
 .next button:disabled{color:var(--sub);opacity:.5}
 
@@ -264,25 +265,41 @@ const IC={
   more:`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.8" fill="currentColor" stroke="none"/></svg>`
 };
 
-/* ---- people ---- */
+/* ---- people: English first/last, then the same in Hebrew ----
+   Hebrew is stored as its own first and last rather than split off one string: "יהודה לייב גור ארי'"
+   has a two-word surname, so any rule that cuts at the last space gets that one wrong. */
 const P={
- p1:["Shlomo","Altein"],            p2:["Yosef","Lehr"],
- p3:["Menachem Mendel","Piekarski"], p4:["Dovber","Pevzner"],
- p5:["Sholom","Holtzberg"],         p6:["Menachem Mendel","Stolik"],
- p7:["Avrohom","Raices"],           p8:["Menachem Mendel","Levin"],
- p9:["Avrohom","Heidingsfeld"],     p10:["Menachem Mendel","Hirsch"],
- p11:["Asher","Wolfe"],             p12:["Yaakov","Tzfasman"],
- p13:["Dovid","Altein"],            p14:["Menachem Mendel","Goldstein"],
- p15:["Nochum","Groner"],           p16:["Menachem Mendel","Palace"],
- p17:["Moshe Eliezer","Backman"],   p18:["Shmuel","Browd"],
- p19:["Menachem Mendel HaLevi","Flint"], p20:["Shlomo","Schwei"],
- p21:["Yaakov","Belinitzki"],       p22:["Chaim Yehoshua","Brenenson"],
- p23:["Yehuda Leib","Gourarie"],    p24:["Leib Meir","November"],
- p25:["Sadya","Liberow"],           p26:["Yitzchok Sholom","Lipkind"],
- p27:["Dovid","Fridman"],           p28:["Tzvi Dov HaLevi","Levitansky"],
- p29:["Yehuda","Fehler"],           p30:["Meir Shlomo","Ceitlin"]
+ p1:["Shlomo","Altein","שלמה","אלטיין"],
+ p2:["Yosef","Lehr","יוסף","לעהר"],
+ p3:["Menachem Mendel","Piekarski","מנחם מענדל","פיקארסקי"],
+ p4:["Dovber","Pevzner","דובער","פעוזנער"],
+ p5:["Sholom","Holtzberg","שלום","הולצברג"],
+ p6:["Menachem Mendel","Stolik","מנחם מענדל","סטאליק"],
+ p7:["Avrohom","Raices","אברהם","רייצעס"],
+ p8:["Menachem Mendel","Levin","מנחם מענדל","לוין"],
+ p9:["Avrohom","Heidingsfeld","אברהם","היידינגספעלד"],
+ p10:["Menachem Mendel","Hirsch","מנחם מענדל","הירש"],
+ p11:["Asher","Wolfe","אשר","וואלף"],
+ p12:["Yaakov","Tzfasman","יעקב","צפתמן"],
+ p13:["Dovid","Altein","דוד","אלטיין"],
+ p14:["Menachem Mendel","Goldstein","מנחם מענדל","גאלדשטיין"],
+ p15:["Nochum","Groner","נחום","גראנער"],
+ p16:["Menachem Mendel","Palace","מנחם מענדל","פאלאס"],
+ p17:["Moshe Eliezer","Backman","משה אליעזר","באקמאן"],
+ p18:["Shmuel","Browd","שמואל","בראוד"],
+ p19:["Menachem Mendel HaLevi","Flint","מנחם מענדל הלוי","פלינט"],
+ p20:["Shlomo","Schwei","שלמה","שוויי"],
+ p21:["Yaakov","Belinitzki","יעקב","בליניצקי"],
+ p22:["Chaim Yehoshua","Brenenson","חיים יהושע","ברענענסאן"],
+ p23:["Yehuda Leib","Gourarie","יהודה לייב","גור ארי'"],
+ p24:["Leib Meir","November","לייב מאיר","נאוועמבער"],
+ p25:["Sadya","Liberow","סעדי'","ליבעראוו"],
+ p26:["Yitzchok Sholom","Lipkind","יצחק שלום","ליפקינד"],
+ p27:["Dovid","Fridman","דוד","פרידמאן"],
+ p28:["Tzvi Dov HaLevi","Levitansky","צבי דוב הלוי","לויטנסקי"],
+ p29:["Yehuda","Fehler","יהודה","פעלער"],
+ p30:["Meir Shlomo","Ceitlin","מאיר שלמה","ציטלין"]
 };
-
 /* ---- floor plans ----
    Kept identical to the Android app, on purpose: same rooms, same beds, same doors, so whoever
    is covering sees the same picture whichever one they open. Coordinates are the room INTERIOR
@@ -292,30 +309,30 @@ const BED_SHORT=32, BED_LONG=60;
 const bedV=(x,y,slots)=>({x,y,w:BED_SHORT,h:BED_LONG,slots});   /* against a side wall */
 const bedH=(x,y,slots)=>({x,y,w:BED_LONG,h:BED_SHORT,slots});   /* against the top or bottom */
 const PLAN=[
- {id:"r1",label:"Room 1",w:100,h:78,door:{wall:"bottom",pos:38},beds:[
+ {id:"r1",label:"Room 1",heb:"חדר א׳",w:100,h:78,door:{wall:"bottom",pos:38},beds:[
    bedV(2,2,["p2","p1"]), bedV(66,2,["p3","p4"])]},
- {id:"r2",label:"Room 2",w:100,h:78,door:{wall:"bottom",pos:85},beds:[
+ {id:"r2",label:"Room 2",heb:"חדר ב׳",w:100,h:78,door:{wall:"bottom",pos:85},beds:[
    bedV(2,2,["p8","p5"]), bedH(38,2,["p7","p6"])]},
- {id:"r3",label:"Room 3",w:100,h:106,door:{wall:"bottom",pos:70},beds:[
+ {id:"r3",label:"Room 3",heb:"חדר ג׳",w:100,h:106,door:{wall:"bottom",pos:70},beds:[
    bedH(2,2,["p10"]), bedV(2,42,["p9"]), bedV(66,28,["p11","p12"])]},
  /* wider room: the two singles lie end to end along the top wall, bunk on the right wall */
- {id:"r4",label:"Room 4",w:126,h:104,door:{wall:"bottom",pos:26},beds:[
+ {id:"r4",label:"Room 4",heb:"חדר ד׳",w:126,h:104,door:{wall:"bottom",pos:26},beds:[
    bedH(2,2,["p15"]), bedH(64,2,["p14"]), bedV(92,42,["p13","p16"])]},
- {id:"r5",label:"Room 5",w:100,h:92,door:{wall:"left",pos:76},beds:[
+ {id:"r5",label:"Room 5",heb:"חדר ה׳",w:100,h:92,door:{wall:"left",pos:76},beds:[
    bedV(2,2,["p20","p18"]), bedV(66,2,["p17","p19"])]},
  /* real door is on the far wall; drawn a half-turn round so you see it as you walk in */
- {id:"r6",label:"Room 6",w:100,h:78,door:{wall:"bottom",pos:28},beds:[
+ {id:"r6",label:"Room 6",heb:"חדר ו׳",w:100,h:78,door:{wall:"bottom",pos:28},beds:[
    bedV(2,2,["p23","p24"]), bedV(66,2,["p22","p21"])]},
- {id:"r7",label:"Room 7",w:100,h:88,door:{wall:"bottom",pos:14},beds:[
+ {id:"r7",label:"Room 7",heb:"חדר ז׳",w:100,h:88,door:{wall:"bottom",pos:14},beds:[
    bedH(38,2,["p26","p27"]), bedH(38,54,["p25"])]},
- {id:"r8",label:"Room 8",w:100,h:96,door:{wall:"bottom",pos:16},beds:[
+ {id:"r8",label:"Room 8",heb:"חדר ח׳",w:100,h:96,door:{wall:"bottom",pos:16},beds:[
    bedH(2,2,["p29","p30"]), bedV(66,32,["p28"])]}
 ];
 
 let state={night:null,dateKey:null,cur:"1115",room:0,tab:"check",who:null,mode:"one",review:false,onlyOut:false,
   ok:true,persist:true,lastSave:null,editing:false,cal:null,calHas:{},extra:{},
   /* off by default: the plan reads cleaner without them, and Names can switch them back on */
-  settings:{bunkLabels:false}};
+  settings:{bunkLabels:false,hebrewOnPlan:false,hebrewInExport:false}};
 let undoStack=[];
 
 /* ---------- storage ---------- */
@@ -422,6 +439,12 @@ function roomOf(pid){for(const r of PLAN)for(const b of r.beds)if(b.slots.includ
 const first=pid=>(state.extra[pid]&&state.extra[pid].first)??P[pid][0];
 const last=pid=>(state.extra[pid]&&state.extra[pid].last)??P[pid][1];
 const nameOf=pid=>first(pid)+" "+last(pid);
+/* Hebrew only where the whole person has it, so nobody ends up half-transliterated. */
+const hasHeb=pid=>!!(P[pid][2]&&P[pid][3]);
+const firstIn=(pid,heb)=>heb&&hasHeb(pid)?P[pid][2]:first(pid);
+const lastIn=(pid,heb)=>heb&&hasHeb(pid)?P[pid][3]:last(pid);
+const nameIn=(pid,heb)=>firstIn(pid,heb)+" "+lastIn(pid,heb);
+const roomName=r=>state.settings.hebrewOnPlan?r.heb:r.label;
 const isAlways=pid=>!!(state.extra[pid]&&state.extra[pid].always);
 
 function blank(){const n={marks:{},tonight:[],notes:{},closed:false};SIDS.forEach(s=>n.marks[s]={});return n;}
@@ -540,14 +563,14 @@ function bedHTML(bed,room){
   /* a bunk always stacks its people, so each keeps the bed's full width; whether a slot uses the
      wide card (name beside buttons) or the tall one follows the slot's real shape */
   const wide=bed.w>(bed.h/n)*1.4;
-  const tw=totalW(room), th=totalH(room);
+  const tw=totalW(room), th=totalH(room), H=state.settings.hebrewOnPlan;
   const rows=bed.slots.map((pid,i)=>{
     const bunk=(state.settings.bunkLabels&&n>1)?(i===0?"top":"bottom"):"";
     return `<div class="slot ${wide?"row":"col"}" data-slot="${pid}">
       ${bunk?`<span class="bunk">${bunk}</span>`:``}
       <button class="nb" data-a="who" data-p="${pid}">
-        <span class="ln"${lnStyle(last(pid),wide)}>${esc(last(pid))}</span>
-        <span class="fn">${esc(first(pid))}</span>
+        <span class="ln"${lnStyle(lastIn(pid,H),wide)}>${esc(lastIn(pid,H))}</span>
+        <span class="fn">${esc(firstIn(pid,H))}</span>
       </button>
       <div class="mk">
         <button class="v-in" data-mk data-p="${pid}" data-v="in" aria-label="${esc(nameOf(pid))} here">${IC.tick}</button>
@@ -564,7 +587,7 @@ function roomBlock(i){
   const room=PLAN[i];
   return `<div class="roomblock" id="rb-${room.id}">
     <div class="rbar">
-      <div class="t">${esc(room.label)}<em data-rout="${room.id}"></em></div>
+      <div class="t"><bdi>${esc(roomName(room))}</bdi><em data-rout="${room.id}"></em></div>
       <button data-a="allin" data-r="${room.id}"><span data-ain="${room.id}">Everyone in</span></button>
     </div>
     <div class="planwrap"${i===state.room&&state.mode==="one"?' id="pw"':''}>
@@ -577,8 +600,8 @@ function marksHTML(){
     return `<div class="wrap">${PLAN.map((r,i)=>roomBlock(i)).join("")}</div>`;
   return `<div class="wrap">${roomBlock(state.room)}
     <div class="next">
-      <button data-a="room" data-d="-1" ${state.room===0?"disabled":""}>‹ ${state.room>0?esc(PLAN[state.room-1].label):""}</button>
-      <button data-a="room" data-d="1" ${state.room===PLAN.length-1?"disabled":""}>${state.room<PLAN.length-1?esc(PLAN[state.room+1].label):""} ›</button>
+      <button data-a="room" data-d="-1" ${state.room===0?"disabled":""}><span class="cv">‹</span><bdi>${state.room>0?esc(roomName(PLAN[state.room-1])):""}</bdi></button>
+      <button data-a="room" data-d="1" ${state.room===PLAN.length-1?"disabled":""}><bdi>${state.room<PLAN.length-1?esc(roomName(PLAN[state.room+1])):""}</bdi><span class="cv">›</span></button>
     </div>
     </div>`;
 }
@@ -607,7 +630,7 @@ function headHTML(){
         <button class="ibtn" data-a="day" data-d="1" aria-label="Next night">›</button>
         ${state.dateKey!==tonightKey()?`<button class="pill" data-a="today">Tonight</button>`:``}
         ${isLocked()?``:`<button class="ibtn" data-a="undo" aria-label="Undo">${IC.undo}</button>`}
-        <button class="ibtn" data-a="tab" data-t="names" aria-label="More">${IC.more}</button>
+        <button class="ibtn" data-a="tab" data-t="settings" aria-label="More">${IC.more}</button>
       </div>
       <div class="sv" id="sv">${esc(savedText())}</div>
     </div>
@@ -689,7 +712,7 @@ function peopleScreen(){
   const exc=allP().filter(({pid})=>isAlways(pid));
   return `<div class="hd"><div class="h1"><div><div class="hdate">Names</div>
       <div class="gdate">30 bochurim · 8 rooms</div></div>
-      <button class="pill" data-a="tab" data-t="check">Done</button></div></div>
+      <button class="pill" data-a="tab" data-t="settings">Back</button></div></div>
     <div class="pan">
     ${exc.length?`<h2>Excused indefinitely</h2><div class="blk">${exc.map(({pid,room})=>`
       <div class="li"><span class="a">${esc(nameOf(pid))}<i>${esc(room.label)}${(state.extra[pid]||{}).reason?" · "+esc(state.extra[pid].reason):""}</i></span>
@@ -699,10 +722,29 @@ function peopleScreen(){
         <span class="a">${esc(nameOf(pid))}<i>${b.slots.length>1?(i===0?"top bunk":"bottom bunk"):"single bed"}</i></span>
         ${isAlways(pid)?`<span class="z">excused</span>`:``}</button>`).join("")).join("")
     }</div>`).join("")}
-    <h2>Settings</h2>
+    <div style="height:30px"></div>
+    </div>`;
+}
+
+/* Everything that is a preference rather than a night. The two Hebrew switches are separate on
+   purpose: marking in Hebrew and sending in Hebrew are different decisions. */
+function settingsScreen(){
+  const heb=Object.keys(P).some(hasHeb);
+  const sw=(k,label)=>`<button class="li" data-a="set" data-k="${k}"${heb||k==="bunkLabels"?"":" disabled"}>
+      <span class="a">${label}${heb||k==="bunkLabels"?"":"<i>No Hebrew names yet</i>"}</span>
+      <span class="sw${state.settings[k]?" on":""}"><i></i></span></button>`;
+  return `<div class="hd"><div class="h1"><div><div class="hdate">Settings</div></div>
+      <button class="pill" data-a="tab" data-t="check">Done</button></div></div>
+    <div class="pan">
+    <h2>Names</h2>
     <div class="blk">
-      <button class="li" data-a="set" data-k="bunkLabels"><span class="a">Bunk labels on the plan</span>
-        <span class="sw${state.settings.bunkLabels?" on":""}"><i></i></span></button>
+      ${sw("hebrewOnPlan","Hebrew on the plan")}
+    </div>
+    <h2>Plan</h2>
+    <div class="blk">${sw("bunkLabels","Bunk labels")}</div>
+    <h2>Roster</h2>
+    <div class="blk">
+      <button class="li" data-a="tab" data-t="names"><span class="a lnk">Names &amp; rooms</span></button>
     </div>
     <h2>Backup</h2>
     <div class="blk">
@@ -826,7 +868,8 @@ function closePop(){document.getElementById("pop").classList.remove("on");docume
 /* ---------- shell ---------- */
 function render(){
   const y=window.scrollY;
-  document.getElementById("app").innerHTML=state.tab==="names"?peopleScreen():checkScreen();
+  document.getElementById("app").innerHTML=
+    state.tab==="names"?peopleScreen():state.tab==="settings"?settingsScreen():checkScreen();
   if(state.tab==="check"&&!showingReview()){sync();if(state.mode==="one")bindSwipe();}
   window.scrollTo(0,y);
 }
@@ -893,7 +936,7 @@ document.addEventListener("click",async e=>{
   if(a==="who"){openWho(t.dataset.p);return;}
   if(a==="editp"){editPerson(t.dataset.p);return;}
   if(a==="wset"){setMark(state.who,t.dataset.s,t.dataset.v);openWho(state.who);render();return;}
-  if(a==="set"){const k=t.dataset.k;state.settings[k]=!state.settings[k];save();render();return;}
+  if(a==="set"){if(t.disabled)return;const k=t.dataset.k;state.settings[k]=!state.settings[k];save();render();return;}
   if(a==="exctn"){const pid=state.who;snap();
     const i=state.night.tonight.indexOf(pid);
     if(i>=0)state.night.tonight.splice(i,1);
@@ -947,7 +990,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.4.0";
+const APP_VERSION="1.5.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

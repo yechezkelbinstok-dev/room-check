@@ -25,8 +25,6 @@ fun NamesScreen(vm: AppViewModel) {
     val logic = vm.logic(state)
     val context = LocalContext.current
     var renamePid by remember { mutableStateOf<String?>(null) }
-    var showExport by remember { mutableStateOf(false) }
-    var showImport by remember { mutableStateOf(false) }
 
     val alwaysExcused = Roster.PEOPLE.filter { logic.isAlways(it.id) }
 
@@ -39,7 +37,7 @@ fun NamesScreen(vm: AppViewModel) {
                 Text("Names", fontSize = 23.sp, fontWeight = FontWeight.Bold)
                 Text("30 bochurim · 8 rooms", fontSize = 12.5.sp, color = RC.sub)
             }
-            OutlinedButton(onClick = { vm.setTab(Tab.CHECK) }) { Text("Done") }
+            OutlinedButton(onClick = { vm.setTab(Tab.SETTINGS) }) { Text("Back") }
         }
         LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             if (alwaysExcused.isNotEmpty()) {
@@ -86,41 +84,6 @@ fun NamesScreen(vm: AppViewModel) {
                     }
                 }
             }
-            item { SectionHeader("Settings") }
-            item {
-                Card {
-                    SettingRow("Bunk labels on the plan", state.settings.bunkLabels) { on ->
-                        vm.setSettings { it.copy(bunkLabels = on) }
-                    }
-                    HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
-                    SettingRow(
-                        "Hebrew names in the sent picture",
-                        state.settings.hebrewNames,
-                        enabled = logic.anyHebrewNames(),
-                        sub = if (logic.anyHebrewNames()) null else "No Hebrew names added yet"
-                    ) { on -> vm.setSettings { it.copy(hebrewNames = on) } }
-                }
-            }
-            item { SectionHeader("Backup") }
-            item {
-                Card {
-                    Row(Modifier.fillMaxWidth().clickable { showExport = true }.padding(14.dp, 12.dp)) {
-                        Text("Save a backup file", color = RC.blue, fontWeight = FontWeight.SemiBold)
-                    }
-                    HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
-                    Row(Modifier.fillMaxWidth().clickable { showImport = true }.padding(14.dp, 12.dp)) {
-                        Text("Restore from a backup", color = RC.blue, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-            item { SectionHeader("App") }
-            item {
-                Card {
-                    Row(Modifier.fillMaxWidth().padding(14.dp, 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column { Text("Version", fontSize = 15.sp); Text(BuildConfig.VERSION_NAME, fontSize = 12.sp, color = RC.sub) }
-                    }
-                }
-            }
             item { Spacer(Modifier.height(30.dp)) }
         }
     }
@@ -128,32 +91,15 @@ fun NamesScreen(vm: AppViewModel) {
     renamePid?.let { pid ->
         RenameDialog(vm, pid, logic.first(pid), logic.last(pid), onClose = { renamePid = null })
     }
-    if (showExport) {
-        val json = remember { vm.exportBackup() }
-        ExportDialog(json, onShare = {
-            val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, json) }
-            context.startActivity(Intent.createChooser(intent, "Save backup"))
-        }, onClose = { showExport = false })
-    }
-    if (showImport) {
-        ImportDialog(
-            onRestore = { text ->
-                val ok = vm.importBackup(text)
-                vm.toast(if (ok) "Restored" else "Not a backup")
-                if (ok) showImport = false
-            },
-            onClose = { showImport = false }
-        )
-    }
 }
 
 @Composable
-private fun SectionHeader(text: String) {
+internal fun SectionHeader(text: String) {
     Text(text.uppercase(), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = RC.sub2, modifier = Modifier.padding(4.dp, 20.dp, 4.dp, 7.dp))
 }
 
 @Composable
-private fun SettingRow(
+internal fun SettingRow(
     label: String,
     on: Boolean,
     enabled: Boolean = true,
@@ -174,7 +120,7 @@ private fun SettingRow(
 }
 
 @Composable
-private fun Card(content: @Composable ColumnScope.() -> Unit) {
+internal fun Card(content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(RC.card).padding(bottom = 0.dp), content = content)
 }
 
@@ -198,7 +144,7 @@ private fun RenameDialog(vm: AppViewModel, pid: String, first: String, last: Str
 }
 
 @Composable
-private fun ExportDialog(json: String, onShare: () -> Unit, onClose: () -> Unit) {
+internal fun ExportDialog(json: String, onShare: () -> Unit, onClose: () -> Unit) {
     AlertDialog(
         onDismissRequest = onClose,
         title = { Text("Backup") },
@@ -209,7 +155,7 @@ private fun ExportDialog(json: String, onShare: () -> Unit, onClose: () -> Unit)
 }
 
 @Composable
-private fun ImportDialog(onRestore: (String) -> Unit, onClose: () -> Unit) {
+internal fun ImportDialog(onRestore: (String) -> Unit, onClose: () -> Unit) {
     var text by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onClose,

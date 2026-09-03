@@ -15,6 +15,7 @@ import com.roomcheck.app.data.Tab
 import com.roomcheck.app.ui.CheckScreen
 import com.roomcheck.app.ui.NamesScreen
 import com.roomcheck.app.ui.RoomCheckTheme
+import com.roomcheck.app.ui.SettingsScreen
 
 class AppViewModelFactory(private val store: NightStore) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
@@ -34,6 +35,7 @@ class MainActivity : ComponentActivity() {
                 when (state.tab) {
                     Tab.CHECK -> CheckScreen(vm)
                     Tab.NAMES -> NamesScreen(vm)
+                    Tab.SETTINGS -> SettingsScreen(vm)
                 }
             }
         }

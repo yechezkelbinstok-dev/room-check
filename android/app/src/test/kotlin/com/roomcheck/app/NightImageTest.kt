@@ -49,10 +49,12 @@ class NightImageTest {
     @Test
     fun neverTallerThanAChatPreviewShows() {
         listOf(halfCheckedNight(), everybodyMissing()).forEach { vm ->
+          listOf(false, true).forEach { heb ->
             val state = vm.state.value
-            val bmp = NightImage.render(vm.logic(state), state.dateKey)
+            val bmp = NightImage.render(vm.logic(state), state.dateKey, heb)
             val ratio = bmp.height.toFloat() / bmp.width
-            assertEquals("ratio was $ratio (${bmp.width}x${bmp.height})", true, ratio <= 1.35f)
+            assertEquals("ratio was $ratio (${bmp.width}x${bmp.height}) hebrew=$heb", true, ratio <= 1.35f)
+          }
         }
     }
 
@@ -60,6 +62,18 @@ class NightImageTest {
         val vm = AppViewModel(NightStore(folder.newFolder()))
         Roster.SIDS.forEach { sid -> Roster.PEOPLE.forEach { vm.setMark(it.id, sid, Mark.OUT) } }
         return vm
+    }
+
+    /** The same night in Hebrew, which is what most of these are going to be sent as. */
+    @Test
+    fun sendableSheetHebrew() {
+        val vm = halfCheckedNight()
+        val state = vm.state.value
+        paparazzi.snapshot(name = "sheet-hebrew") {
+            val bmp = NightImage.render(vm.logic(state), state.dateKey, hebrew = true)
+            dump(bmp, "night-image-hebrew.png")
+            Image(bmp.asImageBitmap(), null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
+        }
     }
 
     @Test

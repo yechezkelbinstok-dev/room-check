@@ -66,8 +66,10 @@ data class PersonOverride(var first: String? = null, var last: String? = null, v
 data class Settings(
     /** "top"/"bottom" written on each half of a bunk. */
     val bunkLabels: Boolean = false,
-    /** Hebrew names in the sent picture, falling back to English for anyone without one. */
-    val hebrewNames: Boolean = false
+    /** Hebrew names on the floor plan you tap through. */
+    val hebrewOnPlan: Boolean = false,
+    /** Hebrew names in the sent picture. Separate on purpose: you may want one and not the other. */
+    val hebrewInExport: Boolean = false
 )
 
 private fun JSONObject.optStringOrNull(key: String): String? = if (has(key)) getString(key) else null
@@ -99,7 +101,8 @@ class NightStore(home: File) {
                 root.optJSONObject("settings")?.let {
                     settings = Settings(
                         bunkLabels = it.optBoolean("bunkLabels", false),
-                        hebrewNames = it.optBoolean("hebrewNames", false)
+                        hebrewOnPlan = it.optBoolean("hebrewOnPlan", false),
+                        hebrewInExport = it.optBoolean("hebrewInExport", false)
                     )
                 }
                 val extraObj = root.optJSONObject("extra")
@@ -130,7 +133,8 @@ class NightStore(home: File) {
         root.put("extra", extraObj)
         root.put("settings", JSONObject()
             .put("bunkLabels", settings.bunkLabels)
-            .put("hebrewNames", settings.hebrewNames))
+            .put("hebrewOnPlan", settings.hebrewOnPlan)
+            .put("hebrewInExport", settings.hebrewInExport))
         stateFile.writeText(root.toString())
     }
 

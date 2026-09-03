@@ -83,8 +83,8 @@ object NightImage {
             val missing = logic.missingAt(sid)
             val text = when {
                 missing.isNotEmpty() -> missing.joinToString(", ") { logic.nameOf(it, hebrew) }
-                !logic.stats(sid).started -> "Not checked yet"
-                else -> "Everybody there"
+                !logic.stats(sid).started -> if (hebrew) NOT_YET_HE else "Not checked yet"
+                else -> if (hebrew) ALL_IN_HE else "Everybody there"
             }
             Summary(Roster.SLOTS[i].second, wrap(text, p, textWidth), missing.isNotEmpty())
         }
@@ -137,7 +137,12 @@ object NightImage {
     }
 
     private const val HEADER_H = 190f
-    private const val TITLE_H = 58f      // the "Not here" heading over the names
+    private const val TITLE_H = 76f      // the heading over the names
+    // A Hebrew sheet is Hebrew throughout - a lone English phrase in the middle of it reads
+    // like something the app forgot to translate.
+    private const val TITLE = "חסרים"                  // absent
+    private const val ALL_IN_HE = "כולם היו"           // everybody there
+    private const val NOT_YET_HE = "עדיין לא נבדק"     // not checked yet
 
     private fun summaryH(s: List<Summary>): Float =
         28f + TITLE_H + s.sumOf { (60f + it.lines.size * 50f + 22f).toDouble() }.toFloat()
@@ -158,7 +163,7 @@ object NightImage {
     /** Who was missing, at the top, so it answers the question before anything is opened. */
     private fun drawSummary(c: Canvas, summaries: List<Summary>, startY: Float) {
         var y = startY + 28f
-        c.drawText("Not here", PAD, y + 36f, paint(34f, sub, bold = true))
+        c.drawText(TITLE, PAD, y + 46f, paint(50f, ink, bold = true))
         y += TITLE_H
         summaries.forEach { s ->
             c.drawText(s.label, PAD, y + 42f, paint(42f, ink, bold = true))
@@ -191,7 +196,7 @@ object NightImage {
         val hairline = Paint().apply { color = hair; strokeWidth = 1.5f }
         var y = top
         rooms.forEach { room ->
-            c.drawText(room.label.uppercase(), x, y + 44f, paint(28f, faint, bold = true))
+            c.drawText(if (hebrew) room.hebLabel else room.label.uppercase(), x, y + 44f, paint(28f, faint, bold = true))
             y += ROOM_HEAD_H
             room.beds.forEach { bed ->
                 bed.slots.forEach { pid ->

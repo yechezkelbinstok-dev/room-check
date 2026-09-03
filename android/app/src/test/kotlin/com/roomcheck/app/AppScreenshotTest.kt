@@ -10,6 +10,7 @@ import com.roomcheck.app.data.RoomMode
 import com.roomcheck.app.ui.CheckScreen
 import com.roomcheck.app.ui.NamesScreen
 import com.roomcheck.app.ui.RoomCheckTheme
+import com.roomcheck.app.ui.SettingsScreen
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -80,6 +81,25 @@ class AppScreenshotTest {
         vm.jumpRoom(Roster.PLAN.indexOfFirst { it.w == Roster.PLAN.maxOf { r -> r.w } })
         paparazzi.snapshot(name = "check-widest-room") {
             RoomCheckTheme { CheckScreen(vm) }
+        }
+    }
+
+    /** The plan with Hebrew names switched on - the longest names in the narrowest cards. */
+    @Test
+    fun hebrewPlan() {
+        val vm = viewModel()
+        vm.setSettings { it.copy(hebrewOnPlan = true) }
+        vm.jumpRoom(4)
+        paparazzi.snapshot(name = "check-hebrew") {
+            RoomCheckTheme { CheckScreen(vm) }
+        }
+    }
+
+    @Test
+    fun settingsScreen() {
+        val vm = viewModel()
+        paparazzi.snapshot(name = "settings") {
+            RoomCheckTheme { SettingsScreen(vm) }
         }
     }
 

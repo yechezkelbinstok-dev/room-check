@@ -86,7 +86,7 @@ private fun TopBar(vm: AppViewModel, state: UiState, locked: Boolean, onCalendar
                 IconBtn(Icons.Filled.MyLocation, "Jump to tonight", small = true) { vm.goToday() }
             }
             if (!locked) IconBtn(Icons.Filled.Undo, "Undo") { vm.undo() }
-            IconBtn(Icons.Filled.MoreVert, "More") { vm.setTab(Tab.NAMES) }
+            IconBtn(Icons.Filled.MoreVert, "More") { vm.setTab(Tab.SETTINGS) }
         }
         Text(savedText(), fontSize = 10.5.sp, color = RC.sub, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
     }
@@ -186,16 +186,19 @@ private fun RoomsArea(vm: AppViewModel, state: UiState, logic: NightLogic, onOpe
             ) {
                 RoomBlock(vm, state, logic, room, onOpenPerson)
                 Row(Modifier.padding(12.dp, 14.dp, 12.dp, 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NavButton(Modifier.weight(1f), enabled = state.room > 0, label = if (state.room > 0) "‹ ${Roster.PLAN[state.room - 1].label}" else "") { vm.goRoom(-1) }
-                    NavButton(Modifier.weight(1f), enabled = state.room < Roster.PLAN.size - 1, label = if (state.room < Roster.PLAN.size - 1) "${Roster.PLAN[state.room + 1].label} ›" else "") { vm.goRoom(1) }
+                    NavButton(Modifier.weight(1f), enabled = state.room > 0, label = if (state.room > 0) roomName(state, state.room - 1) else "", back = true) { vm.goRoom(-1) }
+                    NavButton(Modifier.weight(1f), enabled = state.room < Roster.PLAN.size - 1, label = if (state.room < Roster.PLAN.size - 1) roomName(state, state.room + 1) else "", back = false) { vm.goRoom(1) }
                 }
             }
         }
     }
 }
 
+private fun roomName(state: UiState, i: Int) =
+    Roster.PLAN[i].let { if (state.settings.hebrewOnPlan) it.hebLabel else it.label }
+
 @Composable
-private fun NavButton(modifier: Modifier, enabled: Boolean, label: String, onClick: () -> Unit) {
+private fun NavButton(modifier: Modifier, enabled: Boolean, label: String, back: Boolean, onClick: () -> Unit) {
     // At the first and last room the button has nowhere to go, so it holds its place as blank
     // space rather than an empty white box - an unlabelled button reads as something broken.
     if (!enabled) {
@@ -207,7 +210,15 @@ private fun NavButton(modifier: Modifier, enabled: Boolean, label: String, onCli
             .border(1.dp, RC.sep, RoundedCornerShape(11.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
-    ) { Text(label, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, color = RC.blue) }
+    ) {
+        // The chevron is its own Text, not part of the label: inside one string a Hebrew room
+        // name drags it to the wrong end of the button.
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            if (back) Text("\u2039", fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, color = RC.blue)
+            Text(label, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, color = RC.blue)
+            if (!back) Text("\u203A", fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, color = RC.blue)
+        }
+    }
 }
 
 @Composable
@@ -219,7 +230,7 @@ private fun RoomBlock(vm: AppViewModel, state: UiState, logic: NightLogic, room:
             verticalAlignment = Alignment.Bottom
         ) {
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(room.label, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                Text(if (state.settings.hebrewOnPlan) room.hebLabel else room.label, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 val out = logic.outIn(room, state.curSlot).size
                 val beds = room.beds.sumOf { it.slots.size }
                 Text(
@@ -241,8 +252,8 @@ private fun RoomBlock(vm: AppViewModel, state: UiState, logic: NightLogic, room:
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
         ) { _, pid, bunkLabel, wideCard ->
             PersonSlot(
-                first = logic.first(pid),
-                last = logic.last(pid),
+                first = logic.first(pid, state.settings.hebrewOnPlan),
+                last = logic.last(pid, state.settings.hebrewOnPlan),
                 bunkLabel = bunkLabel.takeIf { state.settings.bunkLabels },
                 status = logic.statusOf(pid, state.curSlot),
                 row = wideCard,
@@ -281,7 +292,7 @@ private fun BottomBar(vm: AppViewModel, state: UiState, logic: NightLogic, revie
                 vm.toast("Copied")
             }
             BarButton(Modifier.weight(1f), "Send image", RC.text) {
-                NightImage.share(context, logic, state.dateKey, state.settings.hebrewNames)
+                NightImage.share(context, logic, state.dateKey, state.settings.hebrewInExport)
             }
         }
     }
