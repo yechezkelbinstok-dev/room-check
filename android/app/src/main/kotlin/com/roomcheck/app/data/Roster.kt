@@ -79,10 +79,13 @@ object Roster {
         Room("r5", "Room 5", 100f, 92f, Door(DoorWall.LEFT, 76f), listOf(
             upright(2f, 2f, "p20", "p18"),      // Schwei / Browd
             upright(66f, 2f, "p17", "p19"))),   // Backman / Flint
-        // door is on the top wall, so both bunks sit low, clear of it
-        Room("r6", "Room 6", 100f, 78f, Door(DoorWall.TOP, 72f), listOf(
-            upright(2f, 16f, "p22", "p21"),     // Brenenson / Belinitzki
-            upright(66f, 16f, "p23", "p24"))),  // Gourarie / November
+        // The real door is on the far wall, but every plan is drawn from the doorway looking in,
+        // so this room is turned a half-turn to match: door at the bottom, and the beds swapped
+        // left for right with it. That is a rotation, not a mirror - stand in the doorway and
+        // Gourarie's bunk really is the one on your left.
+        Room("r6", "Room 6", 100f, 78f, Door(DoorWall.BOTTOM, 28f), listOf(
+            upright(2f, 2f, "p23", "p24"),      // Gourarie / November
+            upright(66f, 2f, "p22", "p21"))),   // Brenenson / Belinitzki
         // two beds across the right, door bottom-left on the opposite side
         Room("r7", "Room 7", 100f, 88f, Door(DoorWall.BOTTOM, 14f), listOf(
             across(38f, 2f, "p26", "p27"),      // Lipkind / Fridman

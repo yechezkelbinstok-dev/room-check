@@ -41,6 +41,38 @@ class NightImageTest {
         return vm
     }
 
+    /**
+     * The picture has to be readable in the chat thread without opening it, and a thread crops
+     * anything much taller than about 1.4x its width. Checked on the worst night there is - every
+     * name missing at every time, which is what makes the summary at the top run longest.
+     */
+    @Test
+    fun neverTallerThanAChatPreviewShows() {
+        listOf(halfCheckedNight(), everybodyMissing()).forEach { vm ->
+            val state = vm.state.value
+            val bmp = NightImage.render(vm.logic(state), state.dateKey)
+            val ratio = bmp.height.toFloat() / bmp.width
+            assertEquals("ratio was $ratio (${bmp.width}x${bmp.height})", true, ratio <= 1.35f)
+        }
+    }
+
+    private fun everybodyMissing(): AppViewModel {
+        val vm = AppViewModel(NightStore(folder.newFolder()))
+        Roster.SIDS.forEach { sid -> Roster.PEOPLE.forEach { vm.setMark(it.id, sid, Mark.OUT) } }
+        return vm
+    }
+
+    @Test
+    fun worstCaseSheet() {
+        val vm = everybodyMissing()
+        val state = vm.state.value
+        paparazzi.snapshot(name = "sheet-everyone-out") {
+            val bmp = NightImage.render(vm.logic(state), state.dateKey)
+            dump(bmp, "night-image-worst.png")
+            Image(bmp.asImageBitmap(), null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
+        }
+    }
+
     /** A round left half-walked still says so, rather than reading as an all-clear. */
     @Test
     fun unwalkedRoomsAreCalledOut() {
