@@ -83,7 +83,7 @@ object NightImage {
             val missing = logic.missingAt(sid)
             val text = when {
                 missing.isNotEmpty() -> missing.joinToString(", ") { logic.nameOf(it, hebrew) }
-                !logic.stats(sid).started -> if (hebrew) NOT_YET_HE else "Not checked yet"
+                !logic.stats(sid).started -> if (hebrew) NOT_CHECKED_HE else "Not checked yet"
                 else -> if (hebrew) ALL_IN_HE else "Everybody there"
             }
             Summary(Roster.SLOTS[i].second, wrap(text, p, textWidth), missing.isNotEmpty())
@@ -143,7 +143,9 @@ object NightImage {
     // like something the app forgot to translate.
     private const val TITLE = "חסרים"                  // absent
     private const val ALL_IN_HE = "כולם היו"           // everybody there
-    private const val NOT_YET_HE = "עדיין לא נבדק"     // not checked yet
+    // "not checked", not "not checked yet": a round can be missed outright, and "yet" promises
+    // it is still coming.
+    private const val NOT_CHECKED_HE = "לא נבדק"           // not checked
 
     private fun summaryH(s: List<Summary>): Float =
         28f + TITLE_H + s.sumOf { (60f + it.lines.size * 50f + 22f).toDouble() }.toFloat()
