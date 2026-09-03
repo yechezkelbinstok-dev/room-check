@@ -61,9 +61,17 @@ data class PersonOverride(var first: String? = null, var last: String? = null, v
 
 private fun JSONObject.optStringOrNull(key: String): String? = if (has(key)) getString(key) else null
 
-class NightStore(context: Context) {
-    private val dir = File(context.filesDir, "nights").apply { mkdirs() }
-    private val stateFile = File(context.filesDir, "state.json")
+/**
+ * Every night lives in a file under [home] - on the phone that is the app's private storage, which
+ * is why the data is the app's own and not the browser's. [home] is a plain directory rather than a
+ * Context so the screenshot tests can point a real store at a scratch folder and render the actual
+ * screen instead of a stand-in.
+ */
+class NightStore(home: File) {
+    constructor(context: Context) : this(context.filesDir)
+
+    private val dir = File(home, "nights").apply { mkdirs() }
+    private val stateFile = File(home, "state.json")
 
     var extra: MutableMap<String, PersonOverride> = mutableMapOf()
         private set

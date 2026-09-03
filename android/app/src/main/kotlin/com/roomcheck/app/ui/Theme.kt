@@ -23,6 +23,7 @@ object RC {
     val wall = Color(0xFF24262D)
     val floor = Color(0xFFFBFBFA)
     val swing = Color(0xFFBFC1C7)
+    val bunk = Color(0xFFB7B9C2)   // the faint "top"/"bottom" label on a bunk
 }
 
 private val scheme = lightColorScheme(

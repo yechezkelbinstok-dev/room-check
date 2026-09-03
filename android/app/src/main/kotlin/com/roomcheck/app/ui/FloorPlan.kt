@@ -20,7 +20,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.roomcheck.app.data.Bed
@@ -29,7 +31,6 @@ import com.roomcheck.app.data.DoorWall
 import com.roomcheck.app.data.Mark
 import com.roomcheck.app.data.Room
 
-private const val PLAN_H = 112f // room aspect: 100 wide x 112 tall, matches the web app's viewBox
 private const val MARGIN = 5f   // space outside the walls so a door box can sit outside, per the sketch
 private const val GAP = 7f      // half the doorway width, in room-interior units
 private const val DOOR_D = 4f   // how far the three-sided door box juts out past the wall
@@ -41,10 +42,16 @@ private const val DOOR_D = 4f   // how far the three-sided door box juts out pas
  * Coordinates coming in are room-interior units (0-100 x 0-112); [ix]/[iy] map those onto the
  * inset wall rectangle so the door boxes have somewhere to go outside the walls.
  */
-private fun DrawScope.drawRoomWalls(door: Door, ix: (Float) -> Float, iy: (Float) -> Float, color: Color) {
+private fun DrawScope.drawRoomWalls(
+    door: Door,
+    roomH: Float,
+    ix: (Float) -> Float,
+    iy: (Float) -> Float,
+    color: Color
+) {
     val left = ix(0f); val right = ix(100f)
-    val top = iy(0f); val bottom = iy(PLAN_H)
-    val strokeWidth = with(size) { 1.6f * ((width / 100f + height / PLAN_H) / 2f) }
+    val top = iy(0f); val bottom = iy(roomH)
+    val strokeWidth = 1.6f * (size.width / (100f + 2 * MARGIN))
     val a: Float; val b: Float
     fun line(x1: Float, y1: Float, x2: Float, y2: Float) =
         drawLine(color, Offset(x1, y1), Offset(x2, y2), strokeWidth = strokeWidth, cap = StrokeCap.Square)
@@ -101,21 +108,22 @@ fun FloorPlanCanvas(
     slotContent: @Composable (bed: Bed, pid: String, bunkLabel: String?, wideCard: Boolean) -> Unit
 ) {
     val bg = if (allIn) Color(0xFFF7FCFA) else RC.floor
-    // room interior sits inside a margin, leaving space outside the walls for the door box
-    val spanX = (100f - 2 * MARGIN) / 100f
-    val spanY = (PLAN_H - 2 * MARGIN) / PLAN_H
-    val originX = MARGIN / 100f
-    val originY = MARGIN / PLAN_H
+    // The canvas is the room plus a MARGIN of outside floor all round, so a door box has somewhere
+    // to sit. Both axes are divided by that same total, which is what makes one unit across equal
+    // one unit down: a bed turned 90 degrees then measures exactly as long as it did upright.
+    val totalW = 100f + 2 * MARGIN
+    val totalH = room.h + 2 * MARGIN
     BoxWithConstraints(
-        modifier.aspectRatio(100f / PLAN_H).clip(RoundedCornerShape(4.dp)).background(bg)
+        modifier.aspectRatio(totalW / totalH).clip(RoundedCornerShape(4.dp)).background(bg)
     ) {
         val wPx = maxWidth
         val hPx = maxHeight
         Canvas(Modifier.fillMaxSize()) {
             drawRoomWalls(
                 room.door,
-                ix = { v -> size.width * (originX + (v / 100f) * spanX) },
-                iy = { v -> size.height * (originY + (v / PLAN_H) * spanY) },
+                roomH = room.h,
+                ix = { v -> size.width * ((MARGIN + v) / totalW) },
+                iy = { v -> size.height * ((MARGIN + v) / totalH) },
                 color = RC.wall
             )
         }
@@ -128,12 +136,12 @@ fun FloorPlanCanvas(
             Box(
                 Modifier
                     .offset(
-                        x = wPx * (originX + (bed.x / 100f) * spanX),
-                        y = hPx * (originY + (bed.y / PLAN_H) * spanY)
+                        x = wPx * ((MARGIN + bed.x) / totalW),
+                        y = hPx * ((MARGIN + bed.y) / totalH)
                     )
                     .size(
-                        width = wPx * (bed.w / 100f) * spanX,
-                        height = hPx * (bed.h / PLAN_H) * spanY
+                        width = wPx * (bed.w / totalW),
+                        height = hPx * (bed.h / totalH)
                     )
                     .background(Color.White, RoundedCornerShape(5.dp))
                     .border(1.5.dp, Color(0xFFC9CBD2), RoundedCornerShape(5.dp))
@@ -157,9 +165,11 @@ fun FloorPlanCanvas(
 }
 
 /**
- * The three mark buttons, sized to whatever width they actually have. Hardcoding a button size
- * is what produced squashed slivers and clipped "E" buttons: three 31dp buttons need ~99dp, and
- * a narrow bed simply doesn't have it. Measuring first means they fit in any bed, at any size.
+ * The three mark buttons, sized to the space they actually get - on BOTH axes. Measuring width
+ * alone was the bug behind the squashed, pill-shaped buttons with a half-cut "E": Modifier.size
+ * asks for a square but is still clamped by the incoming height constraint, so a button starved
+ * of height silently flattened instead of shrinking. Taking the smaller of the two keeps every
+ * button square, whatever room it lands in.
  */
 @Composable
 fun MarkButtons(
@@ -170,19 +180,16 @@ fun MarkButtons(
 ) {
     BoxWithConstraints(modifier) {
         val gap = 3.dp
-        val preferred = if (compact) 26.dp else 31.dp
-        val size = ((maxWidth - gap * 2) / 3).coerceIn(16.dp, preferred)
+        val preferred = if (compact) 26.dp else 30.dp
+        val byWidth = (maxWidth - gap * 2) / 3
+        val byHeight = if (maxHeight == Dp.Infinity) preferred else maxHeight
+        val size = minOf(byWidth, byHeight, preferred).coerceAtLeast(15.dp)
         MarkButtonRow(status, size, gap, onSet)
     }
 }
 
 @Composable
-private fun MarkButtonRow(
-    status: Mark?,
-    size: androidx.compose.ui.unit.Dp,
-    gap: androidx.compose.ui.unit.Dp,
-    onSet: (Mark) -> Unit
-) {
+private fun MarkButtonRow(status: Mark?, size: Dp, gap: Dp, onSet: (Mark) -> Unit) {
     val glyph = size * 0.5f                      // icon scales with the button, never overflows it
     val letter = (size.value * 0.38f).coerceAtLeast(8f).sp
     Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
@@ -199,7 +206,7 @@ private fun MarkButtonRow(
 }
 
 @Composable
-private fun MarkButton(size: androidx.compose.ui.unit.Dp, on: Boolean, onColor: Color, onClick: () -> Unit, icon: @Composable () -> Unit) {
+private fun MarkButton(size: Dp, on: Boolean, onColor: Color, onClick: () -> Unit, icon: @Composable () -> Unit) {
     Box(
         Modifier
             .size(size)
@@ -237,52 +244,55 @@ fun PersonSlot(
         Mark.EXC -> RC.grey
         else -> RC.text
     }
-    // No weight() in this vertical stack: a Column asked to fill a height that isn't reliably
-    // bounded can silently collapse a weighted child to zero - that's what was swallowing the
-    // mark buttons. Arrangement.Center groups [label?, content] as a block without needing weight
-    // at all. Name text is capped to one line with ellipsis so a long name can never grow enough
-    // to threaten the buttons' space - the bunk label sits as a normal line above it, in-flow, so
-    // it can't overlap the name either.
     Column(
         modifier.fillMaxSize().background(bgColor).padding(6.dp, 5.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // In a wide slot the bunk label rides inline at the left - half a bed's height has no
-        // vertical room to spend on a whole extra line. In a tall slot it sits above the name.
-        if (!row) {
-            bunkLabel?.let {
-                Text(
-                    it, fontSize = 9.sp, color = Color(0xFFB7B9C2),
-                    modifier = Modifier.align(Alignment.Start).padding(bottom = 2.dp)
-                )
-            }
-        }
         if (row) {
+            // Wide slot: the bunk label rides inline at the left, because half a bed's height has
+            // no room to spend on a whole extra line.
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 bunkLabel?.let {
                     Text(
-                        it, fontSize = 9.sp, color = Color(0xFFB7B9C2), maxLines = 1,
+                        it, fontSize = 9.sp, lineHeight = 10.sp, color = RC.bunk, maxLines = 1,
                         modifier = Modifier.padding(end = 6.dp)
                     )
                 }
                 Column(Modifier.weight(1f).clickable(onClick = onNameClick)) {
-                    Text(last, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = nameColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(first, fontSize = 9.sp, color = RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(last, fontSize = 13.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, color = nameColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(first, fontSize = 9.sp, lineHeight = 11.sp, color = RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 MarkButtons(status, compact = true, onSet = onMark)
             }
         } else {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Column(Modifier.clickable(onClick = onNameClick), horizontalAlignment = Alignment.CenterHorizontally) {
-                    // a long surname in a narrow bed (Heidingsfeld, Levitansky) may take two lines;
-                    // those beds are tall enough for it, and the first name stays capped at one
-                    Text(last, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = nameColor, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(first, fontSize = 9.5.sp, color = RC.sub, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                Spacer(Modifier.height(4.dp))
-                MarkButtons(status, compact = false, onSet = onMark)
+            // Tall slot. Order here is load-bearing: a Column measures its UNWEIGHTED children
+            // first and hands each one the height still unspent, so the buttons - unweighted -
+            // are served before the names and always get their full square. The names take the
+            // weighted remainder, which means a long name shortens itself rather than crushing
+            // the buttons. Written the other way round (names first, buttons last) the buttons
+            // got whatever scraps were left, which is exactly how they ended up as clipped pills.
+            // fill = false so the name block claims only the height it needs: in a long single
+            // bed that keeps the name and its buttons together in the middle of the mattress
+            // instead of stranding them at opposite ends of the card.
+            bunkLabel?.let {
+                Text(
+                    it, fontSize = 9.sp, lineHeight = 10.sp, color = RC.bunk,
+                    modifier = Modifier.align(Alignment.Start)
+                )
             }
+            Box(
+                Modifier.weight(1f, fill = false).fillMaxWidth().clickable(onClick = onNameClick),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // a long surname in a narrow bed (Heidingsfeld, Levitansky) may take two lines
+                    Text(last, fontSize = 13.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, color = nameColor, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(first, fontSize = 9.5.sp, lineHeight = 12.sp, color = RC.sub, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            MarkButtons(status, compact = false, onSet = onMark)
         }
     }
 }

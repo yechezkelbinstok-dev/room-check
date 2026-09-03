@@ -160,15 +160,18 @@ private fun StickyControls(vm: AppViewModel, state: UiState, logic: NightLogic) 
 
 @Composable
 private fun RoomsArea(vm: AppViewModel, state: UiState, logic: NightLogic, onOpenPerson: (String) -> Unit) {
+    // No bottom padding to clear the bottom bar: that bar is a sibling below this area, not an
+    // overlay on top of it. The 90dp it used to reserve was carried over from the web build and
+    // did nothing here but push the Finish note off the bottom of the screen, unread.
     when (state.mode) {
-        RoomMode.SCROLL -> LazyColumn(Modifier.fillMaxSize().padding(bottom = 90.dp)) {
+        RoomMode.SCROLL -> LazyColumn(Modifier.fillMaxSize()) {
             items(Roster.PLAN) { room -> RoomBlock(vm, state, logic, room, onOpenPerson) }
             item { FinNote() }
         }
         RoomMode.ONE -> {
             val room = Roster.PLAN[state.room]
             Column(
-                Modifier.fillMaxSize().padding(bottom = 90.dp)
+                Modifier.fillMaxSize()
                     .pointerInput(state.room) {
                         var dragX = 0f
                         detectHorizontalDragGestures(
@@ -181,8 +184,9 @@ private fun RoomsArea(vm: AppViewModel, state: UiState, logic: NightLogic, onOpe
             ) {
                 RoomBlock(vm, state, logic, room, onOpenPerson)
                 Text(
-                    "Doorway is on the wall you walk in from. Swipe the plan for the next room.",
-                    fontSize = 11.5.sp, color = RC.sub, modifier = Modifier.padding(16.dp, 9.dp, 16.dp, 0.dp)
+                    "Swipe the plan to change rooms.",
+                    fontSize = 11.5.sp, color = RC.sub, maxLines = 1,
+                    modifier = Modifier.padding(16.dp, 9.dp, 16.dp, 0.dp)
                 )
                 Row(Modifier.padding(12.dp, 12.dp, 12.dp, 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     NavButton(Modifier.weight(1f), enabled = state.room > 0, label = if (state.room > 0) "‹ ${Roster.PLAN[state.room - 1].label}" else "") { vm.goRoom(-1) }
@@ -196,12 +200,18 @@ private fun RoomsArea(vm: AppViewModel, state: UiState, logic: NightLogic, onOpe
 
 @Composable
 private fun NavButton(modifier: Modifier, enabled: Boolean, label: String, onClick: () -> Unit) {
+    // At the first and last room the button has nowhere to go, so it holds its place as blank
+    // space rather than an empty white box - an unlabelled button reads as something broken.
+    if (!enabled) {
+        Box(modifier.height(48.dp))
+        return
+    }
     Box(
         modifier.height(48.dp).clip(RoundedCornerShape(11.dp)).background(Color.White)
             .border(1.dp, RC.sep, RoundedCornerShape(11.dp))
-            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
-    ) { Text(label, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, color = if (enabled) RC.blue else RC.sub.copy(alpha = 0.5f)) }
+    ) { Text(label, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, color = RC.blue) }
 }
 
 @Composable

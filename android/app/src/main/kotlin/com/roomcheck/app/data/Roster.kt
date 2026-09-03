@@ -7,7 +7,12 @@ data class Bed(val x: Float, val y: Float, val w: Float, val h: Float, val slots
 enum class DoorWall { TOP, BOTTOM, LEFT, RIGHT }
 data class Door(val wall: DoorWall, val pos: Float)
 
-data class Room(val id: String, val label: String, val door: Door, val beds: List<Bed>)
+/**
+ * [h] is how deep the room is, in the same units as bed coordinates (width is always 100). Rooms
+ * are not all the same depth: a room only needs enough floor to walk from its door to the beds, so
+ * carrying one shared depth left half of some rooms as dead empty floor.
+ */
+data class Room(val id: String, val label: String, val h: Float, val door: Door, val beds: List<Bed>)
 
 object Roster {
     val PEOPLE: List<Person> = listOf(
@@ -44,43 +49,47 @@ object Roster {
         Bed(x, y, BED_LONG, BED_SHORT, slots.toList(), row = true)
 
     // Positions follow the hand-drawn sketch: which wall each bed is against, and which beds are
-    // paired. Coordinates are the room INTERIOR (0-100 x 0-112); the renderer insets this inside
-    // the walls so the door box can sit outside them like the sketch draws it.
+    // paired. Coordinates are the room INTERIOR (0-100 across, 0-h deep); the renderer insets this
+    // inside the walls so the door box can sit outside them like the sketch draws it.
+    //
+    // Every bed sits 2 units off its wall - touching it, not floating - and each room is only as
+    // deep as its own beds need plus roughly a 16-unit walkway in from the door. That walkway is
+    // all the empty floor there should ever be; a room does not get depth it has no use for.
     val PLAN: List<Room> = listOf(
         // bunks on opposite walls, door on the bottom wall between them
-        Room("r1", "Room 1", Door(DoorWall.BOTTOM, 38f), listOf(
-            upright(2f, 6f, "p2", "p1"),        // Lehr / Shlomo Altein
-            upright(66f, 6f, "p3", "p4"))),     // Piekarski / Pevzner
+        Room("r1", "Room 1", 78f, Door(DoorWall.BOTTOM, 38f), listOf(
+            upright(2f, 2f, "p2", "p1"),        // Lehr / Shlomo Altein
+            upright(66f, 2f, "p3", "p4"))),     // Piekarski / Pevzner
         // bunk on the left wall, the other across the top right
-        Room("r2", "Room 2", Door(DoorWall.BOTTOM, 85f), listOf(
-            upright(2f, 6f, "p8", "p5"),        // Levin / Holtzberg
-            across(38f, 4f, "p7", "p6"))),      // Raices / Stolik
+        Room("r2", "Room 2", 78f, Door(DoorWall.BOTTOM, 85f), listOf(
+            upright(2f, 2f, "p8", "p5"),        // Levin / Holtzberg
+            across(38f, 2f, "p7", "p6"))),      // Raices / Stolik
         // single across the top, single down the left wall, bunk on the right wall
-        Room("r3", "Room 3", Door(DoorWall.BOTTOM, 70f), listOf(
-            across(2f, 4f, "p10"),              // Hirsch
-            upright(2f, 44f, "p9"),             // Heidingsfeld
-            upright(66f, 30f, "p11", "p12"))),  // Wolfe / Tzfasman
+        Room("r3", "Room 3", 106f, Door(DoorWall.BOTTOM, 70f), listOf(
+            across(2f, 2f, "p10"),              // Hirsch
+            upright(2f, 42f, "p9"),             // Heidingsfeld
+            upright(66f, 28f, "p11", "p12"))),  // Wolfe / Tzfasman
         // single across the top left, single down the right wall, bunk across the bottom right
-        Room("r4", "Room 4", Door(DoorWall.BOTTOM, 24f), listOf(
-            across(2f, 4f, "p15"),              // Groner
-            upright(66f, 4f, "p14"),            // Goldstein
-            across(38f, 76f, "p13", "p16"))),   // Dovid Altein / Palace
+        Room("r4", "Room 4", 106f, Door(DoorWall.BOTTOM, 24f), listOf(
+            across(2f, 2f, "p15"),              // Groner
+            upright(66f, 2f, "p14"),            // Goldstein
+            across(38f, 72f, "p13", "p16"))),   // Dovid Altein / Palace
         // bunks on opposite walls, door low on the left wall below them
-        Room("r5", "Room 5", Door(DoorWall.LEFT, 82f), listOf(
-            upright(2f, 4f, "p20", "p18"),      // Schwei / Browd
-            upright(66f, 4f, "p17", "p19"))),   // Backman / Flint
+        Room("r5", "Room 5", 92f, Door(DoorWall.LEFT, 76f), listOf(
+            upright(2f, 2f, "p20", "p18"),      // Schwei / Browd
+            upright(66f, 2f, "p17", "p19"))),   // Backman / Flint
         // door is on the top wall, so both bunks sit low, clear of it
-        Room("r6", "Room 6", Door(DoorWall.TOP, 72f), listOf(
-            upright(2f, 44f, "p22", "p21"),     // Brenenson / Belinitzki
-            upright(66f, 44f, "p23", "p24"))),  // Gourarie / November
+        Room("r6", "Room 6", 78f, Door(DoorWall.TOP, 72f), listOf(
+            upright(2f, 16f, "p22", "p21"),     // Brenenson / Belinitzki
+            upright(66f, 16f, "p23", "p24"))),  // Gourarie / November
         // two beds across the right, door bottom-left on the opposite side
-        Room("r7", "Room 7", Door(DoorWall.BOTTOM, 14f), listOf(
-            across(38f, 4f, "p26", "p27"),      // Lipkind / Fridman
-            across(38f, 52f, "p25"))),          // Liberow
+        Room("r7", "Room 7", 88f, Door(DoorWall.BOTTOM, 14f), listOf(
+            across(38f, 2f, "p26", "p27"),      // Lipkind / Fridman
+            across(38f, 54f, "p25"))),          // Liberow
         // bunk across the top, single down the right wall
-        Room("r8", "Room 8", Door(DoorWall.BOTTOM, 16f), listOf(
-            across(2f, 4f, "p29", "p30"),       // Fehler / Ceitlin
-            upright(66f, 30f, "p28")))          // Levitansky
+        Room("r8", "Room 8", 96f, Door(DoorWall.BOTTOM, 16f), listOf(
+            across(2f, 2f, "p29", "p30"),       // Fehler / Ceitlin
+            upright(66f, 32f, "p28")))          // Levitansky
     )
 
     val roomOf: Map<String, Room> = buildMap {
