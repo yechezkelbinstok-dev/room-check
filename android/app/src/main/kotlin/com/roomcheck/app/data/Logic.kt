@@ -89,13 +89,13 @@ class NightLogic(private val night: Night, private val extra: Map<String, Person
             lines.add(
                 when {
                     missing.isNotEmpty() -> missing.joinToString(", ") { nameOf(it) }
-                    !stats(sid).started -> "Not checked yet"
+                    !stats(sid).started -> "Not marked"
                     else -> "Everybody there"
                 }
             )
             val unchecked = uncheckedAt(sid)
             if (stats(sid).started && unchecked.isNotEmpty()) {
-                lines.add("(still to check: ${unchecked.joinToString(", ") { it.label }})")
+                lines.add("(still to mark: ${unchecked.joinToString(", ") { it.label }})")
             }
         }
         return lines.joinToString("\n")

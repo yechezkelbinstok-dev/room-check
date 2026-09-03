@@ -94,7 +94,7 @@ class NightImageTest {
         vm.setMark("p1", "1115", Mark.IN)
         val state = vm.state.value
         val text = vm.logic(state).report(state.dateKey)
-        assertEquals(true, text.contains("(still to check: Room 2, Room 3,"))
+        assertEquals(true, text.contains("(still to mark: Room 2, Room 3,"))
     }
 
     @Test
@@ -144,7 +144,7 @@ class NightImageTest {
             |Dovid Altein, Leib Meir November, Yehuda Fehler
             |
             |12:00
-            |Not checked yet
+            |Not marked
             """.trimMargin(),
             body
         )

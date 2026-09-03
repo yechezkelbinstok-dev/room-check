@@ -36,7 +36,6 @@ object NightImage {
     private const val BAND_H = 74f         // the header strip over the sheet
     private const val CHIP = 52f
     private const val COL_W = 88f          // one time column
-    private const val GUTTER = 170f        // the time labels down the left of the summary
 
     private val ink = Color.parseColor("#111114")
     private val sub = Color.parseColor("#6C6E76")
@@ -75,20 +74,37 @@ object NightImage {
         return out
     }
 
-    private class Summary(val label: String, val lines: List<String>, val missing: Boolean)
+    // tone carries the meaning: red for names, green only for a round actually walked and clear,
+// grey for one nobody has marked. Green on "not marked" would read as an all-clear it has not earned.
+private class Summary(val label: String, val lines: List<String>, val tone: Int)
 
-    private fun summarize(logic: NightLogic, hebrew: Boolean, textWidth: Float): List<Summary> {
-        val p = paint(38f, red)
+    /**
+     * One card per time, each holding its own names one to a line. Run together with commas the
+     * three lists were a wall of text you had to parse to find a single name in; as three lists
+     * side by side you read down the one you want and stop.
+     */
+    private fun summarize(logic: NightLogic, hebrew: Boolean, cardTextW: Float): List<Summary> {
+        val p = paint(NAME_SZ, red)
         return Roster.SIDS.mapIndexed { i, sid ->
             val missing = logic.missingAt(sid)
-            val text = when {
-                missing.isNotEmpty() -> missing.joinToString(", ") { logic.nameOf(it, hebrew) }
-                !logic.stats(sid).started -> if (hebrew) NOT_CHECKED_HE else "Not checked yet"
-                else -> if (hebrew) ALL_IN_HE else "Everybody there"
+            val started = logic.stats(sid).started
+            val lines = if (missing.isNotEmpty()) {
+                // a name too long for the card wraps rather than being cut
+                missing.flatMap { wrap(logic.nameOf(it, hebrew), p, cardTextW) }
+            } else {
+                listOf(
+                    if (!started) (if (hebrew) NOT_MARKED_HE else "Not marked")
+                    else (if (hebrew) ALL_IN_HE else "Everybody there")
+                )
             }
-            Summary(Roster.SLOTS[i].second, wrap(text, p, textWidth), missing.isNotEmpty())
+            val tone = if (missing.isNotEmpty()) red else if (started) green else grey
+            Summary(Roster.SLOTS[i].second, lines, tone)
         }
     }
+
+    private fun cardWidth(w: Float) = (w - 2 * PAD - 2 * CARD_GAP) / 3f
+    private fun cardHeight(cards: List<Summary>) =
+        CARD_HEAD + cards.maxOf { it.lines.size } * LINE_H + CARD_PAD
 
     private fun peopleIn(room: Room) = room.beds.sumOf { it.slots.size }
     private fun blockH(room: Room) = ROOM_HEAD_H + peopleIn(room) * ROW_H
@@ -116,13 +132,13 @@ object NightImage {
     fun render(logic: NightLogic, dateKey: String, hebrew: Boolean = false): Bitmap {
         val colW = widestNameWidth(logic, hebrew) + 40f + 3 * COL_W
         var w = 2 * colW + GAP + 2 * PAD
-        var summaries = summarize(logic, hebrew, w - 2 * PAD - GUTTER)
+        var summaries = summarize(logic, hebrew, cardWidth(w) - 2 * CARD_PAD)
         var h = heightOf(summaries)
         // A heavy night makes the summary long. Widen rather than let the thread crop it: the
         // extra width re-wraps the names shorter, so one pass always lands inside the ratio.
         if (h / w > MAX_RATIO) {
             w = h / MAX_RATIO
-            summaries = summarize(logic, hebrew, w - 2 * PAD - GUTTER)
+            summaries = summarize(logic, hebrew, cardWidth(w) - 2 * CARD_PAD)
             h = heightOf(summaries)
         }
 
@@ -139,16 +155,20 @@ object NightImage {
 
     private const val HEADER_H = 190f
     private const val TITLE_H = 76f      // the heading over the names
+    private const val CARD_GAP = 26f     // between the three time cards
+    private const val CARD_PAD = 28f     // inside one
+    private const val CARD_HEAD = 96f    // the time at the top of a card, down to its first name
+    private const val LINE_H = 50f       // one name
+    private const val NAME_SZ = 32f
     // A Hebrew sheet is Hebrew throughout - a lone English phrase in the middle of it reads
     // like something the app forgot to translate.
     private const val TITLE = "חסרים"                  // absent
     private const val ALL_IN_HE = "כולם היו"           // everybody there
-    // "not checked", not "not checked yet": a round can be missed outright, and "yet" promises
+    // "not marked", not "not checked yet": a round can be missed outright, and "yet" promises
     // it is still coming.
-    private const val NOT_CHECKED_HE = "לא נבדק"           // not checked
+    private const val NOT_MARKED_HE = "לא סומן"            // not marked
 
-    private fun summaryH(s: List<Summary>): Float =
-        28f + TITLE_H + s.sumOf { (60f + it.lines.size * 50f + 22f).toDouble() }.toFloat()
+    private fun summaryH(s: List<Summary>): Float = 28f + TITLE_H + cardHeight(s) + 30f
 
     private fun heightOf(summaries: List<Summary>): Float {
         val split = splitPoint()
@@ -185,11 +205,23 @@ object NightImage {
         var y = startY + 28f
         c.drawText(TITLE, d.p(PAD), y + 46f, d.align(paint(50f, ink, bold = true)))
         y += TITLE_H
-        summaries.forEach { s ->
-            c.drawText(s.label, d.p(PAD), y + 42f, d.align(paint(42f, ink, bold = true)))
-            val p = d.align(paint(38f, if (s.missing) red else green))
-            s.lines.forEachIndexed { i, line -> c.drawText(line, d.p(PAD + GUTTER), y + 42f + i * 50f, p) }
-            y += 60f + s.lines.size * 50f + 22f
+
+        // All three cards take the tallest card's height. Sized to their own contents they would
+        // stair-step down the page - three ragged boxes read worse than three aligned ones.
+        val cardW = cardWidth(d.w)
+        val cardH = cardHeight(summaries)
+        summaries.forEachIndexed { i, s ->
+            val x = PAD + i * (cardW + CARD_GAP)
+            val left = d.box(x, cardW)
+            c.drawRoundRect(
+                RectF(left, y, left + cardW, y + cardH), 20f, 20f,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = panel }
+            )
+            c.drawText(s.label, d.p(x + CARD_PAD), y + 52f, d.align(paint(40f, ink, bold = true)))
+            val p = d.align(paint(NAME_SZ, s.tone))
+            s.lines.forEachIndexed { j, line ->
+                c.drawText(line, d.p(x + CARD_PAD), y + CARD_HEAD + j * LINE_H, p)
+            }
         }
     }
 

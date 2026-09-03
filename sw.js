@@ -1,5 +1,5 @@
 /* Room Check — offline shell. Bump CACHE whenever the app changes. */
-const CACHE = "roomcheck-v1.5.0";
+const CACHE = "roomcheck-v1.6.0";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./robots.txt"];
 
 self.addEventListener("install", e => {

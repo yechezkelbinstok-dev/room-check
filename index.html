@@ -521,9 +521,9 @@ function report(){
   SIDS.forEach(sid=>{
     L.push("",label(sid));
     const miss=missingAt(sid);
-    L.push(miss.length?miss.map(nameOf).join(", "):(stats(sid).started?"Everybody there":"Not checked yet"));
+    L.push(miss.length?miss.map(nameOf).join(", "):(stats(sid).started?"Everybody there":"Not marked"));
     const u=PLAN.filter(r=>!roomChecked(r,sid));
-    if(stats(sid).started&&u.length)L.push("(still to check: "+u.map(r=>r.label).join(", ")+")");
+    if(stats(sid).started&&u.length)L.push("(still to mark: "+u.map(r=>r.label).join(", ")+")");
   });
   return L.join("\n");
 }
@@ -990,7 +990,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.5.0";
+const APP_VERSION="1.6.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
