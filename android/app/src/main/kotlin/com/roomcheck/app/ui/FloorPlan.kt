@@ -156,6 +156,11 @@ fun FloorPlanCanvas(
     }
 }
 
+/**
+ * The three mark buttons, sized to whatever width they actually have. Hardcoding a button size
+ * is what produced squashed slivers and clipped "E" buttons: three 31dp buttons need ~99dp, and
+ * a narrow bed simply doesn't have it. Measuring first means they fit in any bed, at any size.
+ */
 @Composable
 fun MarkButtons(
     status: Mark?,
@@ -163,16 +168,32 @@ fun MarkButtons(
     onSet: (Mark) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val size = if (compact) 26.dp else 31.dp
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+    BoxWithConstraints(modifier) {
+        val gap = 3.dp
+        val preferred = if (compact) 26.dp else 31.dp
+        val size = ((maxWidth - gap * 2) / 3).coerceIn(16.dp, preferred)
+        MarkButtonRow(status, size, gap, onSet)
+    }
+}
+
+@Composable
+private fun MarkButtonRow(
+    status: Mark?,
+    size: androidx.compose.ui.unit.Dp,
+    gap: androidx.compose.ui.unit.Dp,
+    onSet: (Mark) -> Unit
+) {
+    val glyph = size * 0.5f                      // icon scales with the button, never overflows it
+    val letter = (size.value * 0.38f).coerceAtLeast(8f).sp
+    Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
         MarkButton(size, status == Mark.IN, RC.green, { onSet(Mark.IN) }) {
-            Icon(Icons.Filled.Check, contentDescription = "Here", modifier = Modifier.size(15.dp))
+            Icon(Icons.Filled.Check, contentDescription = "Here", modifier = Modifier.size(glyph))
         }
         MarkButton(size, status == Mark.OUT, RC.red, { onSet(Mark.OUT) }) {
-            Icon(Icons.Filled.Close, contentDescription = "Not here", modifier = Modifier.size(15.dp))
+            Icon(Icons.Filled.Close, contentDescription = "Not here", modifier = Modifier.size(glyph))
         }
         MarkButton(size, status == Mark.EXC, RC.grey, { onSet(Mark.EXC) }) {
-            Text("E", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            Text("E", fontWeight = FontWeight.Bold, fontSize = letter)
         }
     }
 }
@@ -227,14 +248,24 @@ fun PersonSlot(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        bunkLabel?.let {
-            Text(
-                it, fontSize = 9.sp, color = Color(0xFFB7B9C2),
-                modifier = Modifier.align(Alignment.Start).padding(bottom = 2.dp)
-            )
+        // In a wide slot the bunk label rides inline at the left - half a bed's height has no
+        // vertical room to spend on a whole extra line. In a tall slot it sits above the name.
+        if (!row) {
+            bunkLabel?.let {
+                Text(
+                    it, fontSize = 9.sp, color = Color(0xFFB7B9C2),
+                    modifier = Modifier.align(Alignment.Start).padding(bottom = 2.dp)
+                )
+            }
         }
         if (row) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                bunkLabel?.let {
+                    Text(
+                        it, fontSize = 9.sp, color = Color(0xFFB7B9C2), maxLines = 1,
+                        modifier = Modifier.padding(end = 6.dp)
+                    )
+                }
                 Column(Modifier.weight(1f).clickable(onClick = onNameClick)) {
                     Text(last, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = nameColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(first, fontSize = 9.sp, color = RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)

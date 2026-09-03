@@ -29,50 +29,58 @@ object Roster {
     )
     val byId: Map<String, Person> = PEOPLE.associateBy { it.id }
 
-    // Bed positions transcribed from the hand-drawn sketch of the actual rooms - the sketch is the
-    // source of truth for which wall each bed sits against and whether it runs across the room or
-    // along it. Coordinates are the room INTERIOR (0-100 wide, 0-112 tall); the renderer insets
-    // this inside the walls so door boxes have room to sit outside the wall like in the sketch.
-    // Rules the sketch enforces: beds are always against a wall, beds parallel to each other are
-    // the same size, and nothing sits in front of the door.
-    private fun bed(x: Float, y: Float, w: Float, h: Float, vararg slots: String) =
-        Bed(x, y, w, h, slots.toList(), row = false)
+    // Every bed is the same twin bed - one footprint, rotated to run along whichever wall it's
+    // against. A bunk is the same footprint as a single: two mattresses stack vertically, they
+    // don't take more floor. So there is exactly one bed size in the whole app, no exceptions.
+    private const val BED_SHORT = 32f   // across the mattress
+    private const val BED_LONG = 60f    // head to foot
 
+    /** Bed standing against the left or right wall - runs up and down the room. */
+    private fun upright(x: Float, y: Float, vararg slots: String) =
+        Bed(x, y, BED_SHORT, BED_LONG, slots.toList(), row = false)
+
+    /** Bed against the top or bottom wall - runs across the room. Same bed, turned 90 degrees. */
+    private fun across(x: Float, y: Float, vararg slots: String) =
+        Bed(x, y, BED_LONG, BED_SHORT, slots.toList(), row = true)
+
+    // Positions follow the hand-drawn sketch: which wall each bed is against, and which beds are
+    // paired. Coordinates are the room INTERIOR (0-100 x 0-112); the renderer insets this inside
+    // the walls so the door box can sit outside them like the sketch draws it.
     val PLAN: List<Room> = listOf(
-        // two bunks facing each other on opposite walls, door on the bottom wall between them
+        // bunks on opposite walls, door on the bottom wall between them
         Room("r1", "Room 1", Door(DoorWall.BOTTOM, 38f), listOf(
-            bed(2f, 8f, 28f, 60f, "p2", "p1"),      // Lehr / Shlomo Altein
-            bed(70f, 8f, 28f, 60f, "p3", "p4"))),   // Piekarski / Pevzner
-        // narrow bunk on the left wall, wide bunk lying across the right of the room
+            upright(2f, 6f, "p2", "p1"),        // Lehr / Shlomo Altein
+            upright(66f, 6f, "p3", "p4"))),     // Piekarski / Pevzner
+        // bunk on the left wall, the other across the top right
         Room("r2", "Room 2", Door(DoorWall.BOTTOM, 85f), listOf(
-            bed(2f, 8f, 26f, 60f, "p8", "p5"),      // Levin / Holtzberg
-            bed(38f, 12f, 60f, 48f, "p7", "p6"))),  // Raices / Stolik
-        // wide single across the top, single down the left wall, bunk on the right wall
+            upright(2f, 6f, "p8", "p5"),        // Levin / Holtzberg
+            across(38f, 4f, "p7", "p6"))),      // Raices / Stolik
+        // single across the top, single down the left wall, bunk on the right wall
         Room("r3", "Room 3", Door(DoorWall.BOTTOM, 70f), listOf(
-            bed(2f, 6f, 58f, 26f, "p10"),           // Hirsch
-            bed(2f, 38f, 26f, 50f, "p9"),           // Heidingsfeld
-            bed(70f, 12f, 28f, 60f, "p11", "p12"))),// Wolfe / Tzfasman
-        // wide single across the top left, single top right, bunk below it on the right wall
+            across(2f, 4f, "p10"),              // Hirsch
+            upright(2f, 44f, "p9"),             // Heidingsfeld
+            upright(66f, 30f, "p11", "p12"))),  // Wolfe / Tzfasman
+        // single across the top left, single down the right wall, bunk across the bottom right
         Room("r4", "Room 4", Door(DoorWall.BOTTOM, 24f), listOf(
-            bed(2f, 6f, 56f, 26f, "p15"),           // Groner
-            bed(68f, 6f, 30f, 28f, "p14"),          // Goldstein
-            bed(68f, 38f, 30f, 56f, "p13", "p16"))),// Dovid Altein / Palace
-        // two bunks on opposite walls, door low on the left wall below them
+            across(2f, 4f, "p15"),              // Groner
+            upright(66f, 4f, "p14"),            // Goldstein
+            across(38f, 76f, "p13", "p16"))),   // Dovid Altein / Palace
+        // bunks on opposite walls, door low on the left wall below them
         Room("r5", "Room 5", Door(DoorWall.LEFT, 82f), listOf(
-            bed(2f, 6f, 28f, 60f, "p20", "p18"),    // Schwei / Browd
-            bed(70f, 6f, 28f, 60f, "p17", "p19"))), // Backman / Flint
-        // door is on the top wall, so both bunks sit low, away from it
+            upright(2f, 4f, "p20", "p18"),      // Schwei / Browd
+            upright(66f, 4f, "p17", "p19"))),   // Backman / Flint
+        // door is on the top wall, so both bunks sit low, clear of it
         Room("r6", "Room 6", Door(DoorWall.TOP, 72f), listOf(
-            bed(2f, 26f, 28f, 60f, "p22", "p21"),   // Brenenson / Belinitzki
-            bed(70f, 26f, 28f, 60f, "p23", "p24"))),// Gourarie / November
-        // two wide beds stacked on the right, door bottom-left on the opposite side
+            upright(2f, 44f, "p22", "p21"),     // Brenenson / Belinitzki
+            upright(66f, 44f, "p23", "p24"))),  // Gourarie / November
+        // two beds across the right, door bottom-left on the opposite side
         Room("r7", "Room 7", Door(DoorWall.BOTTOM, 14f), listOf(
-            bed(36f, 8f, 62f, 38f, "p26", "p27"),   // Lipkind / Fridman
-            bed(36f, 56f, 62f, 26f, "p25"))),       // Liberow
-        // wide bunk across the top, single down the right wall
+            across(38f, 4f, "p26", "p27"),      // Lipkind / Fridman
+            across(38f, 52f, "p25"))),          // Liberow
+        // bunk across the top, single down the right wall
         Room("r8", "Room 8", Door(DoorWall.BOTTOM, 16f), listOf(
-            bed(2f, 8f, 62f, 38f, "p29", "p30"),    // Fehler / Ceitlin
-            bed(70f, 24f, 28f, 52f, "p28")))        // Levitansky
+            across(2f, 4f, "p29", "p30"),       // Fehler / Ceitlin
+            upright(66f, 30f, "p28")))          // Levitansky
     )
 
     val roomOf: Map<String, Room> = buildMap {
