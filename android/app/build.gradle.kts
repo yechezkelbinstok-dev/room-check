@@ -48,6 +48,15 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // Build the version into the filename, so a downloaded APK says which one it is without
+    // having to be installed to find out - and two of them can sit in a folder together.
+    applicationVariants.all {
+        outputs.all {
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
+                "RoomCheck-$versionName.apk"
+        }
+    }
 }
 
 dependencies {
