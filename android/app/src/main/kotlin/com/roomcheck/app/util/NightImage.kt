@@ -196,7 +196,7 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
 
     private fun drawHeader(c: Canvas, dateKey: String, d: Dir) {
         c.drawText(Dates.hebrewDayMonth(dateKey), d.p(PAD), 104f, d.align(paint(64f, ink, bold = true)))
-        c.drawText(Dates.longDate(dateKey), d.p(PAD), 156f, d.align(paint(34f, sub)))
+        c.drawText(Dates.hebrewNightName(dateKey), d.p(PAD), 156f, d.align(paint(38f, sub)))
         c.drawLine(PAD, 186f, d.w - PAD, 186f, Paint().apply { color = hair; strokeWidth = 2f })
     }
 

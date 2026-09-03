@@ -92,6 +92,26 @@ object Dates {
         return "${gershayim(hebNum(day))} ${hebMonthName(monthIdx, year)} ${hebYearStr(year)}"
     }
 
+    /**
+     * What to call this night in Hebrew.
+     *
+     * A Hebrew day starts at nightfall, so the date on a night is already the next morning's -
+     * and the day of the week rolls with it, because they are the same unit. Wednesday evening is
+     * כ״א אלול, and the weekday that goes with כ״א אלול is חמישי; calling it רביעי would be reading
+     * the date by one clock and the weekday by another. Hebrew names a night for the day it leads
+     * into anyway - ליל חמישי - so nothing here is ambiguous: Thursday evening would be ליל שישי.
+     * Saturday night gets its own name, מוצאי שבת, which is simply what it is called.
+     */
+    fun hebrewNightName(key: String): String = when (parseKey(key).plusDays(1).dayOfWeek) {
+        java.time.DayOfWeek.SUNDAY -> "מוצאי שבת"
+        java.time.DayOfWeek.MONDAY -> "ליל שני"
+        java.time.DayOfWeek.TUESDAY -> "ליל שלישי"
+        java.time.DayOfWeek.WEDNESDAY -> "ליל רביעי"
+        java.time.DayOfWeek.THURSDAY -> "ליל חמישי"
+        java.time.DayOfWeek.FRIDAY -> "ליל שישי"
+        java.time.DayOfWeek.SATURDAY -> "ליל שבת"
+    }
+
     /** Day and month with no year - how the date is written at the top of a nightly report. */
     fun hebrewDayMonth(key: String): String {
         val cal = hebrewCalendarFor(parseKey(key).plusDays(1))
