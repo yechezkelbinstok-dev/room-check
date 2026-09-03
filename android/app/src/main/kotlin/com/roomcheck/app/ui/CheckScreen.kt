@@ -18,12 +18,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.roomcheck.app.data.*
+import com.roomcheck.app.util.NightImage
 
 @Composable
 fun CheckScreen(vm: AppViewModel) {
@@ -269,10 +271,12 @@ private fun RoomBlock(vm: AppViewModel, state: UiState, logic: NightLogic, room:
 @Composable
 private fun BottomBar(vm: AppViewModel, state: UiState, logic: NightLogic, review: Boolean) {
     val st = logic.stats(state.curSlot)
-    Row(
-        Modifier.fillMaxWidth().background(Color(0xF0F2F2F7)).padding(12.dp, 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    // Stacked, not one row: three buttons and the running count side by side left the count
+    // squeezed to an ellipsis. The count reads on its own line, the buttons share the next.
+    Column(
+        Modifier.fillMaxWidth().background(Color(0xF0F2F2F7)).padding(12.dp, 8.dp, 12.dp, 10.dp)
     ) {
         val label = Roster.SLOTS.first { it.first == state.curSlot }.second
         val bits = mutableListOf(if (st.out > 0) "${st.out} out" else "Nobody out")
@@ -280,23 +284,31 @@ private fun BottomBar(vm: AppViewModel, state: UiState, logic: NightLogic, revie
         if (st.exc > 0) bits.add("${st.exc} excused")
         Text(
             "$label · ${bits.joinToString(" · ")}", fontSize = 13.sp, color = RC.sub2,
-            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 2.dp, bottom = 7.dp)
         )
-        if (!review) {
-            Button(
-                onClick = { vm.closeNight() },
-                colors = ButtonDefaults.buttonColors(containerColor = RC.blue),
-                shape = RoundedCornerShape(10.dp)
-            ) { Text("Finish", fontWeight = FontWeight.Bold) }
-        }
-        val clipboard = LocalClipboardManager.current
-        Button(
-            onClick = {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (!review) {
+                BarButton(Modifier.weight(1f), "Finish", RC.blue) { vm.closeNight() }
+            }
+            BarButton(Modifier.weight(1f), "Copy text", RC.text) {
                 clipboard.setText(androidx.compose.ui.text.AnnotatedString(logic.report(state.dateKey)))
                 vm.toast("Copied")
-            },
-            colors = ButtonDefaults.buttonColors(containerColor = RC.text),
-            shape = RoundedCornerShape(10.dp)
-        ) { Text("Copy", fontWeight = FontWeight.Bold) }
+            }
+            BarButton(Modifier.weight(1f), "Send image", RC.text) {
+                NightImage.share(context, logic, state.dateKey)
+            }
+        }
     }
+}
+
+@Composable
+private fun BarButton(modifier: Modifier, label: String, color: Color, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(44.dp),
+        contentPadding = PaddingValues(4.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = color),
+        shape = RoundedCornerShape(10.dp)
+    ) { Text(label, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1) }
 }

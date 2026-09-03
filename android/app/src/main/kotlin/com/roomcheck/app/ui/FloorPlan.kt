@@ -44,14 +44,15 @@ private const val DOOR_D = 4f   // how far the three-sided door box juts out pas
  */
 private fun DrawScope.drawRoomWalls(
     door: Door,
+    roomW: Float,
     roomH: Float,
     ix: (Float) -> Float,
     iy: (Float) -> Float,
     color: Color
 ) {
-    val left = ix(0f); val right = ix(100f)
+    val left = ix(0f); val right = ix(roomW)
     val top = iy(0f); val bottom = iy(roomH)
-    val strokeWidth = 1.6f * (size.width / (100f + 2 * MARGIN))
+    val strokeWidth = 1.6f * (size.width / (roomW + 2 * MARGIN))
     val a: Float; val b: Float
     fun line(x1: Float, y1: Float, x2: Float, y2: Float) =
         drawLine(color, Offset(x1, y1), Offset(x2, y2), strokeWidth = strokeWidth, cap = StrokeCap.Square)
@@ -111,7 +112,7 @@ fun FloorPlanCanvas(
     // The canvas is the room plus a MARGIN of outside floor all round, so a door box has somewhere
     // to sit. Both axes are divided by that same total, which is what makes one unit across equal
     // one unit down: a bed turned 90 degrees then measures exactly as long as it did upright.
-    val totalW = 100f + 2 * MARGIN
+    val totalW = room.w + 2 * MARGIN
     val totalH = room.h + 2 * MARGIN
     BoxWithConstraints(
         modifier.aspectRatio(totalW / totalH).clip(RoundedCornerShape(4.dp)).background(bg)
@@ -121,6 +122,7 @@ fun FloorPlanCanvas(
         Canvas(Modifier.fillMaxSize()) {
             drawRoomWalls(
                 room.door,
+                roomW = room.w,
                 roomH = room.h,
                 ix = { v -> size.width * ((MARGIN + v) / totalW) },
                 iy = { v -> size.height * ((MARGIN + v) / totalH) },

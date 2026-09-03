@@ -73,6 +73,16 @@ class AppScreenshotTest {
         }
     }
 
+    /** The widest room - drawn to the same page width, so its cards have the least room. */
+    @Test
+    fun widestRoom() {
+        val vm = viewModel()
+        vm.jumpRoom(Roster.PLAN.indexOfFirst { it.w == Roster.PLAN.maxOf { r -> r.w } })
+        paparazzi.snapshot(name = "check-widest-room") {
+            RoomCheckTheme { CheckScreen(vm) }
+        }
+    }
+
     @Test
     fun namesScreen() {
         val vm = viewModel()

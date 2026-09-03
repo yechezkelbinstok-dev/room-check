@@ -52,34 +52,33 @@ class NightLogic(private val night: Night, private val extra: Map<String, Person
         return SlotStats(out, inC, exc, left, left < Roster.PLAN.size)
     }
 
+    /** Everyone marked out at [sid], in room order then bed order - the order you walked them. */
+    fun missingAt(sid: String): List<String> =
+        Roster.PLAN.flatMap { room -> room.beds.flatMap { it.slots } }
+            .filter { statusOf(it, sid) == Mark.OUT }
+
+    fun uncheckedAt(sid: String): List<Room> = Roster.PLAN.filter { !roomChecked(it, sid) }
+
+    /**
+     * The night as plain text to paste into a message: the Hebrew date, then each time with just
+     * the names of whoever wasn't there. Nothing else - no room labels, no counts, no totals.
+     */
     fun report(dateKey: String): String {
-        val lines = mutableListOf(Dates.hebrewDate(dateKey))
+        val lines = mutableListOf(Dates.hebrewDayMonth(dateKey))
         Roster.SIDS.forEachIndexed { i, sid ->
             lines.add("")
             lines.add(Roster.SLOTS[i].second)
-            val st = stats(sid)
-            if (!st.started) { lines.add("not done"); return@forEachIndexed }
-            var any = false
-            Roster.PLAN.forEach { room ->
-                if (!roomChecked(room, sid)) return@forEach
-                val outs = outIn(room, sid)
-                if (outs.isNotEmpty()) {
-                    any = true
-                    lines.add("${room.label}: ${outs.joinToString(", ") { nameOf(it) }}")
+            val missing = missingAt(sid)
+            lines.add(
+                when {
+                    missing.isNotEmpty() -> missing.joinToString(", ") { nameOf(it) }
+                    !stats(sid).started -> "Not checked yet"
+                    else -> "Everybody there"
                 }
-            }
-            if (!any) lines.add("Everyone in.")
-            val unchecked = Roster.PLAN.filter { !roomChecked(it, sid) }
-            if (unchecked.isNotEmpty()) lines.add("(not checked: ${unchecked.joinToString(", ") { it.label }})")
-        }
-        val done = Roster.SIDS.filter { stats(it).started }
-        if (done.size > 1) {
-            val allOut = Roster.PLAN.flatMap { room -> room.beds.flatMap { it.slots }.map { it to room } }
-                .filter { (pid, _) -> done.all { statusOf(pid, it) == Mark.OUT } }
-                .map { (pid, room) -> "${nameOf(pid)} (${room.label})" }
-            if (allOut.isNotEmpty()) {
-                lines.add("")
-                lines.add("Out all ${done.size} times: ${allOut.joinToString(", ")}")
+            )
+            val unchecked = uncheckedAt(sid)
+            if (stats(sid).started && unchecked.isNotEmpty()) {
+                lines.add("(still to check: ${unchecked.joinToString(", ") { it.label }})")
             }
         }
         return lines.joinToString("\n")

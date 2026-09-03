@@ -92,6 +92,13 @@ object Dates {
         return "${gershayim(hebNum(day))} ${hebMonthName(monthIdx, year)} ${hebYearStr(year)}"
     }
 
+    /** Day and month with no year - how the date is written at the top of a nightly report. */
+    fun hebrewDayMonth(key: String): String {
+        val cal = hebrewCalendarFor(parseKey(key).plusDays(1))
+        return "${gershayim(hebNum(cal.get(HebrewCalendar.DATE)))} " +
+            hebMonthName(cal.get(HebrewCalendar.MONTH), cal.get(HebrewCalendar.YEAR))
+    }
+
     data class HebMonth(val year: Int, val month: Int)
 
     /** The Hebrew year/month containing the night that starts on this Gregorian date. */
