@@ -332,7 +332,8 @@ const PLAN=[
 let state={night:null,dateKey:null,cur:"1115",room:0,tab:"check",who:null,mode:"one",review:false,onlyOut:false,
   ok:true,persist:true,lastSave:null,editing:false,cal:null,calHas:{},extra:{},
   /* off by default: the plan reads cleaner without them, and Names can switch them back on */
-  settings:{bunkLabels:false,hebrewOnPlan:false,hebrewInExport:false}};
+  settings:{bunkLabels:false,hebrewOnPlan:false,hebrewInExport:false,syncUrl:"",syncToken:""},
+  syncMsg:"",syncing:false,lastPull:0,dirty:[]};
 let undoStack=[];
 
 /* ---------- storage ---------- */
@@ -358,11 +359,74 @@ const store={
   }
 };
 let sT=null,saving=false;
-function save(){clearTimeout(sT);sT=setTimeout(flush,250);}
+function save(){
+  if(state.dateKey&&!state.dirty.includes(state.dateKey))state.dirty.push(state.dateKey);
+  clearTimeout(sT);sT=setTimeout(flush,250);
+  /* marking a room is a burst of taps - let it settle before telling the server */
+  if(state.settings.syncUrl){clearTimeout(pushT);pushT=setTimeout(()=>syncNow(false),4000);}
+}
+let pushT=null;
+
+/* ---------- sync ----------
+   Offline-first: this browser's own copy is the truth and every mark works with no signal. Sync
+   is reconciliation on top, never a gate in front - the check happens at 11pm in a building with
+   bad reception. Nothing is overwritten wholesale; everything goes through mergeNights. */
+async function syncPost(path,body){
+  const base=state.settings.syncUrl.replace(/\/+$/,"");
+  const r=await fetch(base+path,{method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":"Bearer "+state.settings.syncToken},
+    body:JSON.stringify(body)});
+  if(r.status===401)throw new Error("Wrong sync password");
+  if(!r.ok)throw new Error("Server said "+r.status);
+  return r.json();
+}
+async function adoptNight(date,remote){
+  /* The open night lives in memory and may be ahead of storage, so merge against THAT. Reading
+     the stored copy instead loses whatever was marked in the last few hundred milliseconds. */
+  let local=null;
+  if(date===state.dateKey){ local=state.night; }
+  else { const raw=await store.get(NPRE+date); if(raw){try{local=norm(JSON.parse(raw));}catch(e){}} }
+  const merged=mergeNights(local,norm(remote));
+  const before=JSON.stringify(local||blank()), after=JSON.stringify(merged);
+  if(before===after)return false;
+  await store.set(NPRE+date,JSON.stringify(merged));
+  if(date===state.dateKey)state.night=merged;   /* the open night has to redraw with what arrived */
+  return true;
+}
+async function syncNow(loud){
+  if(!state.settings.syncUrl){if(loud)toast("No sync address set");return;}
+  if(state.syncing)return;
+  /* writes are debounced, so flush before reading anything back off storage to send - otherwise
+     the push is of a night that does not yet contain what was just marked */
+  await flush();
+  if(state.syncing)return;
+  state.syncing=true; state.syncMsg="Syncing…"; if(loud)render();
+  try{
+    let changed=0;
+    if(state.dirty.length){
+      const nights={};
+      for(const d of state.dirty){const raw=await store.get(NPRE+d); if(raw){try{nights[d]=JSON.parse(raw);}catch(e){}}}
+      const res=await syncPost("/push",{nights});
+      for(const [date,n] of Object.entries(res.nights||{}))if(await adoptNight(date,n))changed++;
+      state.dirty=[];
+    }
+    const res=await syncPost("/pull",{since:state.lastPull||0});
+    for(const [date,n] of Object.entries(res.nights||{}))if(await adoptNight(date,n))changed++;
+    state.lastPull=res.now||state.lastPull;
+    state.syncMsg="Last synced "+new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}).toLowerCase();
+    state.syncing=false;
+    await flush();
+    if(changed)render();
+    if(loud)toast(changed?("Synced · "+changed+" night"+(changed===1?"":"s")+" updated"):"Synced");
+  }catch(e){
+    state.syncing=false; state.syncMsg=e.message||"Could not reach the server";
+    if(loud){toast(state.syncMsg);render();}
+  }
+}
 async function flush(){
   clearTimeout(sT); if(saving)return; saving=true;
   try{
-    await store.set(RKEY,JSON.stringify({extra:state.extra,mode:state.mode,settings:state.settings}));
+    await store.set(RKEY,JSON.stringify({extra:state.extra,mode:state.mode,settings:state.settings,lastPull:state.lastPull,dirty:state.dirty}));
     await store.set(NPRE+state.dateKey,JSON.stringify(state.night));
     await store.set(MKEY,JSON.stringify({at:Date.now(),date:state.dateKey,night:state.night,extra:state.extra}));
     state.lastSave=new Date();
@@ -448,19 +512,70 @@ const roomName=r=>state.settings.hebrewOnPlan?r.heb:r.label;
 const isAlways=pid=>!!(state.extra[pid]&&state.extra[pid].always);
 
 function blank(){const n={marks:{},tonight:[],notes:{},closed:false};SIDS.forEach(s=>n.marks[s]={});return n;}
+/* ---------- merging two devices' copies ----------
+   The same rule as the app's Merge.kt and the sync server's merge.js, pinned to the same cases in
+   server/fixtures.json. A night carries a timestamp per CELL, so two people marking different
+   rooms at the same moment both keep their marks; whole-night last-write-wins would erase one. */
+const markKey=(sid,pid)=>"m:"+sid+":"+pid, excKey=pid=>"t:"+pid, noteKey=pid=>"n:"+pid, CLOSED_KEY="c";
+function touch(key,at){ state.night.ts=state.night.ts||{}; state.night.ts[key]=at||Date.now(); }
+function cellKeys(n){
+  const out=new Set();
+  for(const sid of Object.keys(n.marks||{}))for(const pid of Object.keys(n.marks[sid]||{}))out.add(markKey(sid,pid));
+  for(const pid of n.tonight||[])out.add(excKey(pid));
+  for(const pid of Object.keys(n.notes||{}))out.add(noteKey(pid));
+  out.add(CLOSED_KEY);
+  for(const k of Object.keys(n.ts||{}))out.add(k);
+  return out;
+}
+function cellValue(n,key){
+  if(key===CLOSED_KEY)return n.closed?"1":null;
+  if(key.startsWith("m:")){const i=key.indexOf(":",2);const sid=key.slice(2,i),pid=key.slice(i+1);
+    return (n.marks&&n.marks[sid]&&n.marks[sid][pid])||null;}
+  if(key.startsWith("t:"))return (n.tonight||[]).includes(key.slice(2))?"1":null;
+  if(key.startsWith("n:"))return (n.notes||{})[key.slice(2)]??null;
+  return null;
+}
+function cellSet(n,key,v){
+  if(key===CLOSED_KEY){n.closed=v!==null;return;}
+  if(key.startsWith("m:")){const i=key.indexOf(":",2);const sid=key.slice(2,i),pid=key.slice(i+1);
+    n.marks[sid]=n.marks[sid]||{}; if(v===null)delete n.marks[sid][pid]; else n.marks[sid][pid]=v; return;}
+  if(key.startsWith("t:")){const pid=key.slice(2),at=n.tonight.indexOf(pid);
+    if(v!==null&&at<0)n.tonight.push(pid); if(v===null&&at>=0)n.tonight.splice(at,1); return;}
+  if(key.startsWith("n:")){const pid=key.slice(2); if(v===null||v==="")delete n.notes[pid]; else n.notes[pid]=v;}
+}
+function mergeNights(local,remote){
+  const L=local||blank(), R=remote||blank();
+  const out={marks:{},tonight:[],notes:{},closed:false,ts:{}};
+  for(const key of [...new Set([...cellKeys(L),...cellKeys(R)])].sort()){
+    const lt=(L.ts||{})[key]||0, rt=(R.ts||{})[key]||0;
+    const lv=cellValue(L,key), rv=cellValue(R,key);
+    const takeRemote = lt!==rt ? rt>lt : (rv||"")>(lv||"");
+    const v = takeRemote?rv:lv;
+    cellSet(out,key,v);
+    const stamp=Math.max(lt,rt);
+    if(stamp>0||v!==null)out.ts[key]=stamp;
+  }
+  for(const sid of Object.keys(out.marks))if(!Object.keys(out.marks[sid]).length)delete out.marks[sid];
+  out.tonight.sort();
+  return out;
+}
+
 function norm(n){
   const b=blank(); if(!n||typeof n!=="object")return b;
   b.tonight=Array.isArray(n.tonight)?n.tonight:[];
   b.notes=(n.notes&&typeof n.notes==="object")?n.notes:{};
   b.closed=!!n.closed;
   SIDS.forEach(s=>{const m=(n.marks&&n.marks[s])||{};b.marks[s]=(m&&typeof m==="object")?{...m}:{};});
+  /* a slot the app does not currently list - a custom time - still has to survive a load */
+  if(n.marks)for(const s of Object.keys(n.marks))if(!b.marks[s])b.marks[s]={...n.marks[s]};
+  b.ts=(n.ts&&typeof n.ts==="object")?{...n.ts}:{};
   return b;
 }
 async function loadNight(k){
   const raw=await store.get(NPRE+k); let p=null;
   if(raw){try{p=JSON.parse(raw);}catch(e){}}
   state.dateKey=k; state.night=norm(p); undoStack=[]; state.editing=false; state.review=false;
-  if(k!==tonightKey()&&!state.night.closed){state.night.closed=true;save();}
+  if(k!==tonightKey()&&!state.night.closed){state.night.closed=true;touch(CLOSED_KEY);save();}
 }
 function statusOf(pid,sid){
   if(isAlways(pid))return "exc";
@@ -498,6 +613,7 @@ function snap(){undoStack.push(JSON.parse(JSON.stringify(state.night)));if(undoS
 function setMark(pid,sid,v){
   snap(); const m=state.night.marks[sid];
   if(m[pid]===v)delete m[pid]; else m[pid]=v;
+  touch(markKey(sid,pid));
   save();
 }
 function markRoom(room,sid){
@@ -506,6 +622,7 @@ function markRoom(room,sid){
   room.beds.forEach(b=>b.slots.forEach(pid=>{
     if(statusOf(pid,sid)==="exc")return;
     if(all)delete m[pid]; else m[pid]="in";
+    touch(markKey(sid,pid));
   }));
   save();
 }
@@ -742,6 +859,13 @@ function settingsScreen(){
     </div>
     <h2>Plan</h2>
     <div class="blk">${sw("bunkLabels","Bunk labels")}</div>
+    <h2>Sync</h2>
+    <div class="blk">
+      <div class="li"><input id="syncurl" value="${esc(state.settings.syncUrl)}" placeholder="Server address (https://…)" data-a="syncurl"></div>
+      <div class="li"><input id="synctok" value="${esc(state.settings.syncToken)}" placeholder="Sync password" data-a="synctok"></div>
+      <button class="li" data-a="syncnow"><span class="a lnk">Sync now</span>
+        <span class="z">${esc(state.settings.syncUrl?(state.syncMsg||"Ready"):"Not set up")}</span></button>
+    </div>
     <h2>Roster</h2>
     <div class="blk">
       <button class="li" data-a="tab" data-t="names"><span class="a lnk">Names &amp; rooms</span></button>
@@ -921,7 +1045,7 @@ document.addEventListener("click",async e=>{
   if(a==="onlyout"){state.onlyOut=t.dataset.v==="1";render();return;}
   if(a==="closenight"){
     if(!confirm("Close tonight? It becomes a read-only record — you can still reopen it with Edit."))return;
-    state.night.closed=true;state.editing=false;state.review=false;
+    state.night.closed=true;touch(CLOSED_KEY);state.editing=false;state.review=false;
     save();render();window.scrollTo(0,0);toast("Closed for tonight");return;}
   if(a==="day"){await flush();await loadNight(shiftDate(state.dateKey,+t.dataset.d));render();return;}
   if(a==="today"){await flush();await loadNight(tonightKey());render();return;}
@@ -937,10 +1061,12 @@ document.addEventListener("click",async e=>{
   if(a==="editp"){editPerson(t.dataset.p);return;}
   if(a==="wset"){setMark(state.who,t.dataset.s,t.dataset.v);openWho(state.who);render();return;}
   if(a==="set"){if(t.disabled)return;const k=t.dataset.k;state.settings[k]=!state.settings[k];save();render();return;}
+  if(a==="syncnow"){syncNow(true);return;}
   if(a==="exctn"){const pid=state.who;snap();
     const i=state.night.tonight.indexOf(pid);
     if(i>=0)state.night.tonight.splice(i,1);
-    else{state.night.tonight.push(pid);SIDS.forEach(s=>delete state.night.marks[s][pid]);}
+    else{state.night.tonight.push(pid);SIDS.forEach(s=>{delete state.night.marks[s][pid];touch(markKey(s,pid));});}
+    touch(excKey(pid));
     save();openWho(pid);render();return;}
   if(a==="excalways"){const pid=state.who;
     state.extra[pid]=state.extra[pid]||{};
@@ -976,21 +1102,25 @@ document.addEventListener("click",async e=>{
     if(!d.nights&&!d.extra){toast("Not a backup");return;}
     state.extra=d.extra||{};
     if(d.nights)for(const k of Object.keys(d.nights))await store.set(k,d.nights[k]);
-    await store.set(RKEY,JSON.stringify({extra:state.extra,mode:state.mode,settings:state.settings}));
+    await store.set(RKEY,JSON.stringify({extra:state.extra,mode:state.mode,settings:state.settings,lastPull:state.lastPull,dirty:state.dirty}));
     await loadNight(state.dateKey);closePop();render();toast("Restored");return;}
 });
 document.getElementById("scrim").addEventListener("click",closePop);
 
 document.addEventListener("input",e=>{
   const t=e.target.closest("[data-a]"); if(!t)return;
-  const a=t.dataset.a, pid=state.who; if(!pid)return;
-  if(a==="note"){if(t.value.trim())state.night.notes[pid]=t.value;else delete state.night.notes[pid];save();return;}
+  const a=t.dataset.a, pid=state.who;
+  /* the sync fields belong to no person, so they are handled before the person guard below */
+  if(a==="syncurl"){state.settings.syncUrl=t.value.trim();save();return;}
+  if(a==="synctok"){state.settings.syncToken=t.value.trim();save();return;}
+  if(!pid)return;
+  if(a==="note"){if(t.value.trim())state.night.notes[pid]=t.value;else delete state.night.notes[pid];touch(noteKey(pid));save();return;}
   if(a==="first"||a==="last"){state.extra[pid]=state.extra[pid]||{};state.extra[pid][a]=t.value;save();return;}
   if(a==="reason"){state.extra[pid]=state.extra[pid]||{};state.extra[pid].reason=t.value;save();return;}
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.6.1";
+const APP_VERSION="1.7.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
@@ -1063,11 +1193,15 @@ async function boot(){
   if(!raw){const m=await store.get(MKEY);
     if(m){try{const d=JSON.parse(m);if(d.extra)raw=JSON.stringify({extra:d.extra});}catch(e){}}}
   if(raw){try{const d=JSON.parse(raw);state.extra=d.extra||{};if(d.mode)state.mode=d.mode;
-    if(d.settings)state.settings={...state.settings,...d.settings};}catch(e){state.extra={};}}
+    if(d.settings)state.settings={...state.settings,...d.settings};
+    state.lastPull=d.lastPull||0; state.dirty=Array.isArray(d.dirty)?d.dirty:[];}catch(e){state.extra={};}}
   await loadNight(tonightKey());
   const d=new Date(), mn=d.getHours()*60+d.getMinutes();
   state.cur=(mn>=23*60+55||mn<6*60)?"1200":(mn>=23*60+25)?"1130":"1115";
   render(); flush();
+  /* a check written on the phone an hour ago should be here on open, unasked */
+  syncNow(false);
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")syncNow(false);});
 }
 knownDevice()?boot():gate();
 </script>

@@ -29,6 +29,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Sync whenever the app comes to the front. A check written on the website an hour ago
+        // should be on the phone by the time it is opened, without anyone pressing anything.
+        lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
+            override fun onStart(owner: androidx.lifecycle.LifecycleOwner) { vm.syncNow() }
+        })
         setContent {
             RoomCheckTheme {
                 val state by vm.state.collectAsState()

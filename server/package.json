@@ -1,0 +1,9 @@
+{
+  "name": "room-check-sync",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node merge.test.mjs && node worker.test.mjs",
+    "deploy": "wrangler deploy"
+  }
+}

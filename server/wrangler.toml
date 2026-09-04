@@ -1,0 +1,10 @@
+name = "room-check-sync"
+main = "worker.js"
+compatibility_date = "2024-09-01"
+
+# `wrangler kv namespace create NIGHTS` prints this id.
+[[kv_namespaces]]
+binding = "NIGHTS"
+id = "PUT_THE_KV_ID_HERE"
+
+# SYNC_TOKEN is set with `wrangler secret put SYNC_TOKEN`, never written in this file.

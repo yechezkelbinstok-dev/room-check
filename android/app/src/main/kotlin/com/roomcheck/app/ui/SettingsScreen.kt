@@ -15,7 +15,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.roomcheck.app.BuildConfig
 import com.roomcheck.app.data.AppViewModel
+import com.roomcheck.app.data.SyncState
 import com.roomcheck.app.data.Tab
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Everything that is a preference rather than a night: which language the names are in, what the
@@ -59,6 +63,38 @@ fun SettingsScreen(vm: AppViewModel) {
                 Card {
                     SettingRow("Bunk labels", state.settings.bunkLabels) { on ->
                         vm.setSettings { it.copy(bunkLabels = on) }
+                    }
+                }
+            }
+            item { SectionHeader("Sync") }
+            item {
+                Card {
+                    var url by remember(state.settings.syncUrl) { mutableStateOf(state.settings.syncUrl) }
+                    var token by remember(state.settings.syncToken) { mutableStateOf(state.settings.syncToken) }
+                    OutlinedTextField(
+                        value = url, onValueChange = { url = it },
+                        label = { Text("Server address") }, singleLine = true,
+                        placeholder = { Text("https://…") },
+                        modifier = Modifier.fillMaxWidth().padding(14.dp, 12.dp, 14.dp, 4.dp)
+                    )
+                    OutlinedTextField(
+                        value = token, onValueChange = { token = it },
+                        label = { Text("Sync password") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth().padding(14.dp, 4.dp, 14.dp, 8.dp)
+                    )
+                    Row(Modifier.fillMaxWidth().padding(14.dp, 0.dp, 14.dp, 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = {
+                            vm.setSettings { it.copy(syncUrl = url.trim(), syncToken = token.trim()) }
+                            vm.syncNow(loud = true)
+                        }) { Text("Save & sync") }
+                    }
+                    HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
+                    Row(
+                        Modifier.fillMaxWidth().clickable { vm.syncNow(loud = true) }.padding(14.dp, 13.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Sync now", color = RC.blue, fontWeight = FontWeight.SemiBold)
+                        Text(syncLine(state.sync, state.settings.syncUrl), fontSize = 12.5.sp, color = RC.sub)
                     }
                 }
             }
@@ -112,4 +148,13 @@ fun SettingsScreen(vm: AppViewModel) {
             onClose = { showImport = false }
         )
     }
+}
+
+/** One line of plain state under Sync now - what happened, not how it works. */
+private fun syncLine(state: SyncState, url: String): String = when {
+    url.isBlank() -> "Not set up"
+    state is SyncState.Working -> "Syncing…"
+    state is SyncState.Ok -> "Last synced " + SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(state.at)).lowercase()
+    state is SyncState.Failed -> state.reason
+    else -> "Ready"
 }

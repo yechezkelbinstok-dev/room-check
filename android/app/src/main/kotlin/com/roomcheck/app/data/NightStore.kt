@@ -8,18 +8,24 @@ import java.io.File
 enum class Mark { IN, OUT, EXC }
 
 data class Night(
-    val marks: MutableMap<String, MutableMap<String, Mark>> = Roster.SIDS.associateWith { mutableMapOf<String, Mark>() }.toMutableMap(),
+    val marks: MutableMap<String, MutableMap<String, Mark>> = mutableMapOf(),
     val excusedTonight: MutableSet<String> = mutableSetOf(),
     val notes: MutableMap<String, String> = mutableMapOf(),
-    var closed: Boolean = false
+    var closed: Boolean = false,
+    /** When each cell was last set, so two devices' copies can be merged cell by cell. */
+    val stamps: MutableMap<String, Long> = mutableMapOf()
 ) {
+    /** Records that a cell just changed. Every edit goes through here or it will not sync. */
+    fun touch(key: String, at: Long = System.currentTimeMillis()) { stamps[key] = at }
+
     fun toJson(): JSONObject {
         val o = JSONObject()
         val marksObj = JSONObject()
-        Roster.SIDS.forEach { sid ->
-            val slot = JSONObject()
-            marks[sid]?.forEach { (pid, mark) -> slot.put(pid, mark.name.lowercase()) }
-            marksObj.put(sid, slot)
+        // the night's own slots, not a fixed three: a custom time has to survive being saved
+        marks.forEach { (sid, slot) ->
+            val obj = JSONObject()
+            slot.forEach { (pid, mark) -> obj.put(pid, mark.name.lowercase()) }
+            marksObj.put(sid, obj)
         }
         o.put("marks", marksObj)
         o.put("tonight", JSONArray(excusedTonight.toList()))
@@ -27,18 +33,26 @@ data class Night(
         notes.forEach { (pid, note) -> notesObj.put(pid, note) }
         o.put("notes", notesObj)
         o.put("closed", closed)
+        val stampObj = JSONObject()
+        stamps.forEach { (k, v) -> stampObj.put(k, v) }
+        o.put("ts", stampObj)
         return o
     }
 
     companion object {
-        fun fromJson(json: JSONObject?): Night {
+        /**
+         * [fallbackStamp] dates cells in a night saved before timestamps existed - the file's own
+         * mtime, which is roughly when those marks were made. Without it they would all read as
+         * "never set" and the first sync from any other device would wipe them.
+         */
+        fun fromJson(json: JSONObject?, fallbackStamp: Long = 0L): Night {
             val n = Night()
             if (json == null) return n
             val marksObj = json.optJSONObject("marks")
-            Roster.SIDS.forEach { sid ->
-                val slot = marksObj?.optJSONObject(sid)
+            marksObj?.keys()?.forEach { sid ->
+                val slot = marksObj.optJSONObject(sid) ?: return@forEach
                 val map = mutableMapOf<String, Mark>()
-                slot?.keys()?.forEach { pid ->
+                slot.keys().forEach { pid ->
                     when (slot.optString(pid)) {
                         "in" -> map[pid] = Mark.IN
                         "out" -> map[pid] = Mark.OUT
@@ -52,6 +66,16 @@ data class Night(
             val notesObj = json.optJSONObject("notes")
             notesObj?.keys()?.forEach { pid -> n.notes[pid] = notesObj.optString(pid) }
             n.closed = json.optBoolean("closed", false)
+
+            val stampObj = json.optJSONObject("ts")
+            if (stampObj != null) {
+                stampObj.keys().forEach { k -> n.stamps[k] = stampObj.optLong(k) }
+            } else if (fallbackStamp > 0L) {
+                n.marks.forEach { (sid, slot) -> slot.keys.forEach { n.stamps[Merge.markKey(sid, it)] = fallbackStamp } }
+                n.excusedTonight.forEach { n.stamps[Merge.tonightKey(it)] = fallbackStamp }
+                n.notes.keys.forEach { n.stamps[Merge.noteKey(it)] = fallbackStamp }
+                if (n.closed) n.stamps[Merge.CLOSED_KEY] = fallbackStamp
+            }
             return n
         }
     }
@@ -69,7 +93,10 @@ data class Settings(
     /** Hebrew names on the floor plan you tap through. */
     val hebrewOnPlan: Boolean = false,
     /** Hebrew names in the sent picture. Separate on purpose: you may want one and not the other. */
-    val hebrewInExport: Boolean = false
+    val hebrewInExport: Boolean = false,
+    /** Where the shared copy lives. Blank means this device keeps to itself, as it always did. */
+    val syncUrl: String = "",
+    val syncToken: String = ""
 )
 
 private fun JSONObject.optStringOrNull(key: String): String? = if (has(key)) getString(key) else null
@@ -91,6 +118,16 @@ class NightStore(home: File) {
 
     var settings: Settings = Settings()
 
+    /** How far through the server's changes this device has read. */
+    var lastPull: Long = 0L
+
+    // Nights edited here since the last successful push. Kept on disk because the edit may have
+    // happened on a bus with no signal and the app may be killed before it ever gets one.
+    private val dirty = mutableSetOf<String>()
+
+    fun dirtyDates(): Set<String> = dirty.toSet()
+    fun clearDirty(done: Set<String>) { dirty.removeAll(done); saveState() }
+
     init { loadState() }
 
     private fun loadState() {
@@ -102,8 +139,14 @@ class NightStore(home: File) {
                     settings = Settings(
                         bunkLabels = it.optBoolean("bunkLabels", false),
                         hebrewOnPlan = it.optBoolean("hebrewOnPlan", false),
-                        hebrewInExport = it.optBoolean("hebrewInExport", false)
+                        hebrewInExport = it.optBoolean("hebrewInExport", false),
+                        syncUrl = it.optString("syncUrl", ""),
+                        syncToken = it.optString("syncToken", "")
                     )
+                }
+                lastPull = root.optLong("lastPull", 0L)
+                root.optJSONArray("dirty")?.let { arr ->
+                    for (i in 0 until arr.length()) dirty.add(arr.getString(i))
                 }
                 val extraObj = root.optJSONObject("extra")
                 extraObj?.keys()?.forEach { pid ->
@@ -134,7 +177,11 @@ class NightStore(home: File) {
         root.put("settings", JSONObject()
             .put("bunkLabels", settings.bunkLabels)
             .put("hebrewOnPlan", settings.hebrewOnPlan)
-            .put("hebrewInExport", settings.hebrewInExport))
+            .put("hebrewInExport", settings.hebrewInExport)
+            .put("syncUrl", settings.syncUrl)
+            .put("syncToken", settings.syncToken))
+        root.put("lastPull", lastPull)
+        root.put("dirty", JSONArray(dirty.toList()))
         stateFile.writeText(root.toString())
     }
 
@@ -143,11 +190,18 @@ class NightStore(home: File) {
     fun load(dateKey: String): Night {
         val f = fileFor(dateKey)
         if (!f.exists()) return Night()
-        return runCatching { Night.fromJson(JSONObject(f.readText())) }.getOrElse { Night() }
+        // a night written before timestamps existed is dated by its file, not by zero
+        return runCatching { Night.fromJson(JSONObject(f.readText()), f.lastModified()) }.getOrElse { Night() }
     }
 
     fun save(dateKey: String, night: Night) {
         fileFor(dateKey).writeText(night.toJson().toString())
+    }
+
+    /** Saves a local edit and remembers the night still owes the server a push. */
+    fun saveLocal(dateKey: String, night: Night) {
+        save(dateKey, night)
+        if (dirty.add(dateKey)) saveState()
     }
 
     fun hasData(dateKey: String): Boolean = fileFor(dateKey).exists()

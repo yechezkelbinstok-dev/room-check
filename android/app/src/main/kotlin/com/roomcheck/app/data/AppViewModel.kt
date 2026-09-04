@@ -1,6 +1,8 @@
 package com.roomcheck.app.data
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,11 +24,14 @@ data class UiState(
     val editing: Boolean = false,
     val onlyOut: Boolean = false,
     val rev: Int = 0,
+    val sync: SyncState = SyncState.Off,
     val toast: String? = null
 )
 
 class AppViewModel(private val store: NightStore) : ViewModel() {
     private val undoStack = ArrayDeque<Night>()
+    private val syncClient = SyncClient(store)
+    private var syncing = false
 
     private fun deepCopy(n: Night): Night = Night.fromJson(n.toJson())
 
@@ -58,6 +63,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         val n = store.load(key)
         if (key != Dates.tonightKey() && !n.closed) {
             n.closed = true
+            n.touch(Merge.CLOSED_KEY)
             store.save(key, n)
         }
         return n
@@ -74,7 +80,20 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
 
     private fun snap() { undoStack.addLast(deepCopy(_state.value.night)); if (undoStack.size > 40) undoStack.removeFirst() }
 
-    private fun persist(s: UiState) { store.save(s.dateKey, s.night) }
+    private var pushJob: kotlinx.coroutines.Job? = null
+
+    private fun persist(s: UiState) {
+        store.saveLocal(s.dateKey, s.night)
+        // Marking a room is a burst of taps. Wait for it to settle rather than firing a request
+        // per tap; the marks are already safely on disk, this is only about sharing them.
+        if (store.settings.syncUrl.isNotBlank()) {
+            pushJob?.cancel()
+            pushJob = viewModelScope.launch {
+                kotlinx.coroutines.delay(4000)
+                syncNow()
+            }
+        }
+    }
 
     fun isLocked(s: UiState = _state.value): Boolean {
         if (s.editing) return false
@@ -90,6 +109,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
             val marks = s.night.marks[sid] ?: mutableMapOf()
             if (marks[pid] == value) marks.remove(pid) else marks[pid] = value
             s.night.marks[sid] = marks
+            s.night.touch(Merge.markKey(sid, pid))
             persist(s); s
         }
     }
@@ -102,6 +122,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
             room.beds.flatMap { it.slots }.forEach { pid ->
                 if (logic(s).statusOf(pid, sid) == Mark.EXC) return@forEach
                 if (all) marks.remove(pid) else marks[pid] = Mark.IN
+                s.night.touch(Merge.markKey(sid, pid))
             }
             s.night.marks[sid] = marks
             persist(s); s
@@ -130,7 +151,11 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         s.copy(settings = store.settings)
     }
 
-    fun closeNight() = update { s -> s.night.closed = true; persist(s); s.copy(editing = false, reviewing = false) }
+    fun closeNight() = update { s ->
+        s.night.closed = true
+        s.night.touch(Merge.CLOSED_KEY)
+        persist(s); s.copy(editing = false, reviewing = false)
+    }
 
     fun goToDate(key: String) {
         undoStack.clear()
@@ -143,7 +168,11 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         snap()
         update { s ->
             if (s.night.excusedTonight.contains(pid)) s.night.excusedTonight.remove(pid)
-            else { s.night.excusedTonight.add(pid); Roster.SIDS.forEach { s.night.marks[it]?.remove(pid) } }
+            else {
+                s.night.excusedTonight.add(pid)
+                Roster.SIDS.forEach { s.night.marks[it]?.remove(pid); s.night.touch(Merge.markKey(it, pid)) }
+            }
+            s.night.touch(Merge.tonightKey(pid))
             persist(s); s
         }
     }
@@ -165,6 +194,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
     fun setNote(pid: String, note: String) {
         update { s ->
             if (note.isBlank()) s.night.notes.remove(pid) else s.night.notes[pid] = note
+            s.night.touch(Merge.noteKey(pid))
             persist(s); s
         }
     }
@@ -182,6 +212,36 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         ov.last = last.ifBlank { null }
         store.saveState()
         update { it.copy(extra = store.extra.toMap()) }
+    }
+
+    /**
+     * Runs a sync if one is configured. Silent by default: it happens on opening the app and after
+     * a change, and a failure there is not worth a popup - the marks are safe on this device
+     * either way. [loud] is for the Sync now row, where you asked and want to be told.
+     */
+    fun syncNow(loud: Boolean = false) {
+        if (store.settings.syncUrl.isBlank()) { if (loud) toast("No sync address set"); return }
+        if (syncing) return
+        syncing = true
+        update { it.copy(sync = SyncState.Working) }
+        viewModelScope.launch {
+            val result = runCatching { syncClient.sync() }
+            syncing = false
+            result.onSuccess { changed ->
+                update { s ->
+                    s.copy(
+                        sync = SyncState.Ok(System.currentTimeMillis(), changed),
+                        // a night that changed under us has to be re-read, or the screen keeps
+                        // showing what it had before the other device's marks arrived
+                        night = if (changed > 0) store.load(s.dateKey) else s.night
+                    )
+                }
+                if (loud) toast(if (changed > 0) "Synced · $changed night${if (changed == 1) "" else "s"} updated" else "Synced")
+            }.onFailure { e ->
+                update { it.copy(sync = SyncState.Failed(e.message ?: "Could not reach the server")) }
+                if (loud) toast(e.message ?: "Could not sync")
+            }
+        }
     }
 
     fun exportBackup(): String = store.exportBackup()

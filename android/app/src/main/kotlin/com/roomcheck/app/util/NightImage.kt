@@ -230,12 +230,16 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
         val colW = (d.w - 2 * PAD - GAP) / 2f
         val colX = floatArrayOf(PAD, PAD + colW + GAP)
 
-        c.drawRect(0f, startY, d.w, startY + BAND_H, Paint().apply { color = panel })
+        // No grey slab across the page: the times are a column heading, so they read as one -
+        // small, faint, over a rule the width of their own column. A filled band drew the eye to
+        // the furniture instead of to the sheet.
+        val rule = Paint().apply { color = hair; strokeWidth = 2.5f }
         colX.forEach { x ->
             Roster.SLOTS.forEachIndexed { i, (_, label) ->
-                val p = paint(28f, sub, bold = true).apply { textAlign = Paint.Align.CENTER }
-                c.drawText(label, d.p(x + colW - (2.5f - i) * COL_W), startY + 48f, p)
+                val p = paint(27f, faint, bold = true).apply { textAlign = Paint.Align.CENTER }
+                c.drawText(label, d.p(x + colW - (2.5f - i) * COL_W), startY + 40f, p)
             }
+            c.drawLine(d.p(x), startY + BAND_H - 14f, d.p(x + colW), startY + BAND_H - 14f, rule)
         }
 
         // Mirroring puts the first group of rooms in the right-hand column on its own.
