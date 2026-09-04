@@ -24,7 +24,7 @@ class MergeFixturesTest {
 
     @Test
     fun kotlinAgreesWithTheSharedFixtures() {
-        val text = javaClass.classLoader!!.getResourceAsStream("merge-fixtures.json")!!
+        val text = javaClass.classLoader!!.getResourceAsStream("fixtures.json")!!
             .bufferedReader().readText()
         val cases = JSONObject(text).getJSONArray("cases")
         for (i in 0 until cases.length()) {

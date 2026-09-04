@@ -120,11 +120,13 @@ class AppScreenshotTest {
         }
     }
 
-    /** The Times page, with a custom round added and the sheet narrowed to two. */
+    /** Tonight's rounds, with an extra one added and the picture narrowed to two. */
     @Test
     fun timesScreen() {
         val vm = viewModel()
-        vm.setSettings { it.copy(customSlots = listOf("0130"), sheetSlots = listOf("1200", "0130")) }
+        vm.addRoundTonight("0130")
+        vm.toggleSheetSlot("1115")
+        vm.toggleSheetSlot("1130")
         paparazzi.snapshot(name = "times") {
             RoomCheckTheme { TimesScreen(vm) }
         }
@@ -134,7 +136,7 @@ class AppScreenshotTest {
     @Test
     fun fourRounds() {
         val vm = viewModel()
-        vm.setSettings { it.copy(customSlots = listOf("0130")) }
+        vm.addRoundTonight("0130")
         paparazzi.snapshot(name = "check-four-rounds") {
             RoomCheckTheme { CheckScreen(vm) }
         }

@@ -67,18 +67,6 @@ fun SettingsScreen(vm: AppViewModel) {
                     }
                 }
             }
-            item { SectionHeader("Times") }
-            item {
-                Card {
-                    Row(
-                        Modifier.fillMaxWidth().clickable { vm.setTab(Tab.TIMES) }.padding(14.dp, 13.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Rounds & what goes on the sheet", color = RC.blue, fontWeight = FontWeight.SemiBold)
-                        Text(Slots.all(state.settings).joinToString(" · ") { it.label }, fontSize = 12.5.sp, color = RC.sub)
-                    }
-                }
-            }
             item { SectionHeader("Sync") }
             item {
                 Card {

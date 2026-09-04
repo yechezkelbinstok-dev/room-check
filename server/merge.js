@@ -5,9 +5,15 @@
 export function markKey(sid, pid) { return "m:" + sid + ":" + pid; }
 export function tonightKey(pid) { return "t:" + pid; }
 export function noteKey(pid) { return "n:" + pid; }
+/** An extra round walked on this night only. */
+export function slotKey(sid) { return "s:" + sid; }
+/** This round goes on this night's picture. */
+export function sheetKey(sid) { return "h:" + sid; }
 export const CLOSED_KEY = "c";
 
-function emptyNight() { return { marks: {}, tonight: [], notes: {}, closed: false, ts: {} }; }
+function emptyNight() {
+  return { marks: {}, tonight: [], notes: {}, closed: false, slots: [], sheet: [], ts: {} };
+}
 
 /** Every cell either side knows anything about. */
 function keysOf(n) {
@@ -16,6 +22,8 @@ function keysOf(n) {
     for (const pid of Object.keys(n.marks[sid] || {})) out.add(markKey(sid, pid));
   for (const pid of n.tonight || []) out.add(tonightKey(pid));
   for (const pid of Object.keys(n.notes || {})) out.add(noteKey(pid));
+  for (const sid of n.slots || []) out.add(slotKey(sid));
+  for (const sid of n.sheet || []) out.add(sheetKey(sid));
   out.add(CLOSED_KEY);
   for (const k of Object.keys(n.ts || {})) out.add(k);
   return out;
@@ -31,6 +39,8 @@ export function valueOf(n, key) {
   }
   if (key.startsWith("t:")) return (n.tonight || []).includes(key.slice(2)) ? "1" : null;
   if (key.startsWith("n:")) return (n.notes || {})[key.slice(2)] ?? null;
+  if (key.startsWith("s:")) return (n.slots || []).includes(key.slice(2)) ? "1" : null;
+  if (key.startsWith("h:")) return (n.sheet || []).includes(key.slice(2)) ? "1" : null;
   return null;
 }
 
@@ -53,6 +63,13 @@ export function setValue(n, key, value) {
   if (key.startsWith("n:")) {
     const pid = key.slice(2);
     if (value === null || value === "") delete n.notes[pid]; else n.notes[pid] = value;
+    return;
+  }
+  if (key.startsWith("s:") || key.startsWith("h:")) {
+    const list = key.startsWith("s:") ? n.slots : n.sheet;
+    const sid = key.slice(2), at = list.indexOf(sid);
+    if (value !== null && at < 0) list.push(sid);
+    if (value === null && at >= 0) list.splice(at, 1);
   }
 }
 
@@ -77,6 +94,6 @@ export function merge(local, remote) {
   }
   // drop slots that ended up with nothing in them, so an empty night stays empty
   for (const sid of Object.keys(out.marks)) if (!Object.keys(out.marks[sid]).length) delete out.marks[sid];
-  out.tonight.sort();
+  out.tonight.sort(); out.slots.sort(); out.sheet.sort();
   return out;
 }

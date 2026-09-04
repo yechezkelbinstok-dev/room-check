@@ -6,7 +6,7 @@ data class Slot(val id: String, val label: String)
 /**
  * The times a night can be marked at.
  *
- * Three of them stand every night; anything else you add is yours.
+ * Three of them stand every night. Anything else belongs to the one night it was added to.
  *
  * Ids are the time as a clock face reads it, not a 24-hour one: "1115" is quarter past eleven at
  * night and "1200" is midnight. That is how the three original ids were written and every night
@@ -51,20 +51,32 @@ object Slots {
         return "%02d%02d".format(h, minute)
     }
 
-    /** Every time this night can be marked at. */
-    fun all(s: Settings): List<Slot> =
-        (DEFAULT + s.customSlots.filter(::isValidId).map { Slot(it, labelFor(it)) })
-            .distinctBy { it.id }
+    /**
+     * Every time this night can be marked at: the standing three, plus whatever was added for
+     * this night alone: a night that names its own rounds gets those INSTEAD of the standing
+     * three, so a night with one check at 12:30 has exactly one column.
+     *
+     * Any round the night already has marks in counts too, even if nobody declared it, so an
+     * older night whose rounds were recorded some other way still opens with the columns it was
+     * marked in rather than losing them.
+     */
+    fun all(n: Night): List<Slot> {
+        val declared = n.rounds.filter(::isValidId)
+        val base = if (declared.isEmpty()) DEFAULT.map { it.id } else declared
+        val marked = n.marks.filterValues { it.isNotEmpty() }.keys.filter(::isValidId)
+        return (base + marked).distinct()
+            .map { Slot(it, labelFor(it)) }
             .sortedBy { order(it.id) }
+    }
 
     /**
-     * The times that go on the sent picture. All of them unless you narrowed it - and if the
-     * narrowing ends up naming nothing that still exists, all of them again, so deleting a custom
-     * time cannot leave you with a blank sheet.
+     * The times that go on this night's picture. All of them unless you narrowed it - and if the
+     * narrowing ends up naming nothing that still exists, all of them again, so removing a round
+     * cannot leave you with a blank sheet.
      */
-    fun forSheet(s: Settings): List<Slot> {
-        val every = all(s)
-        if (s.sheetSlots.isEmpty()) return every
-        return every.filter { it.id in s.sheetSlots }.ifEmpty { every }
+    fun forSheet(n: Night): List<Slot> {
+        val every = all(n)
+        if (n.sheetSlots.isEmpty()) return every
+        return every.filter { it.id in n.sheetSlots }.ifEmpty { every }
     }
 }

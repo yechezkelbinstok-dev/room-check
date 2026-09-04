@@ -4,9 +4,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.CreationExtras
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.roomcheck.app.data.AppViewModel
@@ -30,11 +35,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Sync whenever the app comes to the front. A check written on the website an hour ago
-        // should be on the phone by the time it is opened, without anyone pressing anything.
-        lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
-            override fun onStart(owner: androidx.lifecycle.LifecycleOwner) { vm.syncNow() }
-        })
+        // Sync whenever the app comes to the front, then keep pulling while it stays there, so two
+        // people marking at the same time see each other's rooms rather than finding out at the
+        // end. repeatOnLifecycle cancels the whole loop the moment the app leaves the screen -
+        // nothing ticks in your pocket, which is what keeps this costing nothing.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    vm.syncNow()
+                    delay(AppViewModel.FOREGROUND_SYNC_MS)
+                }
+            }
+        }
         setContent {
             RoomCheckTheme {
                 val state by vm.state.collectAsState()

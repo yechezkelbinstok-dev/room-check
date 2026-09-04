@@ -55,6 +55,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .ibtn:active{background:var(--blue-l)}
 .ibtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .dtap{flex:1;min-width:0;text-align:center;padding:2px 2px}
+.hsub{display:block;font-size:12.5px;color:var(--sub);margin-top:2px}
 .hdate{display:block;direction:rtl;font-size:19px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gdate{display:block;font-size:11.5px;color:var(--sub);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sv{font-size:10.5px;color:var(--sub);text-align:right;padding:4px 2px 0}
@@ -252,7 +253,9 @@ h2{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
 <script>
 "use strict";
 
-/* Three rounds stand every night; anything else is added in Settings > Times.
+/* Three rounds stand every night. Anything else belongs to the ONE night it was added to - the
+   zman moved, or you went round again at 1:30 - so it lives on the night beside its marks and the
+   next night starts from the standing three with nothing to put back.
    Ids read like a clock face, not a 24-hour one: "1115" is quarter past eleven at night and
    "1200" is midnight. That is how every night ever marked is filed, so the scheme stays - and it
    means ids cannot be sorted as numbers, since 12 falls after 11 but before 1. */
@@ -264,16 +267,26 @@ const slotOrder=id=>nightHour(slotHour(id))*60+slotMin(id);
 const slotLabel=id=>slotHour(id)+":"+String(slotMin(id)).padStart(2,"0");
 const validSlot=id=>/^\d{4}$/.test(id)&&slotHour(id)>=1&&slotHour(id)<=12&&slotMin(id)<=59;
 const idForClock=(h24,m)=>String(h24%12===0?12:h24%12).padStart(2,"0")+String(m).padStart(2,"0");
-const allSlots=()=>{
-  const extra=(state.settings.customSlots||[]).filter(validSlot).map(id=>({id,label:slotLabel(id)}));
-  const seen=new Set(); const out=[];
-  for(const s of [...BASE_SLOTS,...extra]) if(!seen.has(s.id)){seen.add(s.id);out.push(s);}
-  return out.sort((a,b)=>slotOrder(a.id)-slotOrder(b.id));
+/* Every round this night can be marked at. A round the night already has marks in counts too,
+   even if nothing declared it, so a round removed by mistake does not take its marks off the
+   screen with it. */
+const allSlots=(n)=>{
+  n=n||state.night||{};
+  const declared=(n.slots||[]).filter(validSlot);
+  /* a night that names its own rounds gets those INSTEAD of the standing three, so a night with
+     one check at 12:30 has exactly one column */
+  const base=declared.length?declared:BASE_SLOTS.map(s=>s.id);
+  /* a round with marks in it counts too, so an older night keeps the columns it was marked in */
+  const marked=Object.keys(n.marks||{}).filter(s=>validSlot(s)&&Object.keys(n.marks[s]||{}).length);
+  return [...new Set([...base,...marked])]
+    .map(id=>({id,label:slotLabel(id)}))
+    .sort((a,b)=>slotOrder(a.id)-slotOrder(b.id));
 };
-/* All of them unless narrowed - and if the narrowing names nothing that still exists, all of them
-   again, so deleting a custom time cannot leave a blank sheet. */
-const sheetSlots=()=>{
-  const every=allSlots(), pick=state.settings.sheetSlots||[];
+/* All of them unless this night narrowed it - and if the narrowing names nothing that still
+   exists, all of them again, so removing a round cannot leave a blank sheet. */
+const sheetSlots=(n)=>{
+  n=n||state.night||{};
+  const every=allSlots(n), pick=n.sheet||[];
   if(!pick.length)return every;
   const kept=every.filter(s=>pick.includes(s.id));
   return kept.length?kept:every;
@@ -356,7 +369,7 @@ const PLAN=[
 let state={night:null,dateKey:null,cur:"1115",room:0,tab:"check",who:null,mode:"one",review:false,onlyOut:false,
   ok:true,persist:true,lastSave:null,editing:false,cal:null,calHas:{},extra:{},
   /* off by default: the plan reads cleaner without them, and Names can switch them back on */
-  settings:{bunkLabels:false,hebrewOnPlan:false,hebrewInExport:false,syncUrl:"",syncToken:"",customSlots:[],sheetSlots:[]},
+  settings:{bunkLabels:false,hebrewOnPlan:false,hebrewInExport:false,syncUrl:"",syncToken:""},
   syncMsg:"",syncing:false,lastPull:0,dirty:[]};
 let undoStack=[];
 
@@ -535,18 +548,24 @@ const nameIn=(pid,heb)=>firstIn(pid,heb)+" "+lastIn(pid,heb);
 const roomName=r=>state.settings.hebrewOnPlan?r.heb:r.label;
 const isAlways=pid=>!!(state.extra[pid]&&state.extra[pid].always);
 
-function blank(){const n={marks:{},tonight:[],notes:{},closed:false};allSlots().map(s=>s.id).forEach(s=>n.marks[s]={});return n;}
+/* seeded from the standing three only: allSlots reads a night, so a night cannot be built from it */
+function blank(){const n={marks:{},tonight:[],notes:{},closed:false,slots:[],sheet:[]};
+  BASE_SLOTS.forEach(s=>n.marks[s.id]={});return n;}
 /* ---------- merging two devices' copies ----------
    The same rule as the app's Merge.kt and the sync server's merge.js, pinned to the same cases in
    server/fixtures.json. A night carries a timestamp per CELL, so two people marking different
    rooms at the same moment both keep their marks; whole-night last-write-wins would erase one. */
-const markKey=(sid,pid)=>"m:"+sid+":"+pid, excKey=pid=>"t:"+pid, noteKey=pid=>"n:"+pid, CLOSED_KEY="c";
+const markKey=(sid,pid)=>"m:"+sid+":"+pid, excKey=pid=>"t:"+pid, noteKey=pid=>"n:"+pid;
+/* an extra round walked on this night only, and whether it goes on this night's picture */
+const slotKey=sid=>"s:"+sid, sheetKey=sid=>"h:"+sid, CLOSED_KEY="c";
 function touch(key,at){ state.night.ts=state.night.ts||{}; state.night.ts[key]=at||Date.now(); }
 function cellKeys(n){
   const out=new Set();
   for(const sid of Object.keys(n.marks||{}))for(const pid of Object.keys(n.marks[sid]||{}))out.add(markKey(sid,pid));
   for(const pid of n.tonight||[])out.add(excKey(pid));
   for(const pid of Object.keys(n.notes||{}))out.add(noteKey(pid));
+  for(const sid of n.slots||[])out.add(slotKey(sid));
+  for(const sid of n.sheet||[])out.add(sheetKey(sid));
   out.add(CLOSED_KEY);
   for(const k of Object.keys(n.ts||{}))out.add(k);
   return out;
@@ -557,6 +576,8 @@ function cellValue(n,key){
     return (n.marks&&n.marks[sid]&&n.marks[sid][pid])||null;}
   if(key.startsWith("t:"))return (n.tonight||[]).includes(key.slice(2))?"1":null;
   if(key.startsWith("n:"))return (n.notes||{})[key.slice(2)]??null;
+  if(key.startsWith("s:"))return (n.slots||[]).includes(key.slice(2))?"1":null;
+  if(key.startsWith("h:"))return (n.sheet||[]).includes(key.slice(2))?"1":null;
   return null;
 }
 function cellSet(n,key,v){
@@ -565,11 +586,14 @@ function cellSet(n,key,v){
     n.marks[sid]=n.marks[sid]||{}; if(v===null)delete n.marks[sid][pid]; else n.marks[sid][pid]=v; return;}
   if(key.startsWith("t:")){const pid=key.slice(2),at=n.tonight.indexOf(pid);
     if(v!==null&&at<0)n.tonight.push(pid); if(v===null&&at>=0)n.tonight.splice(at,1); return;}
-  if(key.startsWith("n:")){const pid=key.slice(2); if(v===null||v==="")delete n.notes[pid]; else n.notes[pid]=v;}
+  if(key.startsWith("n:")){const pid=key.slice(2); if(v===null||v==="")delete n.notes[pid]; else n.notes[pid]=v; return;}
+  if(key.startsWith("s:")||key.startsWith("h:")){
+    const list=key.startsWith("s:")?n.slots:n.sheet, sid=key.slice(2), at=list.indexOf(sid);
+    if(v!==null&&at<0)list.push(sid); if(v===null&&at>=0)list.splice(at,1);}
 }
 function mergeNights(local,remote){
   const L=local||blank(), R=remote||blank();
-  const out={marks:{},tonight:[],notes:{},closed:false,ts:{}};
+  const out={marks:{},tonight:[],notes:{},closed:false,slots:[],sheet:[],ts:{}};
   for(const key of [...new Set([...cellKeys(L),...cellKeys(R)])].sort()){
     const lt=(L.ts||{})[key]||0, rt=(R.ts||{})[key]||0;
     const lv=cellValue(L,key), rv=cellValue(R,key);
@@ -580,7 +604,7 @@ function mergeNights(local,remote){
     if(stamp>0||v!==null)out.ts[key]=stamp;
   }
   for(const sid of Object.keys(out.marks))if(!Object.keys(out.marks[sid]).length)delete out.marks[sid];
-  out.tonight.sort();
+  out.tonight.sort(); out.slots.sort(); out.sheet.sort();
   return out;
 }
 
@@ -589,8 +613,10 @@ function norm(n){
   b.tonight=Array.isArray(n.tonight)?n.tonight:[];
   b.notes=(n.notes&&typeof n.notes==="object")?n.notes:{};
   b.closed=!!n.closed;
-  allSlots().map(s=>s.id).forEach(s=>{const m=(n.marks&&n.marks[s])||{};b.marks[s]=(m&&typeof m==="object")?{...m}:{};});
-  /* a slot the app does not currently list - a custom time - still has to survive a load */
+  b.slots=Array.isArray(n.slots)?n.slots.filter(validSlot):[];
+  b.sheet=Array.isArray(n.sheet)?n.sheet.filter(validSlot):[];
+  BASE_SLOTS.forEach(s=>{const m=(n.marks&&n.marks[s.id])||{};b.marks[s.id]=(m&&typeof m==="object")?{...m}:{};});
+  /* a round this night added - or one an older copy recorded some other way - survives the load */
   if(n.marks)for(const s of Object.keys(n.marks))if(!b.marks[s])b.marks[s]={...n.marks[s]};
   b.ts=(n.ts&&typeof n.ts==="object")?{...n.ts}:{};
   return b;
@@ -633,6 +659,32 @@ function stats(sid){
 const label=id=>{const s=allSlots().find(x=>x.id===id);return s?s.label:id;};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
+/**
+ * Sets the rounds walked on THIS night, replacing whatever it had. Marks in a round being dropped
+ * go with it - they are marks from a walk this night no longer says happened - and undo puts them
+ * back. Every round is its own cell, so two devices editing the same night's rounds merge the way
+ * its marks do rather than one list flattening the other.
+ */
+function setRounds(ids){
+  const want=[...new Set(ids.filter(validSlot))].sort((a,b)=>slotOrder(a)-slotOrder(b));
+  if(!want.length){toast("A night needs at least one round");return;}
+  snap();
+  state.night.slots=state.night.slots||[]; state.night.sheet=state.night.sheet||[];
+  for(const sid of allSlots().map(s=>s.id))if(!want.includes(sid)){
+    for(const pid of Object.keys(state.night.marks[sid]||{}))touch(markKey(sid,pid));
+    delete state.night.marks[sid];
+    if(state.night.sheet.includes(sid)){state.night.sheet=state.night.sheet.filter(x=>x!==sid);touch(sheetKey(sid));}
+  }
+  for(const sid of [...new Set([...state.night.slots,...want])]){
+    if(want.includes(sid)){if(!state.night.slots.includes(sid))state.night.slots.push(sid);}
+    else state.night.slots=state.night.slots.filter(x=>x!==sid);
+    touch(slotKey(sid));
+  }
+  for(const sid of want)state.night.marks[sid]=state.night.marks[sid]||{};
+  /* standing on a round that is gone would leave the screen marking into nothing */
+  if(!want.includes(state.cur))state.cur=want[0];
+  save();render();
+}
 function snap(){undoStack.push(JSON.parse(JSON.stringify(state.night)));if(undoStack.length>40)undoStack.shift();}
 function setMark(pid,sid,v){
   snap(); const m=state.night.marks[sid]||(state.night.marks[sid]={});
@@ -771,7 +823,7 @@ function headHTML(){
         <button class="ibtn" data-a="day" data-d="1" aria-label="Next night">›</button>
         ${state.dateKey!==tonightKey()?`<button class="pill" data-a="today">Tonight</button>`:``}
         ${isLocked()?``:`<button class="ibtn" data-a="undo" aria-label="Undo">${IC.undo}</button>`}
-        <button class="ibtn" data-a="tab" data-t="settings" aria-label="More">${IC.more}</button>
+        <button class="ibtn" data-a="more" aria-label="More">${IC.more}</button>
       </div>
       <div class="sv" id="sv">${esc(savedText())}</div>
     </div>
@@ -883,11 +935,6 @@ function settingsScreen(){
     </div>
     <h2>Plan</h2>
     <div class="blk">${sw("bunkLabels","Bunk labels")}</div>
-    <h2>Times</h2>
-    <div class="blk">
-      <button class="li" data-a="tab" data-t="times"><span class="a lnk">Rounds &amp; what goes on the sheet</span>
-        <span class="z">${esc(allSlots().map(s=>s.label).join(" · "))}</span></button>
-    </div>
     <h2>Sync</h2>
     <div class="blk">
       <div class="li"><input id="syncurl" value="${esc(state.settings.syncUrl)}" placeholder="Server address (https://…)" data-a="syncurl"></div>
@@ -914,20 +961,22 @@ function settingsScreen(){
     </div>`;
 }
 
-/* Adding a round, and choosing which rounds the sent picture shows. Its own page because most
-   nights are the three standing ones and this is touched about twice a year. */
+/* The rounds walked on ONE night, and which of them the sent picture shows. A night that names
+   its own rounds gets those INSTEAD of the standing three, so a night with a single check at
+   12:30 has exactly one column. Reached from the night it changes, not from Settings. */
 function timesScreen(){
   const all=allSlots(), on=sheetSlots().map(s=>s.id);
-  return `<div class="hd"><div class="h1"><div><div class="hdate">Times</div></div>
-      <button class="pill" data-a="tab" data-t="settings">Back</button></div></div>
+  return `<div class="hd"><div class="h1"><div><div class="hdate">Rounds</div>
+      <div class="hsub">This night only · <bdi>${esc(hebDayMonth(state.dateKey))}</bdi></div></div>
+      <button class="pill" data-a="tab" data-t="check">Done</button></div></div>
     <div class="pan">
-    <h2>Rounds</h2>
     <div class="blk">
-      ${all.map(s=>`<div class="li"><span class="a">${esc(s.label)}</span>${
-        (state.settings.customSlots||[]).includes(s.id)
-          ? `<button class="z lnk" style="color:var(--red)" data-a="delslot" data-s="${s.id}">Remove</button>`
-          : `<span class="z">every night</span>`}</div>`).join("")}
+      ${all.map(s=>`<div class="li"><span class="a">${esc(s.label)}</span>${all.length>1?
+        `<span class="z"><button class="lnk" data-a="onlyslot" data-s="${s.id}">Only this</button>`+
+        `<button class="lnk" style="color:var(--red);margin-left:16px" data-a="delslot" data-s="${s.id}">Remove</button></span>`
+        :`<span class="z"></span>`}</div>`).join("")}
       <button class="li" data-a="addslot"><span class="a lnk">Add a time</span></button>
+      ${(state.night.slots||[]).length?`<button class="li" data-a="resetslots"><span class="a" style="color:var(--sub)">Back to the usual three</span></button>`:``}
     </div>
     <h2>On the sent picture</h2>
     <div class="blk">
@@ -1084,7 +1133,7 @@ document.addEventListener("click",async e=>{
   if(t.hasAttribute("data-mk")&&!t.dataset.a){ setMark(t.dataset.p,state.cur,t.dataset.v); sync(); return; }
   const a=t.dataset.a;
 
-  if(a==="tab"){state.tab=t.dataset.t;render();window.scrollTo(0,0);return;}
+  if(a==="tab"){closePop();state.tab=t.dataset.t;render();window.scrollTo(0,0);return;}
   if(a==="time"){state.cur=t.dataset.s;
     document.querySelectorAll(".seg3 button").forEach(b=>b.classList.toggle("on",b.dataset.s===state.cur));
     sync(); return;}
@@ -1116,29 +1165,52 @@ document.addEventListener("click",async e=>{
   if(a==="wset"){setMark(state.who,t.dataset.s,t.dataset.v);openWho(state.who);render();return;}
   if(a==="set"){if(t.disabled)return;const k=t.dataset.k;state.settings[k]=!state.settings[k];save();render();return;}
   if(a==="syncnow"){syncNow(true);return;}
-  if(a==="addslot"){
-    /* a check runs evening into the small hours, so the hour alone says which side of midnight */
-    const raw=prompt("Time as on a clock, e.g. 1:30");
-    if(!raw)return;
-    const m=String(raw).match(/^\s*(\d{1,2})\s*[:.]?\s*(\d{2})\s*$/);
-    const id=m?String(m[1]).padStart(2,"0")+m[2]:"";
-    if(!validSlot(id)){toast("Not a time");return;}
-    if(!state.settings.customSlots.includes(id))state.settings.customSlots.push(id);
-    save();render();return;
+  if(a==="more"){
+    /* tucked in here rather than on the marking screen: most nights are the standing three and
+       never need it, but the night that does is this night */
+    showPop(`<div class="grp">
+      <button class="li" data-a="tab" data-t="times"><span class="a lnk">Rounds for this night</span>
+        <span class="z">${esc(allSlots().map(x=>x.label).join(" · "))}</span></button>
+      <button class="li" data-a="tab" data-t="settings"><span class="a lnk">Settings</span></button>
+      </div><button class="cancel" data-a="close">Cancel</button>`);
+    return;
   }
-  if(a==="delslot"){
-    const id=t.dataset.s;
-    state.settings.customSlots=state.settings.customSlots.filter(x=>x!==id);
-    state.settings.sheetSlots=state.settings.sheetSlots.filter(x=>x!==id);
+  if(a==="addslot"||a==="onlyslot"){
+    let id=t.dataset.s;
+    if(!id){
+      /* a check runs evening into the small hours, so the hour alone says which side of midnight */
+      const raw=prompt("Time as on a clock, e.g. 12:30");
+      if(!raw)return;
+      const m=String(raw).match(/^\s*(\d{1,2})\s*[:.]?\s*(\d{2})\s*$/);
+      id=m?String(m[1]).padStart(2,"0")+m[2]:"";
+      if(!validSlot(id)){toast("Not a time");return;}
+      /* the case this exists for is "tonight is just this one", so it is offered first */
+      if(!confirm("Is "+slotLabel(id)+" the only check on this night?\n\nOK - only this time\nCancel - add it to the others"))
+        return setRounds([...allSlots().map(s=>s.id),id]);
+      return setRounds([id]);
+    }
+    return setRounds(a==="onlyslot"?[id]:[...allSlots().map(s=>s.id),id]);
+  }
+  if(a==="delslot"){return setRounds(allSlots().map(s=>s.id).filter(x=>x!==t.dataset.s));}
+  if(a==="resetslots"){
+    snap();
+    for(const id of [...(state.night.slots||[])]){state.night.slots=state.night.slots.filter(x=>x!==id);touch(slotKey(id));}
+    for(const id of [...(state.night.sheet||[])]){state.night.sheet=state.night.sheet.filter(x=>x!==id);touch(sheetKey(id));}
     if(!allSlots().some(s=>s.id===state.cur))state.cur=allSlots()[0].id;
     save();render();return;
   }
   if(a==="sheetslot"){
     const id=t.dataset.s, every=allSlots().map(s=>s.id);
-    const cur=state.settings.sheetSlots.length?state.settings.sheetSlots:every.slice();
-    const next=cur.includes(id)?cur.filter(x=>x!==id):[...cur,id];
-    /* stored as an explicit list; empty means "all of them", so ticking everything is the same */
-    state.settings.sheetSlots = (next.length===every.length&&every.every(x=>next.includes(x)))?[]:next;
+    state.night.sheet=state.night.sheet||[];
+    /* "all of them" is stored as nothing at all, so the first tap writes out the list it is
+       turning one off from */
+    if(!state.night.sheet.length)for(const x of every){state.night.sheet.push(x);touch(sheetKey(x));}
+    if(state.night.sheet.includes(id))state.night.sheet=state.night.sheet.filter(x=>x!==id);
+    else state.night.sheet.push(id);
+    touch(sheetKey(id));
+    /* everything ticked means no opinion again, so a round added later joins in */
+    if(every.every(x=>state.night.sheet.includes(x))&&state.night.sheet.length===every.length)
+      for(const x of every){state.night.sheet=state.night.sheet.filter(y=>y!==x);touch(sheetKey(x));}
     save();render();return;
   }
   if(a==="exctn"){const pid=state.who;snap();
@@ -1190,7 +1262,7 @@ document.addEventListener("input",e=>{
   const t=e.target.closest("[data-a]"); if(!t)return;
   const a=t.dataset.a, pid=state.who;
   /* the sync fields belong to no person, so they are handled before the person guard below */
-  if(a==="syncurl"){state.settings.syncUrl=t.value.trim();save();return;}
+  if(a==="syncurl"){state.settings.syncUrl=t.value.trim();save();startPolling();return;}
   if(a==="synctok"){state.settings.syncToken=t.value.trim();save();return;}
   if(!pid)return;
   if(a==="note"){if(t.value.trim())state.night.notes[pid]=t.value;else delete state.night.notes[pid];touch(noteKey(pid));save();return;}
@@ -1199,7 +1271,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.7.0";
+const APP_VERSION="1.7.1";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
@@ -1275,13 +1347,31 @@ async function boot(){
     if(d.settings)state.settings={...state.settings,...d.settings};
     state.lastPull=d.lastPull||0; state.dirty=Array.isArray(d.dirty)?d.dirty:[];}catch(e){state.extra={};}}
   await loadNight(tonightKey());
-  const d=new Date(), mn=d.getHours()*60+d.getMinutes();
-  state.cur=(mn>=23*60+55||mn<6*60)?"1200":(mn>=23*60+25)?"1130":"1115";
+  /* whichever configured round is nearest behind the clock - reading the rounds rather than the
+     original three, or deleting 11:15 would leave this opening on a round that no longer exists */
+  const d=new Date(), every=allSlots(), now=slotOrder(idForClock(d.getHours(),d.getMinutes()));
+  const past=every.filter(s=>slotOrder(s.id)<=now);
+  state.cur=(past.length?past[past.length-1]:every[0]).id;
   render(); flush();
   /* a check written on the phone an hour ago should be here on open, unasked */
   syncNow(false);
-  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")syncNow(false);});
+  startPolling();
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState==="visible"){syncNow(false);startPolling();}else stopPolling();});
 }
+/* Two people marking at once should see each other, so pull while the sheet is actually being
+   looked at - but only then. A tab in the background gets nothing, which is what keeps this free:
+   an empty pull is a few dozen bytes, and a check lasts a quarter of an hour. */
+let pollT=null;
+function startPolling(){
+  stopPolling();
+  if(!state.settings.syncUrl)return;
+  pollT=setInterval(()=>{
+    if(document.visibilityState!=="visible"||!state.settings.syncUrl)return stopPolling();
+    syncNow(false);
+  },30000);
+}
+function stopPolling(){if(pollT){clearInterval(pollT);pollT=null;}}
 knownDevice()?boot():gate();
 </script>
 </body>

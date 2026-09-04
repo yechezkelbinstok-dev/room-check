@@ -3,45 +3,577 @@
   "cases": [
     {
       "name": "two people walking different rooms at once keep both sets of marks",
-      "local":  {"marks":{"1115":{"p1":"in","p2":"out"}},"tonight":[],"notes":{},"closed":false,"ts":{"m:1115:p1":1000,"m:1115:p2":1000}},
-      "remote": {"marks":{"1115":{"p20":"in","p21":"out"}},"tonight":[],"notes":{},"closed":false,"ts":{"m:1115:p20":1001,"m:1115:p21":1001}},
-      "expect": {"marks":{"1115":{"p1":"in","p2":"out","p20":"in","p21":"out"}},"tonight":[],"notes":{},"closed":false,"ts":{"m:1115:p1":1000,"m:1115:p2":1000,"m:1115:p20":1001,"m:1115:p21":1001}}
+      "local": {
+        "marks": {
+          "1115": {
+            "p1": "in",
+            "p2": "out"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:1115:p1": 1000,
+          "m:1115:p2": 1000
+        },
+        "slots": [],
+        "sheet": []
+      },
+      "remote": {
+        "marks": {
+          "1115": {
+            "p20": "in",
+            "p21": "out"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:1115:p20": 1001,
+          "m:1115:p21": 1001
+        },
+        "slots": [],
+        "sheet": []
+      },
+      "expect": {
+        "marks": {
+          "1115": {
+            "p1": "in",
+            "p2": "out",
+            "p20": "in",
+            "p21": "out"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:1115:p1": 1000,
+          "m:1115:p2": 1000,
+          "m:1115:p20": 1001,
+          "m:1115:p21": 1001
+        },
+        "slots": [],
+        "sheet": []
+      }
     },
     {
       "name": "a correction made later on another device wins",
-      "local":  {"marks":{"1115":{"p1":"out"}},"tonight":[],"notes":{},"closed":false,"ts":{"m:1115:p1":1000}},
-      "remote": {"marks":{"1115":{"p1":"in"}},"tonight":[],"notes":{},"closed":false,"ts":{"m:1115:p1":2000}},
-      "expect": {"marks":{"1115":{"p1":"in"}},"tonight":[],"notes":{},"closed":false,"ts":{"m:1115:p1":2000}}
+      "local": {
+        "marks": {
+          "1115": {
+            "p1": "out"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:1115:p1": 1000
+        },
+        "slots": [],
+        "sheet": []
+      },
+      "remote": {
+        "marks": {
+          "1115": {
+            "p1": "in"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:1115:p1": 2000
+        },
+        "slots": [],
+        "sheet": []
+      },
+      "expect": {
+        "marks": {
+          "1115": {
+            "p1": "in"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:1115:p1": 2000
+        },
+        "slots": [],
+        "sheet": []
+      }
     },
     {
       "name": "a later unmark beats an earlier mark",
-      "local":  {"marks":{"1115":{"p1":"out"}},"tonight":[],"notes":{},"closed":false,"ts":{"m:1115:p1":1000}},
-      "remote": {"marks":{},"tonight":[],"notes":{},"closed":false,"ts":{"m:1115:p1":2000}},
-      "expect": {"marks":{},"tonight":[],"notes":{},"closed":false,"ts":{"m:1115:p1":2000}}
+      "local": {
+        "marks": {
+          "1115": {
+            "p1": "out"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:1115:p1": 1000
+        },
+        "slots": [],
+        "sheet": []
+      },
+      "remote": {
+        "marks": {},
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:1115:p1": 2000
+        },
+        "slots": [],
+        "sheet": []
+      },
+      "expect": {
+        "marks": {},
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:1115:p1": 2000
+        },
+        "slots": [],
+        "sheet": []
+      }
     },
     {
       "name": "a device that never saw a cell does not delete it",
-      "local":  {"marks":{"1115":{"p1":"out"}},"tonight":[],"notes":{},"closed":false,"ts":{"m:1115:p1":1000}},
-      "remote": {"marks":{},"tonight":[],"notes":{},"closed":false,"ts":{}},
-      "expect": {"marks":{"1115":{"p1":"out"}},"tonight":[],"notes":{},"closed":false,"ts":{"m:1115:p1":1000}}
+      "local": {
+        "marks": {
+          "1115": {
+            "p1": "out"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:1115:p1": 1000
+        },
+        "slots": [],
+        "sheet": []
+      },
+      "remote": {
+        "marks": {},
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {},
+        "slots": [],
+        "sheet": []
+      },
+      "expect": {
+        "marks": {
+          "1115": {
+            "p1": "out"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:1115:p1": 1000
+        },
+        "slots": [],
+        "sheet": []
+      }
     },
     {
       "name": "excusals, notes and closing all merge by their own timestamps",
-      "local":  {"marks":{},"tonight":["p9"],"notes":{"p1":"late"},"closed":false,"ts":{"t:p9":6,"n:p1":7}},
-      "remote": {"marks":{},"tonight":[],"notes":{},"closed":true,"ts":{"c":8}},
-      "expect": {"marks":{},"tonight":["p9"],"notes":{"p1":"late"},"closed":true,"ts":{"c":8,"n:p1":7,"t:p9":6}}
+      "local": {
+        "marks": {},
+        "tonight": [
+          "p9"
+        ],
+        "notes": {
+          "p1": "late"
+        },
+        "closed": false,
+        "ts": {
+          "t:p9": 6,
+          "n:p1": 7
+        },
+        "slots": [],
+        "sheet": []
+      },
+      "remote": {
+        "marks": {},
+        "tonight": [],
+        "notes": {},
+        "closed": true,
+        "ts": {
+          "c": 8
+        },
+        "slots": [],
+        "sheet": []
+      },
+      "expect": {
+        "marks": {},
+        "tonight": [
+          "p9"
+        ],
+        "notes": {
+          "p1": "late"
+        },
+        "closed": true,
+        "ts": {
+          "c": 8,
+          "n:p1": 7,
+          "t:p9": 6
+        },
+        "slots": [],
+        "sheet": []
+      }
     },
     {
       "name": "a custom time is just another slot and merges like any other",
-      "local":  {"marks":{"0130":{"p1":"out"}},"tonight":[],"notes":{},"closed":false,"ts":{"m:0130:p1":1000}},
-      "remote": {"marks":{"0130":{"p2":"in"}},"tonight":[],"notes":{},"closed":false,"ts":{"m:0130:p2":1000}},
-      "expect": {"marks":{"0130":{"p1":"out","p2":"in"}},"tonight":[],"notes":{},"closed":false,"ts":{"m:0130:p1":1000,"m:0130:p2":1000}}
+      "local": {
+        "marks": {
+          "0130": {
+            "p1": "out"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:0130:p1": 1000
+        },
+        "slots": [],
+        "sheet": []
+      },
+      "remote": {
+        "marks": {
+          "0130": {
+            "p2": "in"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:0130:p2": 1000
+        },
+        "slots": [],
+        "sheet": []
+      },
+      "expect": {
+        "marks": {
+          "0130": {
+            "p1": "out",
+            "p2": "in"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:0130:p1": 1000,
+          "m:0130:p2": 1000
+        },
+        "slots": [],
+        "sheet": []
+      }
     },
     {
       "name": "equal timestamps on the same cell resolve the same way from either side",
-      "local":  {"marks":{"1115":{"p1":"in"}},"tonight":[],"notes":{},"closed":false,"ts":{"m:1115:p1":5}},
-      "remote": {"marks":{"1115":{"p1":"out"}},"tonight":[],"notes":{},"closed":false,"ts":{"m:1115:p1":5}},
-      "expect": {"marks":{"1115":{"p1":"out"}},"tonight":[],"notes":{},"closed":false,"ts":{"m:1115:p1":5}}
+      "local": {
+        "marks": {
+          "1115": {
+            "p1": "in"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:1115:p1": 5
+        },
+        "slots": [],
+        "sheet": []
+      },
+      "remote": {
+        "marks": {
+          "1115": {
+            "p1": "out"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:1115:p1": 5
+        },
+        "slots": [],
+        "sheet": []
+      },
+      "expect": {
+        "marks": {
+          "1115": {
+            "p1": "out"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "ts": {
+          "m:1115:p1": 5
+        },
+        "slots": [],
+        "sheet": []
+      }
+    },
+    {
+      "name": "a round added for one night reaches the other device",
+      "local": {
+        "marks": {},
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "slots": [
+          "0130"
+        ],
+        "sheet": [],
+        "ts": {
+          "s:0130": 1000
+        }
+      },
+      "remote": {
+        "marks": {},
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "slots": [],
+        "sheet": [],
+        "ts": {}
+      },
+      "expect": {
+        "marks": {},
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "slots": [
+          "0130"
+        ],
+        "sheet": [],
+        "ts": {
+          "s:0130": 1000
+        }
+      }
+    },
+    {
+      "name": "removing a round later beats the device that still has it",
+      "local": {
+        "marks": {},
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "slots": [
+          "0130"
+        ],
+        "sheet": [],
+        "ts": {
+          "s:0130": 1000
+        }
+      },
+      "remote": {
+        "marks": {},
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "slots": [],
+        "sheet": [],
+        "ts": {
+          "s:0130": 2000
+        }
+      },
+      "expect": {
+        "marks": {},
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "slots": [],
+        "sheet": [],
+        "ts": {
+          "s:0130": 2000
+        }
+      }
+    },
+    {
+      "name": "an extra round and its marks merge as separate cells",
+      "local": {
+        "marks": {
+          "0130": {
+            "p1": "out"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "slots": [
+          "0130"
+        ],
+        "sheet": [],
+        "ts": {
+          "s:0130": 1000,
+          "m:0130:p1": 1001
+        }
+      },
+      "remote": {
+        "marks": {
+          "0130": {
+            "p2": "in"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "slots": [
+          "0130"
+        ],
+        "sheet": [],
+        "ts": {
+          "s:0130": 1000,
+          "m:0130:p2": 1002
+        }
+      },
+      "expect": {
+        "marks": {
+          "0130": {
+            "p1": "out",
+            "p2": "in"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "slots": [
+          "0130"
+        ],
+        "sheet": [],
+        "ts": {
+          "s:0130": 1000,
+          "m:0130:p1": 1001,
+          "m:0130:p2": 1002
+        }
+      }
+    },
+    {
+      "name": "narrowing the picture is a night's own choice and merges cell by cell",
+      "local": {
+        "marks": {},
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "slots": [],
+        "sheet": [
+          "1200"
+        ],
+        "ts": {
+          "h:1200": 1000
+        }
+      },
+      "remote": {
+        "marks": {},
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "slots": [],
+        "sheet": [
+          "0130"
+        ],
+        "ts": {
+          "h:0130": 1000
+        }
+      },
+      "expect": {
+        "marks": {},
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "slots": [],
+        "sheet": [
+          "0130",
+          "1200"
+        ],
+        "ts": {
+          "h:0130": 1000,
+          "h:1200": 1000
+        }
+      }
+    },
+    {
+      "name": "one night's extra round says nothing about any other night",
+      "local": {
+        "marks": {
+          "1115": {
+            "p1": "in"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "slots": [
+          "0130"
+        ],
+        "sheet": [
+          "0130"
+        ],
+        "ts": {
+          "m:1115:p1": 1000,
+          "s:0130": 1000,
+          "h:0130": 1000
+        }
+      },
+      "remote": {
+        "marks": {
+          "1115": {
+            "p2": "in"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "slots": [],
+        "sheet": [],
+        "ts": {
+          "m:1115:p2": 1000
+        }
+      },
+      "expect": {
+        "marks": {
+          "1115": {
+            "p1": "in",
+            "p2": "in"
+          }
+        },
+        "tonight": [],
+        "notes": {},
+        "closed": false,
+        "slots": [
+          "0130"
+        ],
+        "sheet": [
+          "0130"
+        ],
+        "ts": {
+          "m:1115:p1": 1000,
+          "m:1115:p2": 1000,
+          "s:0130": 1000,
+          "h:0130": 1000
+        }
+      }
     }
   ]
 }

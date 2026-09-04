@@ -29,6 +29,11 @@ data class UiState(
 )
 
 class AppViewModel(private val store: NightStore) : ViewModel() {
+    companion object {
+        /** How often to pull while the app is actually on screen. Never runs in the background. */
+        const val FOREGROUND_SYNC_MS = 30_000L
+    }
+
     private val undoStack = ArrayDeque<Night>()
     private val syncClient = SyncClient(store)
     private var syncing = false
@@ -36,22 +41,23 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
     private fun deepCopy(n: Night): Night = Night.fromJson(n.toJson())
 
     private val initialKey = Dates.tonightKey()
+    private val initialNight = loadAndMaybeClose(initialKey)
     private val _state = MutableStateFlow(
         UiState(
             dateKey = initialKey,
-            night = loadAndMaybeClose(initialKey),
+            night = initialNight,
             extra = store.extra,
             settings = store.settings,
-            curSlot = defaultSlot()
+            curSlot = defaultSlot(initialNight)
         )
     )
     val state: StateFlow<UiState> = _state.asStateFlow()
 
-    fun logic(s: UiState = _state.value) = NightLogic(s.night, s.extra, Slots.all(s.settings))
+    fun logic(s: UiState = _state.value) = NightLogic(s.night, s.extra, Slots.all(s.night))
 
-    /** Whichever configured time is nearest behind the clock right now, so opening lands on it. */
-    private fun defaultSlot(): String {
-        val slots = Slots.all(store.settings)
+    /** Whichever of tonight's rounds is nearest behind the clock right now, so opening lands on it. */
+    private fun defaultSlot(night: Night): String {
+        val slots = Slots.all(night)
         val now = LocalDateTime.now()
         val mins = Slots.order(Slots.idForClock(now.hour, now.minute))
         return (slots.lastOrNull { Slots.order(it.id) <= mins } ?: slots.first()).id
@@ -97,7 +103,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         if (s.editing) return false
         if (s.night.closed) return true
         if (s.dateKey == Dates.tonightKey()) return false
-        return Slots.all(s.settings).any { s.night.marks[it.id]?.isNotEmpty() == true }
+        return Slots.all(s.night).any { s.night.marks[it.id]?.isNotEmpty() == true }
     }
     fun showingReview(s: UiState = _state.value): Boolean = isLocked(s) || s.reviewing
 
@@ -146,13 +152,88 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
     fun setSettings(f: (Settings) -> Settings) = update { s ->
         store.settings = f(store.settings)
         store.saveState()
-        val slots = Slots.all(store.settings)
-        s.copy(
-            settings = store.settings,
-            // deleting the time you were looking at would otherwise leave the screen on a slot
-            // that no longer exists, showing nothing and marking into a column nobody reads
-            curSlot = if (slots.any { it.id == s.curSlot }) s.curSlot else slots.first().id
-        )
+        s.copy(settings = store.settings)
+    }
+
+    /**
+     * Sets the rounds walked on THIS night, replacing whatever it had.
+     *
+     * The list lives on the night beside its marks, so it syncs to the other devices and is still
+     * there when the night is opened again next week - and tomorrow starts from the standing three
+     * with nothing to put back. Marks in a round that is being dropped go with it; they are marks
+     * from a walk that, as far as this night is now concerned, did not happen. Undo puts them back.
+     */
+    fun setRoundsTonight(ids: List<String>) {
+        val want = ids.filter { Slots.isValidId(it) }.distinct().sortedBy { Slots.order(it) }
+        if (want.isEmpty()) { toast("A night needs at least one round"); return }
+        snap()
+        update { s ->
+            val gone = Slots.all(s.night).map { it.id } - want.toSet()
+            gone.forEach { sid ->
+                s.night.marks[sid]?.keys?.toList()?.forEach { pid ->
+                    s.night.marks[sid]?.remove(pid); s.night.touch(Merge.markKey(sid, pid))
+                }
+                s.night.marks.remove(sid)
+                if (s.night.sheetSlots.remove(sid)) s.night.touch(Merge.sheetKey(sid))
+            }
+            // every round is its own cell, so two devices editing the night's rounds at the same
+            // time merge the same way its marks do rather than one list flattening the other
+            (s.night.rounds.toList() + want).distinct().forEach { sid ->
+                if (sid in want) s.night.rounds.add(sid) else s.night.rounds.remove(sid)
+                s.night.touch(Merge.slotKey(sid))
+            }
+            persist(s)
+            // standing on a round that is gone would leave the screen marking into nothing
+            s.copy(curSlot = if (s.curSlot in want) s.curSlot else want.first())
+        }
+    }
+
+    /** Puts the night back on the usual three. */
+    fun resetRoundsTonight() {
+        snap()
+        update { s ->
+            s.night.rounds.toList().forEach { s.night.rounds.remove(it); s.night.touch(Merge.slotKey(it)) }
+            s.night.sheetSlots.toList().forEach { s.night.sheetSlots.remove(it); s.night.touch(Merge.sheetKey(it)) }
+            persist(s)
+            val slots = Slots.all(s.night)
+            s.copy(curSlot = if (slots.any { it.id == s.curSlot }) s.curSlot else slots.first().id)
+        }
+    }
+
+    fun addRoundTonight(id: String) {
+        if (!Slots.isValidId(id)) { toast("Not a time"); return }
+        val now = Slots.all(_state.value.night).map { it.id }
+        if (id in now) { toast("Already on this night"); return }
+        setRoundsTonight(now + id)
+        update { it.copy(curSlot = id) }
+    }
+
+    /** The one-off in one step: this night had a single check, at this time. */
+    fun onlyRoundTonight(id: String) {
+        if (!Slots.isValidId(id)) { toast("Not a time"); return }
+        setRoundsTonight(listOf(id))
+    }
+
+    fun removeRoundTonight(id: String) =
+        setRoundsTonight(Slots.all(_state.value.night).map { it.id } - id)
+
+    /** Puts a round on this night's picture, or takes it off. All of them, unless you say otherwise. */
+    fun toggleSheetSlot(id: String) {
+        update { s ->
+            val every = Slots.all(s.night).map { it.id }
+            // "all of them" is stored as nothing at all, so the first tap has to write out the
+            // list it is turning one off from
+            if (s.night.sheetSlots.isEmpty()) {
+                every.forEach { s.night.sheetSlots.add(it); s.night.touch(Merge.sheetKey(it)) }
+            }
+            if (s.night.sheetSlots.contains(id)) s.night.sheetSlots.remove(id) else s.night.sheetSlots.add(id)
+            s.night.touch(Merge.sheetKey(id))
+            // back to everything ticked means back to no opinion, so a round added later joins in
+            if (s.night.sheetSlots.containsAll(every) && s.night.sheetSlots.size == every.size) {
+                every.forEach { s.night.sheetSlots.remove(it); s.night.touch(Merge.sheetKey(it)) }
+            }
+            persist(s); s
+        }
     }
 
     fun closeNight() = update { s ->
@@ -163,7 +244,15 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
 
     fun goToDate(key: String) {
         undoStack.clear()
-        update { s -> s.copy(dateKey = key, night = loadAndMaybeClose(key), editing = false, reviewing = false) }
+        update { s ->
+            val night = loadAndMaybeClose(key)
+            val slots = Slots.all(night)
+            s.copy(
+                dateKey = key, night = night, editing = false, reviewing = false,
+                // rounds belong to the night, so another night may not have the one you were on
+                curSlot = if (slots.any { it.id == s.curSlot }) s.curSlot else slots.first().id
+            )
+        }
     }
     fun goToday() = goToDate(Dates.tonightKey())
     fun shiftDay(delta: Long) = goToDate(Dates.shiftKey(_state.value.dateKey, delta))
@@ -174,7 +263,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
             if (s.night.excusedTonight.contains(pid)) s.night.excusedTonight.remove(pid)
             else {
                 s.night.excusedTonight.add(pid)
-                Slots.all(s.settings).forEach { s.night.marks[it.id]?.remove(pid); s.night.touch(Merge.markKey(it.id, pid)) }
+                Slots.all(s.night).forEach { s.night.marks[it.id]?.remove(pid); s.night.touch(Merge.markKey(it.id, pid)) }
             }
             s.night.touch(Merge.tonightKey(pid))
             persist(s); s
@@ -227,7 +316,9 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         if (store.settings.syncUrl.isBlank()) { if (loud) toast("No sync address set"); return }
         if (syncing) return
         syncing = true
-        update { it.copy(sync = SyncState.Working) }
+        // The quiet poll runs every 30s; flashing "Syncing…" through the settings line each time
+        // would be movement with nothing behind it. Only the row you pressed says it is working.
+        if (loud) update { it.copy(sync = SyncState.Working) }
         viewModelScope.launch {
             val result = runCatching { syncClient.sync() }
             syncing = false

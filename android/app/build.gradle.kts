@@ -13,8 +13,8 @@ android {
         applicationId = "com.roomcheck.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 18
-        versionName = "1.7.0"
+        versionCode = 19
+        versionName = "1.7.1"
     }
 
     signingConfigs {
@@ -48,6 +48,11 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // The merge rule is written twice - once here, once in JavaScript for the site and the sync
+    // server - and both are pinned to one set of cases. The Kotlin test reads that file straight
+    // from server/ rather than from a copy, so the two cannot quietly drift apart.
+    sourceSets["test"].resources.srcDir(rootProject.file("../server"))
 
     // Build the version into the filename, so a downloaded APK says which one it is without
     // having to be installed to find out - and two of them can sit in a folder together.

@@ -17,6 +17,10 @@ object Merge {
     fun markKey(sid: String, pid: String) = "m:$sid:$pid"
     fun tonightKey(pid: String) = "t:$pid"
     fun noteKey(pid: String) = "n:$pid"
+    /** An extra round walked on this night only. */
+    fun slotKey(sid: String) = "s:$sid"
+    /** This round goes on this night's picture. */
+    fun sheetKey(sid: String) = "h:$sid"
     const val CLOSED_KEY = "c"
 
     /** Every cell either side knows anything about. */
@@ -24,6 +28,8 @@ object Merge {
         n.marks.forEach { (sid, slot) -> slot.keys.forEach { add(markKey(sid, it)) } }
         n.excusedTonight.forEach { add(tonightKey(it)) }
         n.notes.keys.forEach { add(noteKey(it)) }
+        n.rounds.forEach { add(slotKey(it)) }
+        n.sheetSlots.forEach { add(sheetKey(it)) }
         add(CLOSED_KEY)
         addAll(n.stamps.keys)
     }
@@ -36,6 +42,8 @@ object Merge {
         }
         key.startsWith("t:") -> if (n.excusedTonight.contains(key.substring(2))) "1" else null
         key.startsWith("n:") -> n.notes[key.substring(2)]
+        key.startsWith("s:") -> if (n.rounds.contains(key.substring(2))) "1" else null
+        key.startsWith("h:") -> if (n.sheetSlots.contains(key.substring(2))) "1" else null
         else -> null
     }
 
@@ -56,6 +64,14 @@ object Merge {
             key.startsWith("n:") -> {
                 val pid = key.substring(2)
                 if (value.isNullOrBlank()) n.notes.remove(pid) else n.notes[pid] = value
+            }
+            key.startsWith("s:") -> {
+                val sid = key.substring(2)
+                if (value != null) n.rounds.add(sid) else n.rounds.remove(sid)
+            }
+            key.startsWith("h:") -> {
+                val sid = key.substring(2)
+                if (value != null) n.sheetSlots.add(sid) else n.sheetSlots.remove(sid)
             }
         }
     }

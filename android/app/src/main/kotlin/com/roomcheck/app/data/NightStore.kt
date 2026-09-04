@@ -12,6 +12,17 @@ data class Night(
     val excusedTonight: MutableSet<String> = mutableSetOf(),
     val notes: MutableMap<String, String> = mutableMapOf(),
     var closed: Boolean = false,
+    /**
+     * The rounds walked on THIS night, when they are not the usual ones. Empty - the normal case -
+     * means the standing three.
+     *
+     * A one-off: the zman moved and there is only one check at 12:30, or there are two instead of
+     * three. It belongs to the night the way its marks do, not to the app, so tomorrow is back to
+     * the usual three with nothing to put back.
+     */
+    val rounds: MutableSet<String> = mutableSetOf(),
+    /** Which rounds go on this night's picture. Empty means all of them, which is the usual case. */
+    val sheetSlots: MutableSet<String> = mutableSetOf(),
     /** When each cell was last set, so two devices' copies can be merged cell by cell. */
     val stamps: MutableMap<String, Long> = mutableMapOf()
 ) {
@@ -33,6 +44,8 @@ data class Night(
         notes.forEach { (pid, note) -> notesObj.put(pid, note) }
         o.put("notes", notesObj)
         o.put("closed", closed)
+        o.put("slots", JSONArray(rounds.toList().sorted()))
+        o.put("sheet", JSONArray(sheetSlots.toList().sorted()))
         val stampObj = JSONObject()
         stamps.forEach { (k, v) -> stampObj.put(k, v) }
         o.put("ts", stampObj)
@@ -66,6 +79,8 @@ data class Night(
             val notesObj = json.optJSONObject("notes")
             notesObj?.keys()?.forEach { pid -> n.notes[pid] = notesObj.optString(pid) }
             n.closed = json.optBoolean("closed", false)
+            json.optJSONArray("slots")?.let { for (i in 0 until it.length()) n.rounds.add(it.getString(i)) }
+            json.optJSONArray("sheet")?.let { for (i in 0 until it.length()) n.sheetSlots.add(it.getString(i)) }
 
             val stampObj = json.optJSONObject("ts")
             if (stampObj != null) {
@@ -74,6 +89,8 @@ data class Night(
                 n.marks.forEach { (sid, slot) -> slot.keys.forEach { n.stamps[Merge.markKey(sid, it)] = fallbackStamp } }
                 n.excusedTonight.forEach { n.stamps[Merge.tonightKey(it)] = fallbackStamp }
                 n.notes.keys.forEach { n.stamps[Merge.noteKey(it)] = fallbackStamp }
+                n.rounds.forEach { n.stamps[Merge.slotKey(it)] = fallbackStamp }
+                n.sheetSlots.forEach { n.stamps[Merge.sheetKey(it)] = fallbackStamp }
                 if (n.closed) n.stamps[Merge.CLOSED_KEY] = fallbackStamp
             }
             return n
@@ -96,11 +113,7 @@ data class Settings(
     val hebrewInExport: Boolean = false,
     /** Where the shared copy lives. Blank means this device keeps to itself, as it always did. */
     val syncUrl: String = "",
-    val syncToken: String = "",
-    /** Extra times you added, as HHMM ids. The standing three are not stored - they always exist. */
-    val customSlots: List<String> = emptyList(),
-    /** Which times go on the sent picture. Empty means all of them. */
-    val sheetSlots: List<String> = emptyList()
+    val syncToken: String = ""
 )
 
 private fun JSONObject.optStringOrNull(key: String): String? = if (has(key)) getString(key) else null
@@ -148,9 +161,7 @@ class NightStore(home: File) {
                         hebrewOnPlan = it.optBoolean("hebrewOnPlan", false),
                         hebrewInExport = it.optBoolean("hebrewInExport", false),
                         syncUrl = it.optString("syncUrl", ""),
-                        syncToken = it.optString("syncToken", ""),
-                        customSlots = it.optJSONArray("customSlots").toStringList(),
-                        sheetSlots = it.optJSONArray("sheetSlots").toStringList()
+                        syncToken = it.optString("syncToken", "")
                     )
                 }
                 lastPull = root.optLong("lastPull", 0L)
@@ -188,9 +199,7 @@ class NightStore(home: File) {
             .put("hebrewOnPlan", settings.hebrewOnPlan)
             .put("hebrewInExport", settings.hebrewInExport)
             .put("syncUrl", settings.syncUrl)
-            .put("syncToken", settings.syncToken)
-            .put("customSlots", JSONArray(settings.customSlots))
-            .put("sheetSlots", JSONArray(settings.sheetSlots)))
+            .put("syncToken", settings.syncToken))
         root.put("lastPull", lastPull)
         root.put("dirty", JSONArray(dirty.toList()))
         stateFile.writeText(root.toString())

@@ -86,7 +86,22 @@ private fun TopBar(vm: AppViewModel, state: UiState, locked: Boolean, onCalendar
                 IconBtn(Icons.Filled.MyLocation, "Jump to tonight", small = true) { vm.goToday() }
             }
             if (!locked) IconBtn(Icons.Filled.Undo, "Undo") { vm.undo() }
-            IconBtn(Icons.Filled.MoreVert, "More") { vm.setTab(Tab.SETTINGS) }
+            var menu by remember { mutableStateOf(false) }
+            Box {
+                IconBtn(Icons.Filled.MoreVert, "More") { menu = true }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    // tucked in here rather than on the marking screen: most nights are the three
+                    // standing rounds and never need it, but the night it does is this night
+                    DropdownMenuItem(
+                        text = { Text("Rounds for this night") },
+                        onClick = { menu = false; vm.setTab(Tab.TIMES) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Settings") },
+                        onClick = { menu = false; vm.setTab(Tab.SETTINGS) }
+                    )
+                }
+            }
         }
         Text(savedText(), fontSize = 10.5.sp, color = RC.sub, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
     }
@@ -292,7 +307,7 @@ private fun BottomBar(vm: AppViewModel, state: UiState, logic: NightLogic, revie
                 vm.toast("Copied")
             }
             BarButton(Modifier.weight(1f), "Send image", RC.text) {
-                NightImage.share(context, logic, state.dateKey, state.settings.hebrewInExport, Slots.forSheet(state.settings))
+                NightImage.share(context, logic, state.dateKey, state.settings.hebrewInExport, Slots.forSheet(state.night))
             }
         }
     }
