@@ -49,6 +49,7 @@ object NightImage {
     private val redL = Color.parseColor("#FBEBEA")
     private val grey = Color.parseColor("#8A8A8E")
     private val greyL = Color.parseColor("#EEEEF1")
+    private val accent = Color.parseColor("#4356A6")   // the time headings, and only them
 
     private fun paint(size: Float, color: Int, bold: Boolean = false) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = size
@@ -234,16 +235,22 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
         val colX = floatArrayOf(PAD, PAD + colW + GAP)
         val n = slots.size
 
-        // No grey slab across the page: the times are a column heading, so they read as one -
-        // small, faint, over a rule the width of their own column. A filled band drew the eye to
-        // the furniture instead of to the sheet.
+        // The time a column belongs to has to be readable at a glance - it is the one thing that
+        // says which walk a tick came from. No grey slab across the page (that drew the eye to the
+        // furniture), but no whisper either: each time is set in full ink over a short accent bar
+        // of its own, so it reads as a heading for that column and nothing else.
         val rule = Paint().apply { color = hair; strokeWidth = 2.5f }
+        val bar = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent }
         colX.forEach { x ->
             slots.forEachIndexed { i, (_, label) ->
-                val p = paint(27f, faint, bold = true).apply { textAlign = Paint.Align.CENTER }
-                c.drawText(label, d.p(x + colW - (n - 0.5f - i) * COL_W), startY + 40f, p)
+                val cx = x + colW - (n - 0.5f - i) * COL_W
+                val p = paint(32f, ink, bold = true).apply { textAlign = Paint.Align.CENTER }
+                c.drawText(label, d.p(cx), startY + 38f, p)
+                val half = (p.measureText(label) / 2f).coerceAtMost(COL_W / 2f - 8f)
+                val barL = d.box(cx - half, half * 2f)
+                c.drawRoundRect(RectF(barL, startY + 50f, barL + half * 2f, startY + 55f), 3f, 3f, bar)
             }
-            c.drawLine(d.p(x), startY + BAND_H - 14f, d.p(x + colW), startY + BAND_H - 14f, rule)
+            c.drawLine(d.p(x), startY + BAND_H - 8f, d.p(x + colW), startY + BAND_H - 8f, rule)
         }
 
         // Mirroring puts the first group of rooms in the right-hand column on its own.

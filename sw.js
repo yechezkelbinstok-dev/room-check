@@ -1,5 +1,5 @@
 /* Room Check — offline shell. Bump CACHE whenever the app changes. */
-const CACHE = "roomcheck-v1.7.1";
+const CACHE = "roomcheck-v1.7.2";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./robots.txt",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png",
   "./icons/favicon-64.png"];
