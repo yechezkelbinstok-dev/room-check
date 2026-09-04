@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node merge.test.mjs && node worker.test.mjs",
+    "build": "node build-single.mjs",
+    "test": "node build-single.mjs && node merge.test.mjs && node worker.test.mjs && node worker.single.test.mjs",
     "deploy": "wrangler deploy"
   }
 }
