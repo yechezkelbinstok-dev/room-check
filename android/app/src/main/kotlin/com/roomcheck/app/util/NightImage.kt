@@ -36,7 +36,8 @@ object NightImage {
     private const val ROOM_HEAD_H = 66f    // the "Room 3" band above each group
     private const val BAND_H = 74f         // the header strip over the sheet
     private const val CHIP = 52f
-    private const val COL_W = 88f          // one time column
+    private const val COL_W = 106f         // one time column - wide enough that "12:00" and the
+                                           // next heading are plainly two labels, not one number
 
     private val ink = Color.parseColor("#111114")
     private val sub = Color.parseColor("#6C6E76")
@@ -49,7 +50,6 @@ object NightImage {
     private val redL = Color.parseColor("#FBEBEA")
     private val grey = Color.parseColor("#8A8A8E")
     private val greyL = Color.parseColor("#EEEEF1")
-    private val accent = Color.parseColor("#4356A6")   // the time headings, and only them
 
     private fun paint(size: Float, color: Int, bold: Boolean = false) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = size
@@ -235,22 +235,22 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
         val colX = floatArrayOf(PAD, PAD + colW + GAP)
         val n = slots.size
 
-        // The time a column belongs to has to be readable at a glance - it is the one thing that
-        // says which walk a tick came from. No grey slab across the page (that drew the eye to the
-        // furniture), but no whisper either: each time is set in full ink over a short accent bar
-        // of its own, so it reads as a heading for that column and nothing else.
-        val rule = Paint().apply { color = hair; strokeWidth = 2.5f }
-        val bar = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent }
+        // A column heading, done as a column heading: set SMALLER than the names it labels, in
+        // ink so it is plainly readable, letter-spaced and centred over its own column, with one
+        // hairline under the row. It was a grey slab (the eye went to the furniture), then a pale
+        // whisper (unreadable), then big bold text with a coloured bar under each - which crammed
+        // "12:00 11:30" into one string and put the loudest thing on the page back in the header.
+        // Quieter than the data, clearly three separate labels, nothing decorative.
+        val rule = Paint().apply { color = hair; strokeWidth = 2f }
         colX.forEach { x ->
             slots.forEachIndexed { i, (_, label) ->
-                val cx = x + colW - (n - 0.5f - i) * COL_W
-                val p = paint(32f, ink, bold = true).apply { textAlign = Paint.Align.CENTER }
-                c.drawText(label, d.p(cx), startY + 38f, p)
-                val half = (p.measureText(label) / 2f).coerceAtMost(COL_W / 2f - 8f)
-                val barL = d.box(cx - half, half * 2f)
-                c.drawRoundRect(RectF(barL, startY + 50f, barL + half * 2f, startY + 55f), 3f, 3f, bar)
+                val p = paint(27f, ink, bold = true).apply {
+                    textAlign = Paint.Align.CENTER
+                    letterSpacing = 0.03f
+                }
+                c.drawText(label, d.p(x + colW - (n - 0.5f - i) * COL_W), startY + 40f, p)
             }
-            c.drawLine(d.p(x), startY + BAND_H - 8f, d.p(x + colW), startY + BAND_H - 8f, rule)
+            c.drawLine(d.p(x), startY + 58f, d.p(x + colW), startY + 58f, rule)
         }
 
         // Mirroring puts the first group of rooms in the right-hand column on its own.
