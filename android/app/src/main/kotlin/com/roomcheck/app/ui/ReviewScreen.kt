@@ -42,11 +42,11 @@ fun ReviewScreen(vm: AppViewModel, state: UiState, logic: NightLogic) {
             }
         }
         Row(Modifier.fillMaxWidth().padding(end = 18.dp, top = 10.dp, bottom = 4.dp), horizontalArrangement = Arrangement.End) {
-            Roster.SLOTS.forEach { (_, label) -> Text(label, fontSize = 10.5.sp, color = RC.sub, fontWeight = FontWeight.Bold, modifier = Modifier.width(34.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
+            logic.slots.forEach { (_, label) -> Text(label, fontSize = 10.5.sp, color = RC.sub, fontWeight = FontWeight.Bold, modifier = Modifier.width(34.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
         }
         val roomsWithPeople = Roster.PLAN.mapNotNull { room ->
             val ppl = room.beds.flatMap { it.slots }
-            val list = if (state.onlyOut) ppl.filter { pid -> Roster.SIDS.any { logic.statusOf(pid, it) == Mark.OUT } } else ppl
+            val list = if (state.onlyOut) ppl.filter { pid -> logic.sids.any { logic.statusOf(pid, it) == Mark.OUT } } else ppl
             if (list.isNotEmpty()) room to list else null
         }
         // Bottom room goes in contentPadding, not in the modifier: padding on the modifier shrinks
@@ -74,7 +74,7 @@ fun ReviewScreen(vm: AppViewModel, state: UiState, logic: NightLogic) {
                         ) {
                             Text(logic.nameOf(pid), fontSize = 15.sp)
                             Row {
-                                Roster.SIDS.forEach { sid ->
+                                logic.sids.forEach { sid ->
                                     val (glyph, color) = when (logic.statusOf(pid, sid)) {
                                         Mark.IN -> "✓" to RC.green
                                         Mark.OUT -> "✕" to RC.red

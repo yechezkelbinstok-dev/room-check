@@ -13,7 +13,7 @@ android {
         applicationId = "com.roomcheck.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 17
+        versionCode = 18
         versionName = "1.7.0"
     }
 

@@ -11,6 +11,7 @@ import com.roomcheck.app.ui.CheckScreen
 import com.roomcheck.app.ui.NamesScreen
 import com.roomcheck.app.ui.RoomCheckTheme
 import com.roomcheck.app.ui.SettingsScreen
+import com.roomcheck.app.ui.TimesScreen
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -116,6 +117,26 @@ class AppScreenshotTest {
         val vm = viewModel()
         paparazzi.snapshot(name = "settings") {
             RoomCheckTheme { SettingsScreen(vm) }
+        }
+    }
+
+    /** The Times page, with a custom round added and the sheet narrowed to two. */
+    @Test
+    fun timesScreen() {
+        val vm = viewModel()
+        vm.setSettings { it.copy(customSlots = listOf("0130"), sheetSlots = listOf("1200", "0130")) }
+        paparazzi.snapshot(name = "times") {
+            RoomCheckTheme { TimesScreen(vm) }
+        }
+    }
+
+    /** Marking with four rounds instead of three - the tabs have to hold one more. */
+    @Test
+    fun fourRounds() {
+        val vm = viewModel()
+        vm.setSettings { it.copy(customSlots = listOf("0130")) }
+        paparazzi.snapshot(name = "check-four-rounds") {
+            RoomCheckTheme { CheckScreen(vm) }
         }
     }
 

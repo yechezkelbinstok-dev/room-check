@@ -14,6 +14,7 @@ import com.roomcheck.app.data.Mark
 import com.roomcheck.app.data.NightLogic
 import com.roomcheck.app.data.Room
 import com.roomcheck.app.data.Roster
+import com.roomcheck.app.data.Slot
 import java.io.File
 import java.io.FileOutputStream
 
@@ -83,9 +84,10 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
      * three lists were a wall of text you had to parse to find a single name in; as three lists
      * side by side you read down the one you want and stop.
      */
-    private fun summarize(logic: NightLogic, hebrew: Boolean, cardTextW: Float): List<Summary> {
+    private fun summarize(logic: NightLogic, slots: List<Slot>, hebrew: Boolean, cardTextW: Float): List<Summary> {
         val p = paint(NAME_SZ, red)
-        return Roster.SIDS.mapIndexed { i, sid ->
+        return slots.map { slot ->
+            val sid = slot.id
             val missing = logic.missingAt(sid)
             val started = logic.stats(sid).started
             val lines = if (missing.isNotEmpty()) {
@@ -98,11 +100,12 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
                 )
             }
             val tone = if (missing.isNotEmpty()) red else if (started) green else grey
-            Summary(Roster.SLOTS[i].second, lines, tone)
+            Summary(slot.label, lines, tone)
         }
     }
 
-    private fun cardWidth(w: Float) = (w - 2 * PAD - 2 * CARD_GAP) / 3f
+    /** One card per time on the sheet - which is not always three, so it cannot be divided by 3. */
+    private fun cardWidth(w: Float, n: Int) = (w - 2 * PAD - (n - 1) * CARD_GAP) / n
     private fun cardHeight(cards: List<Summary>) =
         CARD_HEAD + cards.maxOf { it.lines.size } * LINE_H + CARD_PAD
 
@@ -129,16 +132,16 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
         return Roster.PEOPLE.maxOf { np.measureText(logic.nameOf(it.id, hebrew)) }
     }
 
-    fun render(logic: NightLogic, dateKey: String, hebrew: Boolean = false): Bitmap {
-        val colW = widestNameWidth(logic, hebrew) + 40f + 3 * COL_W
+    fun render(logic: NightLogic, dateKey: String, hebrew: Boolean = false, slots: List<Slot> = logic.slots): Bitmap {
+        val colW = widestNameWidth(logic, hebrew) + 40f + slots.size * COL_W
         var w = 2 * colW + GAP + 2 * PAD
-        var summaries = summarize(logic, hebrew, cardWidth(w) - 2 * CARD_PAD)
+        var summaries = summarize(logic, slots, hebrew, cardWidth(w, slots.size) - 2 * CARD_PAD)
         var h = heightOf(summaries)
         // A heavy night makes the summary long. Widen rather than let the thread crop it: the
         // extra width re-wraps the names shorter, so one pass always lands inside the ratio.
         if (h / w > MAX_RATIO) {
             w = h / MAX_RATIO
-            summaries = summarize(logic, hebrew, cardWidth(w) - 2 * CARD_PAD)
+            summaries = summarize(logic, slots, hebrew, cardWidth(w, slots.size) - 2 * CARD_PAD)
             h = heightOf(summaries)
         }
 
@@ -149,7 +152,7 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
         val d = Dir(w, rtl = hebrew)
         drawHeader(c, dateKey, d)
         drawSummary(c, summaries, HEADER_H, d)
-        drawSheet(c, logic, hebrew, HEADER_H + summaryH(summaries), d)
+        drawSheet(c, logic, slots, hebrew, HEADER_H + summaryH(summaries), d)
         return bmp
     }
 
@@ -208,7 +211,7 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
 
         // All three cards take the tallest card's height. Sized to their own contents they would
         // stair-step down the page - three ragged boxes read worse than three aligned ones.
-        val cardW = cardWidth(d.w)
+        val cardW = cardWidth(d.w, summaries.size)
         val cardH = cardHeight(summaries)
         summaries.forEachIndexed { i, s ->
             val x = PAD + i * (cardW + CARD_GAP)
@@ -226,30 +229,31 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
     }
 
     /** The filled-in sheet: every bochur, every time, in two columns so it all fits above the fold. */
-    private fun drawSheet(c: Canvas, logic: NightLogic, hebrew: Boolean, startY: Float, d: Dir) {
+    private fun drawSheet(c: Canvas, logic: NightLogic, slots: List<Slot>, hebrew: Boolean, startY: Float, d: Dir) {
         val colW = (d.w - 2 * PAD - GAP) / 2f
         val colX = floatArrayOf(PAD, PAD + colW + GAP)
+        val n = slots.size
 
         // No grey slab across the page: the times are a column heading, so they read as one -
         // small, faint, over a rule the width of their own column. A filled band drew the eye to
         // the furniture instead of to the sheet.
         val rule = Paint().apply { color = hair; strokeWidth = 2.5f }
         colX.forEach { x ->
-            Roster.SLOTS.forEachIndexed { i, (_, label) ->
+            slots.forEachIndexed { i, (_, label) ->
                 val p = paint(27f, faint, bold = true).apply { textAlign = Paint.Align.CENTER }
-                c.drawText(label, d.p(x + colW - (2.5f - i) * COL_W), startY + 40f, p)
+                c.drawText(label, d.p(x + colW - (n - 0.5f - i) * COL_W), startY + 40f, p)
             }
             c.drawLine(d.p(x), startY + BAND_H - 14f, d.p(x + colW), startY + BAND_H - 14f, rule)
         }
 
         // Mirroring puts the first group of rooms in the right-hand column on its own.
         val split = splitPoint()
-        drawColumn(c, logic, hebrew, Roster.PLAN.take(split), colX[0], startY + BAND_H, colW, d)
-        drawColumn(c, logic, hebrew, Roster.PLAN.drop(split), colX[1], startY + BAND_H, colW, d)
+        drawColumn(c, logic, slots, hebrew, Roster.PLAN.take(split), colX[0], startY + BAND_H, colW, d)
+        drawColumn(c, logic, slots, hebrew, Roster.PLAN.drop(split), colX[1], startY + BAND_H, colW, d)
     }
 
     private fun drawColumn(
-        c: Canvas, logic: NightLogic, hebrew: Boolean, rooms: List<Room>,
+        c: Canvas, logic: NightLogic, slots: List<Slot>, hebrew: Boolean, rooms: List<Room>,
         x: Float, top: Float, colW: Float, d: Dir
     ) {
         val hairline = Paint().apply { color = hair; strokeWidth = 1.5f }
@@ -260,7 +264,7 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
             y += ROOM_HEAD_H
             room.beds.forEach { bed ->
                 bed.slots.forEach { pid ->
-                    drawPersonRow(c, logic, hebrew, pid, x, y, colW, d)
+                    drawPersonRow(c, logic, slots, hebrew, pid, x, y, colW, d)
                     c.drawLine(d.p(x), y + ROW_H, d.p(x + colW), y + ROW_H, hairline)
                     y += ROW_H
                 }
@@ -269,14 +273,14 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
     }
 
     private fun drawPersonRow(
-        c: Canvas, logic: NightLogic, hebrew: Boolean, pid: String,
+        c: Canvas, logic: NightLogic, slots: List<Slot>, hebrew: Boolean, pid: String,
         x: Float, y: Float, colW: Float, d: Dir
     ) {
         val mid = y + ROW_H / 2f
         c.drawText(logic.nameOf(pid, hebrew), d.p(x), mid + 12f, d.align(namePaint()))
-        Roster.SIDS.forEachIndexed { i, sid ->
-            val cx = x + colW - (3 - i) * COL_W + (COL_W - CHIP) / 2f
-            drawChip(c, logic.statusOf(pid, sid), d.box(cx, CHIP), mid - CHIP / 2f)
+        slots.forEachIndexed { i, slot ->
+            val cx = x + colW - (slots.size - i) * COL_W + (COL_W - CHIP) / 2f
+            drawChip(c, logic.statusOf(pid, slot.id), d.box(cx, CHIP), mid - CHIP / 2f)
         }
     }
 
@@ -318,8 +322,8 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
      * Writes the sheet to a cache file and hands it to the share sheet as a picture, and only a
      * picture - no message text riding along with it. Copy text is its own button.
      */
-    fun share(context: Context, logic: NightLogic, dateKey: String, hebrew: Boolean = false) {
-        val bmp = render(logic, dateKey, hebrew)
+    fun share(context: Context, logic: NightLogic, dateKey: String, hebrew: Boolean = false, slots: List<Slot> = logic.slots) {
+        val bmp = render(logic, dateKey, hebrew, slots)
         val dir = File(context.cacheDir, "shared").apply { mkdirs() }
         val file = File(dir, "room-check-$dateKey.png")
         FileOutputStream(file).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }

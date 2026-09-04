@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.roomcheck.app.BuildConfig
 import com.roomcheck.app.data.AppViewModel
+import com.roomcheck.app.data.Slots
 import com.roomcheck.app.data.SyncState
 import com.roomcheck.app.data.Tab
 import java.text.SimpleDateFormat
@@ -63,6 +64,18 @@ fun SettingsScreen(vm: AppViewModel) {
                 Card {
                     SettingRow("Bunk labels", state.settings.bunkLabels) { on ->
                         vm.setSettings { it.copy(bunkLabels = on) }
+                    }
+                }
+            }
+            item { SectionHeader("Times") }
+            item {
+                Card {
+                    Row(
+                        Modifier.fillMaxWidth().clickable { vm.setTab(Tab.TIMES) }.padding(14.dp, 13.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Rounds & what goes on the sheet", color = RC.blue, fontWeight = FontWeight.SemiBold)
+                        Text(Slots.all(state.settings).joinToString(" · ") { it.label }, fontSize = 12.5.sp, color = RC.sub)
                     }
                 }
             }

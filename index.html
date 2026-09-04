@@ -252,8 +252,32 @@ h2{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
 <script>
 "use strict";
 
-const SLOTS=[{id:"1115",label:"11:15"},{id:"1130",label:"11:30"},{id:"1200",label:"12:00"}];
-const SIDS=SLOTS.map(s=>s.id);
+/* Three rounds stand every night; anything else is added in Settings > Times.
+   Ids read like a clock face, not a 24-hour one: "1115" is quarter past eleven at night and
+   "1200" is midnight. That is how every night ever marked is filed, so the scheme stays - and it
+   means ids cannot be sorted as numbers, since 12 falls after 11 but before 1. */
+const BASE_SLOTS=[{id:"1115",label:"11:15"},{id:"1130",label:"11:30"},{id:"1200",label:"12:00"}];
+const slotHour=id=>parseInt(id.slice(0,2),10)||0, slotMin=id=>parseInt(id.slice(2),10)||0;
+/* 6pm…11pm, then midnight, then 1am…5am - the order the rounds are actually walked. */
+const nightHour=h=>h===12?12:(h<6?h+12:h);
+const slotOrder=id=>nightHour(slotHour(id))*60+slotMin(id);
+const slotLabel=id=>slotHour(id)+":"+String(slotMin(id)).padStart(2,"0");
+const validSlot=id=>/^\d{4}$/.test(id)&&slotHour(id)>=1&&slotHour(id)<=12&&slotMin(id)<=59;
+const idForClock=(h24,m)=>String(h24%12===0?12:h24%12).padStart(2,"0")+String(m).padStart(2,"0");
+const allSlots=()=>{
+  const extra=(state.settings.customSlots||[]).filter(validSlot).map(id=>({id,label:slotLabel(id)}));
+  const seen=new Set(); const out=[];
+  for(const s of [...BASE_SLOTS,...extra]) if(!seen.has(s.id)){seen.add(s.id);out.push(s);}
+  return out.sort((a,b)=>slotOrder(a.id)-slotOrder(b.id));
+};
+/* All of them unless narrowed - and if the narrowing names nothing that still exists, all of them
+   again, so deleting a custom time cannot leave a blank sheet. */
+const sheetSlots=()=>{
+  const every=allSlots(), pick=state.settings.sheetSlots||[];
+  if(!pick.length)return every;
+  const kept=every.filter(s=>pick.includes(s.id));
+  return kept.length?kept:every;
+};
 const RKEY="dorm-plan-v1", MKEY="dorm-mirror-v1", NPRE="dn:";
 const IC={
   tick:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.6l4.6 4.6L19 7.2"/></svg>`,
@@ -332,7 +356,7 @@ const PLAN=[
 let state={night:null,dateKey:null,cur:"1115",room:0,tab:"check",who:null,mode:"one",review:false,onlyOut:false,
   ok:true,persist:true,lastSave:null,editing:false,cal:null,calHas:{},extra:{},
   /* off by default: the plan reads cleaner without them, and Names can switch them back on */
-  settings:{bunkLabels:false,hebrewOnPlan:false,hebrewInExport:false,syncUrl:"",syncToken:""},
+  settings:{bunkLabels:false,hebrewOnPlan:false,hebrewInExport:false,syncUrl:"",syncToken:"",customSlots:[],sheetSlots:[]},
   syncMsg:"",syncing:false,lastPull:0,dirty:[]};
 let undoStack=[];
 
@@ -511,7 +535,7 @@ const nameIn=(pid,heb)=>firstIn(pid,heb)+" "+lastIn(pid,heb);
 const roomName=r=>state.settings.hebrewOnPlan?r.heb:r.label;
 const isAlways=pid=>!!(state.extra[pid]&&state.extra[pid].always);
 
-function blank(){const n={marks:{},tonight:[],notes:{},closed:false};SIDS.forEach(s=>n.marks[s]={});return n;}
+function blank(){const n={marks:{},tonight:[],notes:{},closed:false};allSlots().map(s=>s.id).forEach(s=>n.marks[s]={});return n;}
 /* ---------- merging two devices' copies ----------
    The same rule as the app's Merge.kt and the sync server's merge.js, pinned to the same cases in
    server/fixtures.json. A night carries a timestamp per CELL, so two people marking different
@@ -565,7 +589,7 @@ function norm(n){
   b.tonight=Array.isArray(n.tonight)?n.tonight:[];
   b.notes=(n.notes&&typeof n.notes==="object")?n.notes:{};
   b.closed=!!n.closed;
-  SIDS.forEach(s=>{const m=(n.marks&&n.marks[s])||{};b.marks[s]=(m&&typeof m==="object")?{...m}:{};});
+  allSlots().map(s=>s.id).forEach(s=>{const m=(n.marks&&n.marks[s])||{};b.marks[s]=(m&&typeof m==="object")?{...m}:{};});
   /* a slot the app does not currently list - a custom time - still has to survive a load */
   if(n.marks)for(const s of Object.keys(n.marks))if(!b.marks[s])b.marks[s]={...n.marks[s]};
   b.ts=(n.ts&&typeof n.ts==="object")?{...n.ts}:{};
@@ -580,13 +604,13 @@ async function loadNight(k){
 function statusOf(pid,sid){
   if(isAlways(pid))return "exc";
   if(state.night.tonight.includes(pid))return "exc";
-  return state.night.marks[sid][pid]||null;
+  return (state.night.marks[sid]||{})[pid]||null;
 }
 function roomChecked(room,sid){
   const live=[];
   room.beds.forEach(b=>b.slots.forEach(pid=>{if(statusOf(pid,sid)!=="exc")live.push(pid);}));
   if(!live.length)return true;
-  return live.some(pid=>state.night.marks[sid][pid]);
+  return live.some(pid=>(state.night.marks[sid]||{})[pid]);
 }
 function roomAllIn(room,sid){
   let any=false;
@@ -606,18 +630,18 @@ function stats(sid){
   const left=PLAN.filter(r=>!roomChecked(r,sid)).length;
   return {out,inn,exc,left,started:left<PLAN.length};
 }
-const label=id=>{const s=SLOTS.find(x=>x.id===id);return s?s.label:id;};
+const label=id=>{const s=allSlots().find(x=>x.id===id);return s?s.label:id;};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 function snap(){undoStack.push(JSON.parse(JSON.stringify(state.night)));if(undoStack.length>40)undoStack.shift();}
 function setMark(pid,sid,v){
-  snap(); const m=state.night.marks[sid];
+  snap(); const m=state.night.marks[sid]||(state.night.marks[sid]={});
   if(m[pid]===v)delete m[pid]; else m[pid]=v;
   touch(markKey(sid,pid));
   save();
 }
 function markRoom(room,sid){
-  snap(); const m=state.night.marks[sid];
+  snap(); const m=state.night.marks[sid]||(state.night.marks[sid]={});
   const all=roomAllIn(room,sid);
   room.beds.forEach(b=>b.slots.forEach(pid=>{
     if(statusOf(pid,sid)==="exc")return;
@@ -635,8 +659,8 @@ const missingAt=sid=>allP().filter(({pid})=>statusOf(pid,sid)==="out").map(({pid
    of whoever wasn't there. Same shape as the app, so it does not matter which one sent it. */
 function report(){
   const L=[hebDayMonth(state.dateKey)];
-  SIDS.forEach(sid=>{
-    L.push("",label(sid));
+  allSlots().forEach(({id:sid,label:lbl})=>{
+    L.push("",lbl);
     const miss=missingAt(sid);
     L.push(miss.length?miss.map(nameOf).join(", "):(stats(sid).started?"Everybody there":"Not marked"));
     const u=PLAN.filter(r=>!roomChecked(r,sid));
@@ -729,11 +753,11 @@ function isLocked(){
   if(state.editing)return false;
   if(state.night.closed)return true;
   if(state.dateKey===tonightKey())return false;
-  return SIDS.some(s=>Object.keys(state.night.marks[s]).length>0);
+  return allSlots().map(s=>s.id).some(s=>Object.keys(state.night.marks[s]).length>0);
 }
 const showingReview=()=>isLocked()||state.review;
 function headHTML(){
-  const times=SLOTS.map(s=>`<button data-a="time" data-s="${s.id}" class="${s.id===state.cur?"on":""}">
+  const times=allSlots().map(s=>`<button data-a="time" data-s="${s.id}" class="${s.id===state.cur?"on":""}">
       <div class="a">${s.label}</div><div class="b" data-tb="${s.id}"></div></button>`).join("");
   const rooms=PLAN.map((r,i)=>`<button data-a="jump" data-i="${i}" data-rp="${r.id}"
       class="${i===state.room?"on":""}">${i+1}</button>`).join("");
@@ -770,15 +794,15 @@ function reviewHTML(){
   PLAN.forEach(room=>{
     const ppl=[];
     room.beds.forEach(b=>b.slots.forEach(pid=>ppl.push(pid)));
-    const list=state.onlyOut?ppl.filter(pid=>SIDS.some(s=>statusOf(pid,s)==="out")):ppl;
+    const list=state.onlyOut?ppl.filter(pid=>allSlots().map(s=>s.id).some(s=>statusOf(pid,s)==="out")):ppl;
     if(!list.length)return;
     shownAny=true;
     body+=`<h2>${esc(room.label)}</h2><div class="blk">`+list.map(pid=>
       `<div class="li"><span class="a">${esc(nameOf(pid))}</span><span class="rvs">`+
-      SIDS.map(s=>GLYPH[statusOf(pid,s)||"none"]).join("")+`</span></div>`).join("")+`</div>`;
+      allSlots().map(s=>GLYPH[statusOf(pid,s.id)||"none"]).join("")+`</span></div>`).join("")+`</div>`;
   });
   if(!shownAny)body=`<div class="blk"><div class="none">${state.onlyOut?"Nobody was marked out tonight.":"Nothing marked yet."}</div></div>`;
-  const st=SIDS.map(s=>stats(s));
+  const st=allSlots().map(s=>stats(s.id));
   return `<div class="lock"><span>${isLocked()?"Closed — read only":"Review — read only"}</span>
       <button data-a="edit">Edit</button></div>
     <div class="pan" style="padding-top:0">
@@ -788,13 +812,13 @@ function reviewHTML(){
           <button class="${state.onlyOut?"on":""}" data-a="onlyout" data-v="1">Only not here</button>
         </div>
       </div>
-      <div class="rvhead"><span>${st.map((x,i)=>`${SLOTS[i].label}`).join("</span><span>")}</span></div>
+      <div class="rvhead"><span>${allSlots().map(x=>x.label).join("</span><span>")}</span></div>
       ${body}
       <div class="none" style="padding-bottom:24px">✓ here · ✕ not here · E excused · – not marked</div>
     </div>`;
 }
 function summaryHTML(){
-  const blocks=SLOTS.map(s=>{
+  const blocks=allSlots().map(s=>{
     const st=stats(s.id);
     let badge,inner;
     if(!st.started){badge=`<span class="b d">not done</span>`;inner=`<div class="none">Not done</div>`;}
@@ -812,7 +836,7 @@ function summaryHTML(){
     }
     return `<div class="sumh"><span class="a">${s.label}</span>${badge}</div><div style="padding:0 12px"><div class="blk">${inner}</div></div>`;
   }).join("");
-  const exc=allP().filter(({pid})=>SIDS.some(s=>statusOf(pid,s)==="exc"));
+  const exc=allP().filter(({pid})=>allSlots().map(s=>s.id).some(s=>statusOf(pid,s)==="exc"));
   return `<div class="lock"><span>Closed — ${esc(longDate(state.dateKey))}</span><button data-a="edit">Edit</button></div>
     ${blocks}
     ${exc.length?`<div class="sumh"><span class="a">Excused</span></div><div style="padding:0 12px"><div class="blk">${
@@ -859,6 +883,11 @@ function settingsScreen(){
     </div>
     <h2>Plan</h2>
     <div class="blk">${sw("bunkLabels","Bunk labels")}</div>
+    <h2>Times</h2>
+    <div class="blk">
+      <button class="li" data-a="tab" data-t="times"><span class="a lnk">Rounds &amp; what goes on the sheet</span>
+        <span class="z">${esc(allSlots().map(s=>s.label).join(" · "))}</span></button>
+    </div>
     <h2>Sync</h2>
     <div class="blk">
       <div class="li"><input id="syncurl" value="${esc(state.settings.syncUrl)}" placeholder="Server address (https://…)" data-a="syncurl"></div>
@@ -880,6 +909,30 @@ function settingsScreen(){
       <button class="li" id="installrow" style="display:none" data-a="install"><span class="a lnk">Install on your home screen</span></button>
       <button class="li" id="updrow" style="display:none" data-a="reload"><span class="a lnk">Update ready — tap to reload</span></button>
       <button class="li" data-a="checkupd"><span class="a">Check for an update<i>Version ${APP_VERSION}</i></span><span class="z">Check</span></button>
+    </div>
+    <div style="height:30px"></div>
+    </div>`;
+}
+
+/* Adding a round, and choosing which rounds the sent picture shows. Its own page because most
+   nights are the three standing ones and this is touched about twice a year. */
+function timesScreen(){
+  const all=allSlots(), on=sheetSlots().map(s=>s.id);
+  return `<div class="hd"><div class="h1"><div><div class="hdate">Times</div></div>
+      <button class="pill" data-a="tab" data-t="settings">Back</button></div></div>
+    <div class="pan">
+    <h2>Rounds</h2>
+    <div class="blk">
+      ${all.map(s=>`<div class="li"><span class="a">${esc(s.label)}</span>${
+        (state.settings.customSlots||[]).includes(s.id)
+          ? `<button class="z lnk" style="color:var(--red)" data-a="delslot" data-s="${s.id}">Remove</button>`
+          : `<span class="z">every night</span>`}</div>`).join("")}
+      <button class="li" data-a="addslot"><span class="a lnk">Add a time</span></button>
+    </div>
+    <h2>On the sent picture</h2>
+    <div class="blk">
+      ${all.map(s=>`<button class="li" data-a="sheetslot" data-s="${s.id}"><span class="a">${esc(s.label)}</span>
+        <span class="sw${on.includes(s.id)?" on":""}"><i></i></span></button>`).join("")}
     </div>
     <div style="height:30px"></div>
     </div>`;
@@ -911,7 +964,7 @@ function sync(){
     const o=outIn(r,sid).length, ck=roomChecked(r,sid);
     b.className=(i===state.room?"on":"")+(o?" miss":ck?" done":"");
   });
-  SIDS.forEach(s=>{
+  allSlots().map(s=>s.id).forEach(s=>{
     const e=document.querySelector(`[data-tb="${s}"]`); if(!e)return;
     const st=stats(s);
     if(st.out){e.textContent=st.out+" out";e.className="b out";}
@@ -934,7 +987,7 @@ function openWho(pid){
   const room=roomOf(pid), tn=state.night.tonight.includes(pid);
   showPop(`<div class="grp">
       <div class="hdd"><div class="a">${esc(nameOf(pid))}</div><div class="b">${esc(room.label)}</div></div>
-      ${SLOTS.map(s=>{const st=statusOf(pid,s.id);
+      ${allSlots().map(s=>{const st=statusOf(pid,s.id);
         return `<div class="li"><span class="a">${s.label}</span><div class="mk">
           <button class="v-in ${st==="in"?"on":""}" data-a="wset" data-s="${s.id}" data-v="in">${IC.tick}</button>
           <button class="v-out ${st==="out"?"on":""}" data-a="wset" data-s="${s.id}" data-v="out">${IC.ex}</button>
@@ -993,7 +1046,8 @@ function closePop(){document.getElementById("pop").classList.remove("on");docume
 function render(){
   const y=window.scrollY;
   document.getElementById("app").innerHTML=
-    state.tab==="names"?peopleScreen():state.tab==="settings"?settingsScreen():checkScreen();
+    state.tab==="names"?peopleScreen():state.tab==="settings"?settingsScreen():
+    state.tab==="times"?timesScreen():checkScreen();
   if(state.tab==="check"&&!showingReview()){sync();if(state.mode==="one")bindSwipe();}
   window.scrollTo(0,y);
 }
@@ -1062,10 +1116,35 @@ document.addEventListener("click",async e=>{
   if(a==="wset"){setMark(state.who,t.dataset.s,t.dataset.v);openWho(state.who);render();return;}
   if(a==="set"){if(t.disabled)return;const k=t.dataset.k;state.settings[k]=!state.settings[k];save();render();return;}
   if(a==="syncnow"){syncNow(true);return;}
+  if(a==="addslot"){
+    /* a check runs evening into the small hours, so the hour alone says which side of midnight */
+    const raw=prompt("Time as on a clock, e.g. 1:30");
+    if(!raw)return;
+    const m=String(raw).match(/^\s*(\d{1,2})\s*[:.]?\s*(\d{2})\s*$/);
+    const id=m?String(m[1]).padStart(2,"0")+m[2]:"";
+    if(!validSlot(id)){toast("Not a time");return;}
+    if(!state.settings.customSlots.includes(id))state.settings.customSlots.push(id);
+    save();render();return;
+  }
+  if(a==="delslot"){
+    const id=t.dataset.s;
+    state.settings.customSlots=state.settings.customSlots.filter(x=>x!==id);
+    state.settings.sheetSlots=state.settings.sheetSlots.filter(x=>x!==id);
+    if(!allSlots().some(s=>s.id===state.cur))state.cur=allSlots()[0].id;
+    save();render();return;
+  }
+  if(a==="sheetslot"){
+    const id=t.dataset.s, every=allSlots().map(s=>s.id);
+    const cur=state.settings.sheetSlots.length?state.settings.sheetSlots:every.slice();
+    const next=cur.includes(id)?cur.filter(x=>x!==id):[...cur,id];
+    /* stored as an explicit list; empty means "all of them", so ticking everything is the same */
+    state.settings.sheetSlots = (next.length===every.length&&every.every(x=>next.includes(x)))?[]:next;
+    save();render();return;
+  }
   if(a==="exctn"){const pid=state.who;snap();
     const i=state.night.tonight.indexOf(pid);
     if(i>=0)state.night.tonight.splice(i,1);
-    else{state.night.tonight.push(pid);SIDS.forEach(s=>{delete state.night.marks[s][pid];touch(markKey(s,pid));});}
+    else{state.night.tonight.push(pid);allSlots().forEach(({id:s})=>{if(state.night.marks[s])delete state.night.marks[s][pid];touch(markKey(s,pid));});}
     touch(excKey(pid));
     save();openWho(pid);render();return;}
   if(a==="excalways"){const pid=state.who;

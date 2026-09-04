@@ -76,6 +76,29 @@ class NightImageTest {
         }
     }
 
+    /** A night with an extra 1:30 round, and the sheet narrowed to just that one. */
+    @Test
+    fun customTimeSheet() {
+        val vm = halfCheckedNight()
+        vm.setSettings { it.copy(customSlots = listOf("0130")) }
+        val slot = "0130"
+        Roster.PEOPLE.forEach { vm.setMark(it.id, slot, Mark.IN) }
+        listOf("p5", "p22").forEach { vm.setMark(it, slot, Mark.OUT) }
+        val state = vm.state.value
+        paparazzi.snapshot(name = "sheet-custom-time") {
+            val bmp = NightImage.render(vm.logic(state), state.dateKey, false, com.roomcheck.app.data.Slots.all(state.settings))
+            dump(bmp, "night-image-custom.png")
+            Image(bmp.asImageBitmap(), null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
+        }
+        vm.setSettings { it.copy(sheetSlots = listOf("0130")) }
+        val only = vm.state.value
+        paparazzi.snapshot(name = "sheet-one-time-only") {
+            val bmp = NightImage.render(vm.logic(only), only.dateKey, false, com.roomcheck.app.data.Slots.forSheet(only.settings))
+            dump(bmp, "night-image-one-time.png")
+            Image(bmp.asImageBitmap(), null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
+        }
+    }
+
     @Test
     fun worstCaseSheet() {
         val vm = everybodyMissing()

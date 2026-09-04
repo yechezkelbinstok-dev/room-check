@@ -2,7 +2,14 @@ package com.roomcheck.app.data
 
 data class SlotStats(val out: Int, val inCount: Int, val exc: Int, val left: Int, val started: Boolean)
 
-class NightLogic(private val night: Night, private val extra: Map<String, PersonOverride>) {
+/** [slots] is the times this night is walked at - the standing three plus anything added. */
+class NightLogic(
+    private val night: Night,
+    private val extra: Map<String, PersonOverride>,
+    val slots: List<Slot> = Slots.DEFAULT
+) {
+    val sids: List<String> get() = slots.map { it.id }
+
 
     fun isAlways(pid: String): Boolean = extra[pid]?.always == true
     fun first(pid: String): String = extra[pid]?.first ?: Roster.byId.getValue(pid).first
@@ -82,9 +89,9 @@ class NightLogic(private val night: Night, private val extra: Map<String, Person
      */
     fun report(dateKey: String): String {
         val lines = mutableListOf(Dates.hebrewDayMonth(dateKey))
-        Roster.SIDS.forEachIndexed { i, sid ->
+        sids.forEachIndexed { i, sid ->
             lines.add("")
-            lines.add(Roster.SLOTS[i].second)
+            lines.add(slots[i].label)
             val missing = missingAt(sid)
             lines.add(
                 when {

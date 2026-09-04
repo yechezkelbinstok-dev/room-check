@@ -96,10 +96,17 @@ data class Settings(
     val hebrewInExport: Boolean = false,
     /** Where the shared copy lives. Blank means this device keeps to itself, as it always did. */
     val syncUrl: String = "",
-    val syncToken: String = ""
+    val syncToken: String = "",
+    /** Extra times you added, as HHMM ids. The standing three are not stored - they always exist. */
+    val customSlots: List<String> = emptyList(),
+    /** Which times go on the sent picture. Empty means all of them. */
+    val sheetSlots: List<String> = emptyList()
 )
 
 private fun JSONObject.optStringOrNull(key: String): String? = if (has(key)) getString(key) else null
+
+private fun JSONArray?.toStringList(): List<String> =
+    if (this == null) emptyList() else (0 until length()).map { getString(it) }
 
 /**
  * Every night lives in a file under [home] - on the phone that is the app's private storage, which
@@ -141,7 +148,9 @@ class NightStore(home: File) {
                         hebrewOnPlan = it.optBoolean("hebrewOnPlan", false),
                         hebrewInExport = it.optBoolean("hebrewInExport", false),
                         syncUrl = it.optString("syncUrl", ""),
-                        syncToken = it.optString("syncToken", "")
+                        syncToken = it.optString("syncToken", ""),
+                        customSlots = it.optJSONArray("customSlots").toStringList(),
+                        sheetSlots = it.optJSONArray("sheetSlots").toStringList()
                     )
                 }
                 lastPull = root.optLong("lastPull", 0L)
@@ -179,7 +188,9 @@ class NightStore(home: File) {
             .put("hebrewOnPlan", settings.hebrewOnPlan)
             .put("hebrewInExport", settings.hebrewInExport)
             .put("syncUrl", settings.syncUrl)
-            .put("syncToken", settings.syncToken))
+            .put("syncToken", settings.syncToken)
+            .put("customSlots", JSONArray(settings.customSlots))
+            .put("sheetSlots", JSONArray(settings.sheetSlots)))
         root.put("lastPull", lastPull)
         root.put("dirty", JSONArray(dirty.toList()))
         stateFile.writeText(root.toString())

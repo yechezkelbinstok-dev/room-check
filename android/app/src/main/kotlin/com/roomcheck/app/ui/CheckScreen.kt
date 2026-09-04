@@ -110,7 +110,7 @@ private fun StickyControls(vm: AppViewModel, state: UiState, logic: NightLogic) 
             Modifier.fillMaxWidth().clip(RoundedCornerShape(11.dp)).background(Color(0xFFE7E7EC)).padding(3.dp),
             horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            Roster.SLOTS.forEach { (sid, label) ->
+            logic.slots.forEach { (sid, label) ->
                 val on = sid == state.curSlot
                 val st = logic.stats(sid)
                 Column(
@@ -274,7 +274,7 @@ private fun BottomBar(vm: AppViewModel, state: UiState, logic: NightLogic, revie
     Column(
         Modifier.fillMaxWidth().background(Color(0xF0F2F2F7)).padding(12.dp, 8.dp, 12.dp, 10.dp)
     ) {
-        val label = Roster.SLOTS.first { it.first == state.curSlot }.second
+        val label = logic.slots.firstOrNull { it.id == state.curSlot }?.label ?: state.curSlot
         val bits = mutableListOf(if (st.out > 0) "${st.out} out" else "Nobody out")
         if (st.left > 0) bits.add("${st.left} left")
         if (st.exc > 0) bits.add("${st.exc} excused")
@@ -292,7 +292,7 @@ private fun BottomBar(vm: AppViewModel, state: UiState, logic: NightLogic, revie
                 vm.toast("Copied")
             }
             BarButton(Modifier.weight(1f), "Send image", RC.text) {
-                NightImage.share(context, logic, state.dateKey, state.settings.hebrewInExport)
+                NightImage.share(context, logic, state.dateKey, state.settings.hebrewInExport, Slots.forSheet(state.settings))
             }
         }
     }

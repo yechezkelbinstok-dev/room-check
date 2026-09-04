@@ -34,7 +34,7 @@ fun PersonSheet(vm: AppViewModel, state: UiState, pid: String, onClose: () -> Un
                     Text(room.label, fontSize = 12.5.sp, color = RC.sub)
                 }
                 HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
-                Roster.SLOTS.forEach { (sid, label) ->
+                logic.slots.forEach { (sid, label) ->
                     Row(
                         Modifier.fillMaxWidth().padding(14.dp, 10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically

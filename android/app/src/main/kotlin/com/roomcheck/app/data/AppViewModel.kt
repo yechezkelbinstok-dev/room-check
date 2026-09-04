@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.time.LocalDateTime
 
 enum class RoomMode { ONE, SCROLL }
-enum class Tab { CHECK, NAMES, SETTINGS }
+enum class Tab { CHECK, NAMES, SETTINGS, TIMES }
 
 data class UiState(
     val dateKey: String,
@@ -47,16 +47,14 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
     )
     val state: StateFlow<UiState> = _state.asStateFlow()
 
-    fun logic(s: UiState = _state.value) = NightLogic(s.night, s.extra)
+    fun logic(s: UiState = _state.value) = NightLogic(s.night, s.extra, Slots.all(s.settings))
 
+    /** Whichever configured time is nearest behind the clock right now, so opening lands on it. */
     private fun defaultSlot(): String {
+        val slots = Slots.all(store.settings)
         val now = LocalDateTime.now()
-        val mins = now.hour * 60 + now.minute
-        return when {
-            mins >= 23 * 60 + 55 || mins < 6 * 60 -> "1200"
-            mins >= 23 * 60 + 25 -> "1130"
-            else -> "1115"
-        }
+        val mins = Slots.order(Slots.idForClock(now.hour, now.minute))
+        return (slots.lastOrNull { Slots.order(it.id) <= mins } ?: slots.first()).id
     }
 
     private fun loadAndMaybeClose(key: String): Night {
@@ -99,7 +97,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         if (s.editing) return false
         if (s.night.closed) return true
         if (s.dateKey == Dates.tonightKey()) return false
-        return Roster.SIDS.any { s.night.marks[it]?.isNotEmpty() == true }
+        return Slots.all(s.settings).any { s.night.marks[it.id]?.isNotEmpty() == true }
     }
     fun showingReview(s: UiState = _state.value): Boolean = isLocked(s) || s.reviewing
 
@@ -148,7 +146,13 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
     fun setSettings(f: (Settings) -> Settings) = update { s ->
         store.settings = f(store.settings)
         store.saveState()
-        s.copy(settings = store.settings)
+        val slots = Slots.all(store.settings)
+        s.copy(
+            settings = store.settings,
+            // deleting the time you were looking at would otherwise leave the screen on a slot
+            // that no longer exists, showing nothing and marking into a column nobody reads
+            curSlot = if (slots.any { it.id == s.curSlot }) s.curSlot else slots.first().id
+        )
     }
 
     fun closeNight() = update { s ->
@@ -170,7 +174,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
             if (s.night.excusedTonight.contains(pid)) s.night.excusedTonight.remove(pid)
             else {
                 s.night.excusedTonight.add(pid)
-                Roster.SIDS.forEach { s.night.marks[it]?.remove(pid); s.night.touch(Merge.markKey(it, pid)) }
+                Slots.all(s.settings).forEach { s.night.marks[it.id]?.remove(pid); s.night.touch(Merge.markKey(it.id, pid)) }
             }
             s.night.touch(Merge.tonightKey(pid))
             persist(s); s
