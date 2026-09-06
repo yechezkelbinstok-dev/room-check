@@ -103,7 +103,6 @@ internal fun SettingRow(
     label: String,
     on: Boolean,
     enabled: Boolean = true,
-    sub: String? = null,
     onChange: (Boolean) -> Unit
 ) {
     Row(
@@ -111,10 +110,7 @@ internal fun SettingRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(label, fontSize = 15.sp, color = if (enabled) RC.text else RC.sub)
-            sub?.let { Text(it, fontSize = 12.sp, color = RC.sub) }
-        }
+        Text(label, fontSize = 15.sp, color = if (enabled) RC.text else RC.sub, modifier = Modifier.weight(1f))
         Switch(checked = on, onCheckedChange = onChange, enabled = enabled)
     }
 }
@@ -144,17 +140,6 @@ private fun RenameDialog(vm: AppViewModel, pid: String, first: String, last: Str
 }
 
 @Composable
-internal fun ExportDialog(json: String, onShare: () -> Unit, onClose: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onClose,
-        title = { Text("Backup") },
-        text = { Text("Share this to save it — email it to yourself, save to Drive, whatever's easy.") },
-        confirmButton = { TextButton(onClick = { onShare(); onClose() }) { Text("Share") } },
-        dismissButton = { TextButton(onClick = onClose) { Text("Cancel") } }
-    )
-}
-
-@Composable
 internal fun ImportDialog(onRestore: (String) -> Unit, onClose: () -> Unit) {
     var text by remember { mutableStateOf("") }
     AlertDialog(
@@ -162,8 +147,6 @@ internal fun ImportDialog(onRestore: (String) -> Unit, onClose: () -> Unit) {
         title = { Text("Restore") },
         text = {
             Column {
-                Text("Replaces roster customizations; adds/overwrites the nights it contains.", fontSize = 12.sp, color = RC.sub)
-                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = text, onValueChange = { text = it },
                     placeholder = { Text("Paste a backup") },

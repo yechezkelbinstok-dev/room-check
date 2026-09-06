@@ -52,10 +52,7 @@ fun PersonSheet(vm: AppViewModel, state: UiState, pid: String, onClose: () -> Un
                 ) {
                     Checkbox(excusedTonight)
                     Spacer(Modifier.width(11.dp))
-                    Column {
-                        Text("Excused tonight", fontSize = 15.sp)
-                        Text("All three times, tonight only", fontSize = 12.sp, color = RC.sub)
-                    }
+                    Text("Excused tonight", fontSize = 15.sp)
                 }
                 HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
                 Row(
@@ -64,10 +61,7 @@ fun PersonSheet(vm: AppViewModel, state: UiState, pid: String, onClose: () -> Un
                 ) {
                     Checkbox(always)
                     Spacer(Modifier.width(11.dp))
-                    Column {
-                        Text("Excused indefinitely", fontSize = 15.sp)
-                        Text("Until you turn it back on", fontSize = 12.sp, color = RC.sub)
-                    }
+                    Text("Excused indefinitely", fontSize = 15.sp)
                 }
                 if (always) {
                     HorizontalDivider(color = RC.sep, thickness = 0.5.dp)

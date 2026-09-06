@@ -275,7 +275,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         ov.always = !ov.always
         store.saveState()
         update { it.copy(extra = store.extra.toMap()) }
-        toast(if (ov.always) "Off the reports until you turn him back on" else "Back on the sheet")
+        toast(if (ov.always) "Excused indefinitely" else "No longer excused")
     }
 
     fun unexcuse(pid: String) {

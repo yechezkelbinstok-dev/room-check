@@ -871,7 +871,7 @@ function reviewHTML(){
       </div>
       <div class="rvhead"><span>${allSlots().map(x=>x.label).join("</span><span>")}</span></div>
       ${body}
-      <div class="none" style="padding-bottom:24px">✓ here · ✕ not here · E excused · – not marked</div>
+
     </div>`;
 }
 function summaryHTML(){
@@ -929,7 +929,7 @@ function peopleScreen(){
 function settingsScreen(){
   const heb=Object.keys(P).some(hasHeb);
   const sw=(k,label)=>`<button class="li" data-a="set" data-k="${k}"${heb||k==="bunkLabels"?"":" disabled"}>
-      <span class="a">${label}${heb||k==="bunkLabels"?"":"<i>No Hebrew names yet</i>"}</span>
+      <span class="a">${label}</span>
       <span class="sw${state.settings[k]?" on":""}"><i></i></span></button>`;
   return `<div class="hd"><div class="h1"><div><div class="htitle">Settings</div></div>
       <button class="pill" data-a="tab" data-t="check">Done</button></div></div>
@@ -1054,8 +1054,8 @@ function openWho(pid){
         </div></div>`;}).join("")}
     </div>
     <div class="grp">
-      <button class="li" data-a="exctn"><span class="ck ${tn?"on":""}"></span><span class="a">Excused tonight<i>All three times, tonight only</i></span></button>
-      <button class="li" data-a="excalways"><span class="ck ${isAlways(pid)?"on":""}"></span><span class="a">Excused indefinitely<i>Until you turn it back on</i></span></button>
+      <button class="li" data-a="exctn"><span class="ck ${tn?"on":""}"></span><span class="a">Excused tonight</span></button>
+      <button class="li" data-a="excalways"><span class="ck ${isAlways(pid)?"on":""}"></span><span class="a">Excused indefinitely</span></button>
       ${isAlways(pid)?`<div class="li"><input value="${esc((state.extra[pid]||{}).reason||"")}" placeholder="Reason (optional)" data-a="reason"></div>`:``}
       <div class="li"><input value="${esc(state.night.notes[pid]||"")}" placeholder="Note for tonight" data-a="note"></div>
     </div>
@@ -1261,7 +1261,7 @@ document.addEventListener("click",async e=>{
   if(a==="reload"){location.reload();return;}
   if(a==="checkupd"){checkUpdate();return;}
   if(a==="copybox"){const el=document.getElementById(t.dataset.src);if(el)copyText(el.value);return;}
-  if(a==="imp"){showPop(`<div class="grp"><div class="hdd"><div class="a">Restore</div><div class="b">Replaces everything on this device</div></div>
+  if(a==="imp"){showPop(`<div class="grp"><div class="hdd"><div class="a">Restore</div></div>
       <div class="li"><textarea class="rep" id="im" rows="7" placeholder="Paste a backup" spellcheck="false"></textarea></div>
       <button class="li" data-a="doimp"><span class="a lnk">Restore</span></button></div>
       <button class="cancel" data-a="close">Cancel</button>`);return;}
@@ -1287,7 +1287,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.7.5";
+const APP_VERSION="1.7.6";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
@@ -1331,12 +1331,10 @@ const knownDevice=()=>{try{return localStorage.getItem(GKEY)===PASS_HASH;}catch(
 function gate(){
   document.getElementById("app").innerHTML=`<div class="gate"><div class="gbox">
       <div class="gt">Room Check</div>
-      <div class="gs">Enter the password to continue</div>
       <input type="password" id="gp" placeholder="Password" autocomplete="current-password"
         inputmode="numeric" pattern="[0-9]*" enterkeyhint="go">
       <div class="gerr" id="ge"></div>
       <button class="btn" id="gb">Unlock</button>
-      <div class="gn">This device stays unlocked — you won't be asked again.</div>
     </div></div>`;
   const inp=document.getElementById("gp"), err=document.getElementById("ge");
   const go=async()=>{

@@ -32,7 +32,6 @@ fun SettingsScreen(vm: AppViewModel) {
     val state by vm.state.collectAsState()
     val logic = vm.logic(state)
     val context = LocalContext.current
-    var showExport by remember { mutableStateOf(false) }
     var showImport by remember { mutableStateOf(false) }
     var editingSync by remember { mutableStateOf(false) }
     val hasHebrew = logic.anyHebrewNames()
@@ -51,12 +50,12 @@ fun SettingsScreen(vm: AppViewModel) {
                 Card {
                     SettingRow(
                         "Hebrew on the plan", state.settings.hebrewOnPlan,
-                        enabled = hasHebrew, sub = if (hasHebrew) null else "No Hebrew names yet"
+                        enabled = hasHebrew
                     ) { on -> vm.setSettings { it.copy(hebrewOnPlan = on) } }
                     HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
                     SettingRow(
                         "Hebrew in the sent picture", state.settings.hebrewInExport,
-                        enabled = hasHebrew, sub = if (hasHebrew) null else "No Hebrew names yet"
+                        enabled = hasHebrew
                     ) { on -> vm.setSettings { it.copy(hebrewInExport = on) } }
                 }
             }
@@ -140,7 +139,11 @@ fun SettingsScreen(vm: AppViewModel) {
             item { SectionHeader("Backup") }
             item {
                 Card {
-                    Row(Modifier.fillMaxWidth().clickable { showExport = true }.padding(14.dp, 13.dp)) {
+                    Row(Modifier.fillMaxWidth().clickable {
+                        val json = vm.exportBackup()
+                        val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, json) }
+                        context.startActivity(Intent.createChooser(intent, "Backup"))
+                    }.padding(14.dp, 13.dp)) {
                         Text("Save a backup file", color = RC.blue, fontWeight = FontWeight.SemiBold)
                     }
                     HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
@@ -162,13 +165,6 @@ fun SettingsScreen(vm: AppViewModel) {
         }
     }
 
-    if (showExport) {
-        val json = remember { vm.exportBackup() }
-        ExportDialog(json, onShare = {
-            val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, json) }
-            context.startActivity(Intent.createChooser(intent, "Save backup"))
-        }, onClose = { showExport = false })
-    }
     if (showImport) {
         ImportDialog(
             onRestore = { text ->
