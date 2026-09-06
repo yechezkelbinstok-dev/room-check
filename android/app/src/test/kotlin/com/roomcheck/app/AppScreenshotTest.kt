@@ -7,6 +7,7 @@ import com.roomcheck.app.data.Mark
 import com.roomcheck.app.data.NightStore
 import com.roomcheck.app.data.Roster
 import com.roomcheck.app.data.RoomMode
+import com.roomcheck.app.ui.AddTimeContent
 import com.roomcheck.app.ui.CheckScreen
 import com.roomcheck.app.ui.NamesScreen
 import com.roomcheck.app.ui.RoomCheckTheme
@@ -139,6 +140,21 @@ class AppScreenshotTest {
         vm.addRoundTonight("0130")
         paparazzi.snapshot(name = "check-four-rounds") {
             RoomCheckTheme { CheckScreen(vm) }
+        }
+    }
+
+    /** The add-a-time dialog's contents - a clock, the way a clock app does it. */
+    @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+    @Test
+    fun addTimeDialog() {
+        paparazzi.snapshot(name = "add-time") {
+            RoomCheckTheme {
+                androidx.compose.material3.Surface {
+                    AddTimeContent(
+                        androidx.compose.material3.rememberTimePickerState(23, 30, false)
+                    )
+                }
+            }
         }
     }
 

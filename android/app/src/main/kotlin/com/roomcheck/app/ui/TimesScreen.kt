@@ -9,10 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.text.KeyboardOptions
 import com.roomcheck.app.data.AppViewModel
 import com.roomcheck.app.data.Dates
 import com.roomcheck.app.data.Slots
@@ -40,14 +38,7 @@ fun TimesScreen(vm: AppViewModel) {
         ) {
             Column {
                 Text("Rounds", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                // The date is Hebrew, the rest is not. The date is isolated so it stays in one
-                // piece, and the English leads so the line as a whole is laid out left to right -
-                // put the date first and its direction is taken for the whole line, which throws
-                // the English to the far side and reads as nonsense.
-                Text(
-                    "This night only · ⁨" + Dates.hebrewDate(state.dateKey) + "⁩",
-                    fontSize = 12.5.sp, color = RC.sub
-                )
+                Text(Dates.hebrewDate(state.dateKey), fontSize = 12.5.sp, color = RC.sub)
             }
             OutlinedButton(onClick = { vm.setTab(Tab.CHECK) }) { Text("Done") }
         }
@@ -63,7 +54,6 @@ fun TimesScreen(vm: AppViewModel) {
                         ) {
                             Text(slot.label, fontSize = 16.sp)
                             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                // the whole point of the page: one check tonight, at this time
                                 if (all.size > 1) {
                                     Text("Only this", color = RC.blue, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                                         modifier = Modifier.clickable { vm.onlyRoundTonight(slot.id) })
@@ -80,7 +70,7 @@ fun TimesScreen(vm: AppViewModel) {
                     if (state.night.rounds.isNotEmpty()) {
                         HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
                         Row(Modifier.fillMaxWidth().clickable { vm.resetRoundsTonight() }.padding(14.dp, 13.dp)) {
-                            Text("Back to the usual three", color = RC.sub, fontWeight = FontWeight.SemiBold)
+                            Text("Restore defaults", color = RC.blue, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -101,53 +91,31 @@ fun TimesScreen(vm: AppViewModel) {
 
     if (adding) AddTimeDialog(
         onAdd = { id -> vm.addRoundTonight(id); adding = false },
-        onOnly = { id -> vm.onlyRoundTonight(id); adding = false },
         onClose = { adding = false }
     )
 }
 
-/**
- * Two ways out on purpose. "Only this time" is the case that actually comes up - the zman moved
- * and there is one check tonight - and making it one step is the difference between using this
- * and not bothering.
- */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddTimeDialog(onAdd: (String) -> Unit, onOnly: (String) -> Unit, onClose: () -> Unit) {
-    var hh by remember { mutableStateOf("") }
-    var mm by remember { mutableStateOf("") }
-    val id = hh.padStart(2, '0') + mm.padStart(2, '0')
-    val ok = hh.isNotBlank() && mm.isNotBlank() && Slots.isValidId(id)
+private fun AddTimeDialog(onAdd: (String) -> Unit, onClose: () -> Unit) {
+    val st = rememberTimePickerState(initialHour = 23, initialMinute = 30, is24Hour = false)
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text("Add a time to this night") },
-        text = {
-            Column {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = hh, onValueChange = { hh = it.filter(Char::isDigit).take(2) },
-                        label = { Text("Hour") }, singleLine = true, modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
-                    OutlinedTextField(
-                        value = mm, onValueChange = { mm = it.filter(Char::isDigit).take(2) },
-                        label = { Text("Minute") }, singleLine = true, modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-                // A check runs from evening into the small hours, so the hour alone says which
-                // side of midnight it is on: 6-12 is evening, 1-5 is after it. No am/pm needed.
-                Text(
-                    if (ok) Slots.labelFor(id) else "As on a clock — 1 : 30 for half one",
-                    fontSize = 12.5.sp, color = RC.sub
-                )
-            }
-        },
+        title = { Text("Add a time") },
+        text = { AddTimeContent(st) },
         confirmButton = {
-            TextButton(enabled = ok, onClick = { onOnly(id) }) { Text("Only this time") }
+            TextButton(onClick = { onAdd(Slots.idForClock(st.hour, st.minute)) }) { Text("Add") }
         },
-        dismissButton = {
-            TextButton(enabled = ok, onClick = { onAdd(id) }) { Text("Add to tonight") }
-        }
+        dismissButton = { TextButton(onClick = onClose) { Text("Cancel") } }
     )
+}
+
+/**
+ * Pulled out of the dialog so it can be rendered in a snapshot - Paparazzi draws composables, not
+ * the separate window a dialog lives in, so inside AlertDialog this would never be looked at.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun AddTimeContent(state: TimePickerState) {
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { TimePicker(state = state) }
 }

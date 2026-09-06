@@ -26,12 +26,24 @@ object RC {
     val bunk = Color(0xFFB7B9C2)   // the faint "top"/"bottom" label on a bunk
 }
 
+// The container roles matter as soon as a stock Material control is used - the time picker paints
+// its selected hour from primaryContainer and its AM/PM from tertiaryContainer, which left
+// unset are Material's own purple and pink and look like a different app bolted on.
 private val scheme = lightColorScheme(
     primary = RC.blue,
     background = RC.bg,
     surface = RC.card,
     onBackground = RC.text,
-    onSurface = RC.text
+    onSurface = RC.text,
+    primaryContainer = RC.blueL,
+    onPrimaryContainer = RC.blue,
+    tertiaryContainer = RC.blueL,
+    onTertiaryContainer = RC.blue,
+    secondaryContainer = RC.greyL,
+    onSecondaryContainer = RC.text,
+    surfaceVariant = RC.greyL,
+    onSurfaceVariant = RC.sub2,
+    outline = RC.sub
 )
 
 @Composable

@@ -55,7 +55,12 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .ibtn:active{background:var(--blue-l)}
 .ibtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .dtap{flex:1;min-width:0;text-align:center;padding:2px 2px}
+.h1{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.htitle{font-size:20px;font-weight:700;letter-spacing:-.01em}
 .hsub{display:block;font-size:12.5px;color:var(--sub);margin-top:2px}
+.tprow{display:block;padding:12px 14px}
+.tprow input{display:block;width:100%;margin-top:8px;font-size:19px;padding:9px 10px;
+  border:1px solid var(--sep);border-radius:10px;background:#fff;color:var(--text)}
 .hdate{display:block;direction:rtl;font-size:19px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gdate{display:block;font-size:11.5px;color:var(--sub);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sv{font-size:10.5px;color:var(--sub);text-align:right;padding:4px 2px 0}
@@ -903,7 +908,7 @@ function checkScreen(){
 }
 function peopleScreen(){
   const exc=allP().filter(({pid})=>isAlways(pid));
-  return `<div class="hd"><div class="h1"><div><div class="hdate">Names</div>
+  return `<div class="hd"><div class="h1"><div><div class="htitle">Names</div>
       <div class="gdate">30 bochurim · 8 rooms</div></div>
       <button class="pill" data-a="tab" data-t="settings">Back</button></div></div>
     <div class="pan">
@@ -926,7 +931,7 @@ function settingsScreen(){
   const sw=(k,label)=>`<button class="li" data-a="set" data-k="${k}"${heb||k==="bunkLabels"?"":" disabled"}>
       <span class="a">${label}${heb||k==="bunkLabels"?"":"<i>No Hebrew names yet</i>"}</span>
       <span class="sw${state.settings[k]?" on":""}"><i></i></span></button>`;
-  return `<div class="hd"><div class="h1"><div><div class="hdate">Settings</div></div>
+  return `<div class="hd"><div class="h1"><div><div class="htitle">Settings</div></div>
       <button class="pill" data-a="tab" data-t="check">Done</button></div></div>
     <div class="pan">
     <h2>Names</h2>
@@ -966,8 +971,8 @@ function settingsScreen(){
    12:30 has exactly one column. Reached from the night it changes, not from Settings. */
 function timesScreen(){
   const all=allSlots(), on=sheetSlots().map(s=>s.id);
-  return `<div class="hd"><div class="h1"><div><div class="hdate">Rounds</div>
-      <div class="hsub">This night only · <bdi>${esc(hebDayMonth(state.dateKey))}</bdi></div></div>
+  return `<div class="hd"><div class="h1"><div><div class="htitle">Rounds</div>
+      <div class="hsub"><bdi>${esc(hebDayMonth(state.dateKey))}</bdi></div></div>
       <button class="pill" data-a="tab" data-t="check">Done</button></div></div>
     <div class="pan">
     <div class="blk">
@@ -976,7 +981,7 @@ function timesScreen(){
         `<button class="lnk" style="color:var(--red);margin-left:16px" data-a="delslot" data-s="${s.id}">Remove</button></span>`
         :`<span class="z"></span>`}</div>`).join("")}
       <button class="li" data-a="addslot"><span class="a lnk">Add a time</span></button>
-      ${(state.night.slots||[]).length?`<button class="li" data-a="resetslots"><span class="a" style="color:var(--sub)">Back to the usual three</span></button>`:``}
+      ${(state.night.slots||[]).length?`<button class="li" data-a="resetslots"><span class="a lnk">Restore defaults</span></button>`:``}
     </div>
     <h2>On the sent picture</h2>
     <div class="blk">
@@ -1175,22 +1180,22 @@ document.addEventListener("click",async e=>{
       </div><button class="cancel" data-a="close">Cancel</button>`);
     return;
   }
-  if(a==="addslot"||a==="onlyslot"){
-    let id=t.dataset.s;
-    if(!id){
-      /* a check runs evening into the small hours, so the hour alone says which side of midnight */
-      const raw=prompt("Time as on a clock, e.g. 12:30");
-      if(!raw)return;
-      const m=String(raw).match(/^\s*(\d{1,2})\s*[:.]?\s*(\d{2})\s*$/);
-      id=m?String(m[1]).padStart(2,"0")+m[2]:"";
-      if(!validSlot(id)){toast("Not a time");return;}
-      /* the case this exists for is "tonight is just this one", so it is offered first */
-      if(!confirm("Is "+slotLabel(id)+" the only check on this night?\n\nOK - only this time\nCancel - add it to the others"))
-        return setRounds([...allSlots().map(s=>s.id),id]);
-      return setRounds([id]);
-    }
-    return setRounds(a==="onlyslot"?[id]:[...allSlots().map(s=>s.id),id]);
+  if(a==="addslot"){
+    /* type="time" is the phone's own clock picker - the same one every other app gets */
+    showPop(`<div class="grp"><div class="tprow"><span class="a">Add a time</span>
+        <input id="tpick" type="time" value="23:30"></div>
+      <button class="li" data-a="addtime"><span class="a lnk">Add</span></button>
+      </div><button class="cancel" data-a="close">Cancel</button>`);
+    return;
   }
+  if(a==="addtime"){
+    const v=(document.getElementById("tpick")||{}).value||"";
+    const m=v.match(/^(\d{2}):(\d{2})$/);
+    if(!m){toast("Not a time");return;}
+    closePop();
+    return setRounds([...allSlots().map(s=>s.id),idForClock(+m[1],+m[2])]);
+  }
+  if(a==="onlyslot"){return setRounds([t.dataset.s]);}
   if(a==="delslot"){return setRounds(allSlots().map(s=>s.id).filter(x=>x!==t.dataset.s));}
   if(a==="resetslots"){
     snap();
@@ -1271,7 +1276,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.7.3";
+const APP_VERSION="1.7.4";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
