@@ -37,12 +37,13 @@ fun TimesScreen(vm: AppViewModel) {
             horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("Rounds", fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                Text("Night settings", fontSize = 23.sp, fontWeight = FontWeight.Bold)
                 Text(Dates.hebrewDate(state.dateKey), fontSize = 12.5.sp, color = RC.sub)
             }
             OutlinedButton(onClick = { vm.setTab(Tab.CHECK) }) { Text("Done") }
         }
         LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            item { SectionHeader("Times") }
             item {
                 Card {
                     all.forEachIndexed { i, slot ->

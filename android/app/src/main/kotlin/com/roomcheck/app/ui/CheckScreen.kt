@@ -93,7 +93,7 @@ private fun TopBar(vm: AppViewModel, state: UiState, locked: Boolean, onCalendar
                     // tucked in here rather than on the marking screen: most nights are the three
                     // standing rounds and never need it, but the night it does is this night
                     DropdownMenuItem(
-                        text = { Text("Rounds for this night") },
+                        text = { Text("Night settings") },
                         onClick = { menu = false; vm.setTab(Tab.TIMES) }
                     )
                     DropdownMenuItem(

@@ -942,10 +942,14 @@ function settingsScreen(){
     <div class="blk">${sw("bunkLabels","Bunk labels")}</div>
     <h2>Sync</h2>
     <div class="blk">
+      ${state.settings.syncUrl&&!state.editSync?``:`
       <div class="li"><input id="syncurl" value="${esc(state.settings.syncUrl)}" placeholder="Server address (https://…)" data-a="syncurl"></div>
       <div class="li"><input id="synctok" value="${esc(state.settings.syncToken)}" placeholder="Sync password" data-a="synctok"></div>
+      <button class="li" data-a="synced"><span class="a lnk">Save</span></button>`}
       <button class="li" data-a="syncnow"><span class="a lnk">Sync now</span>
         <span class="z">${esc(state.settings.syncUrl?(state.syncMsg||"Ready"):"Not set up")}</span></button>
+      ${state.settings.syncUrl&&!state.editSync?`<button class="li" data-a="editsync"><span class="a">Server</span>
+        <span class="z">${esc(state.settings.syncUrl.replace(/^https?:\/\//,"").replace(/\/+$/,""))}</span></button>`:``}
     </div>
     <h2>Roster</h2>
     <div class="blk">
@@ -971,10 +975,11 @@ function settingsScreen(){
    12:30 has exactly one column. Reached from the night it changes, not from Settings. */
 function timesScreen(){
   const all=allSlots(), on=sheetSlots().map(s=>s.id);
-  return `<div class="hd"><div class="h1"><div><div class="htitle">Rounds</div>
+  return `<div class="hd"><div class="h1"><div><div class="htitle">Night settings</div>
       <div class="hsub"><bdi>${esc(hebDayMonth(state.dateKey))}</bdi></div></div>
       <button class="pill" data-a="tab" data-t="check">Done</button></div></div>
     <div class="pan">
+    <h2>Times</h2>
     <div class="blk">
       ${all.map(s=>`<div class="li"><span class="a">${esc(s.label)}</span>${all.length>1?
         `<span class="z"><button class="lnk" data-a="onlyslot" data-s="${s.id}">Only this</button>`+
@@ -1170,11 +1175,17 @@ document.addEventListener("click",async e=>{
   if(a==="wset"){setMark(state.who,t.dataset.s,t.dataset.v);openWho(state.who);render();return;}
   if(a==="set"){if(t.disabled)return;const k=t.dataset.k;state.settings[k]=!state.settings[k];save();render();return;}
   if(a==="syncnow"){syncNow(true);return;}
+  /* set up once and never touched again, so the two fields collapse to a row saying where it
+     points - a form left permanently open makes a finished thing look unfinished */
+  if(a==="editsync"){state.editSync=true;render();return;}
+  if(a==="synced"){
+    if(!state.settings.syncUrl){toast("No sync address set");return;}
+    state.editSync=false;render();syncNow(true);return;}
   if(a==="more"){
     /* tucked in here rather than on the marking screen: most nights are the standing three and
        never need it, but the night that does is this night */
     showPop(`<div class="grp">
-      <button class="li" data-a="tab" data-t="times"><span class="a lnk">Rounds for this night</span>
+      <button class="li" data-a="tab" data-t="times"><span class="a lnk">Night settings</span>
         <span class="z">${esc(allSlots().map(x=>x.label).join(" · "))}</span></button>
       <button class="li" data-a="tab" data-t="settings"><span class="a lnk">Settings</span></button>
       </div><button class="cancel" data-a="close">Cancel</button>`);
@@ -1276,7 +1287,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.7.4";
+const APP_VERSION="1.7.5";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

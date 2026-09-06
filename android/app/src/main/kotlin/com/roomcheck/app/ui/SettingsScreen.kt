@@ -34,6 +34,7 @@ fun SettingsScreen(vm: AppViewModel) {
     val context = LocalContext.current
     var showExport by remember { mutableStateOf(false) }
     var showImport by remember { mutableStateOf(false) }
+    var editingSync by remember { mutableStateOf(false) }
     val hasHebrew = logic.anyHebrewNames()
 
     Column(Modifier.fillMaxSize().background(RC.bg)) {
@@ -70,32 +71,61 @@ fun SettingsScreen(vm: AppViewModel) {
             item { SectionHeader("Sync") }
             item {
                 Card {
-                    var url by remember(state.settings.syncUrl) { mutableStateOf(state.settings.syncUrl) }
-                    var token by remember(state.settings.syncToken) { mutableStateOf(state.settings.syncToken) }
-                    OutlinedTextField(
-                        value = url, onValueChange = { url = it },
-                        label = { Text("Server address") }, singleLine = true,
-                        placeholder = { Text("https://…") },
-                        modifier = Modifier.fillMaxWidth().padding(14.dp, 12.dp, 14.dp, 4.dp)
-                    )
-                    OutlinedTextField(
-                        value = token, onValueChange = { token = it },
-                        label = { Text("Sync password") }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth().padding(14.dp, 4.dp, 14.dp, 8.dp)
-                    )
-                    Row(Modifier.fillMaxWidth().padding(14.dp, 0.dp, 14.dp, 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = {
-                            vm.setSettings { it.copy(syncUrl = url.trim(), syncToken = token.trim()) }
-                            vm.syncNow(loud = true)
-                        }) { Text("Save & sync") }
+                    // Once it is set up the address and the password are settings you never touch
+                    // again, so they collapse to a status row. Leaving a two-field form permanently
+                    // open makes the finished state look unfinished.
+                    val setUp = state.settings.syncUrl.isNotBlank()
+                    if (!setUp || editingSync) {
+                        var url by remember(state.settings.syncUrl) { mutableStateOf(state.settings.syncUrl) }
+                        var token by remember(state.settings.syncToken) { mutableStateOf(state.settings.syncToken) }
+                        OutlinedTextField(
+                            value = url, onValueChange = { url = it },
+                            label = { Text("Server address") }, singleLine = true,
+                            placeholder = { Text("https://…") },
+                            modifier = Modifier.fillMaxWidth().padding(14.dp, 12.dp, 14.dp, 4.dp)
+                        )
+                        OutlinedTextField(
+                            value = token, onValueChange = { token = it },
+                            label = { Text("Sync password") }, singleLine = true,
+                            modifier = Modifier.fillMaxWidth().padding(14.dp, 4.dp, 14.dp, 8.dp)
+                        )
+                        Row(
+                            Modifier.fillMaxWidth().padding(14.dp, 0.dp, 14.dp, 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(onClick = {
+                                vm.setSettings { it.copy(syncUrl = url.trim(), syncToken = token.trim()) }
+                                editingSync = false
+                                vm.syncNow(loud = true)
+                            }) { Text("Save") }
+                            if (setUp) {
+                                TextButton(onClick = { editingSync = false }) { Text("Cancel") }
+                            }
+                        }
+                        HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
                     }
-                    HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
                     Row(
                         Modifier.fillMaxWidth().clickable { vm.syncNow(loud = true) }.padding(14.dp, 13.dp),
                         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("Sync now", color = RC.blue, fontWeight = FontWeight.SemiBold)
                         Text(syncLine(state.sync, state.settings.syncUrl), fontSize = 12.5.sp, color = RC.sub)
+                    }
+                    if (setUp && !editingSync) {
+                        HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
+                        Row(
+                            Modifier.fillMaxWidth().clickable { editingSync = true }.padding(14.dp, 13.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Server", fontSize = 15.sp)
+                            Text(
+                                state.settings.syncUrl.removePrefix("https://").removePrefix("http://").trimEnd('/'),
+                                fontSize = 12.5.sp, color = RC.sub, maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(start = 12.dp)
+                            )
+                        }
                     }
                 }
             }

@@ -78,7 +78,9 @@ object NightImage {
 
     // tone carries the meaning: red for names, green only for a round actually walked and clear,
 // grey for one nobody has marked. Green on "not marked" would read as an all-clear it has not earned.
-private class Summary(val label: String, val lines: List<String>, val tone: Int)
+private class Summary(val label: String, val cols: List<List<String>>, val colW: Float, val tone: Int) {
+    val rows: Int get() = cols.maxOf { it.size }
+}
 
     /**
      * One card per time, each holding its own names one to a line. Run together with commas the
@@ -91,24 +93,45 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
             val sid = slot.id
             val missing = logic.missingAt(sid)
             val started = logic.stats(sid).started
-            val lines = if (missing.isNotEmpty()) {
-                // a name too long for the card wraps rather than being cut
-                missing.flatMap { wrap(logic.nameOf(it, hebrew), p, cardTextW) }
-            } else {
-                listOf(
-                    if (!started) (if (hebrew) NOT_MARKED_HE else "Not marked")
-                    else (if (hebrew) ALL_IN_HE else "Everybody there")
-                )
-            }
             val tone = if (missing.isNotEmpty()) red else if (started) green else grey
-            Summary(slot.label, lines, tone)
+            if (missing.isEmpty()) {
+                val txt = if (!started) (if (hebrew) NOT_MARKED_HE else "Not marked")
+                          else (if (hebrew) ALL_IN_HE else "Everybody there")
+                return@map Summary(slot.label, listOf(listOf(txt)), cardTextW, tone)
+            }
+            val names = missing.map { logic.nameOf(it, hebrew) }
+            // As many name columns as the card is actually wide enough for. With three times a
+            // card is one name wide and this changes nothing; with ONE time the card is the whole
+            // page, and a single column of names down its edge left the rest an empty grey slab.
+            val widest = names.maxOf { p.measureText(it) }.coerceAtMost(cardTextW)
+            val cols = ((cardTextW + INNER_GAP) / (widest + INNER_GAP)).toInt()
+                .coerceIn(1, minOf(names.size, MAX_COLS))
+            val colW = (cardTextW - (cols - 1) * INNER_GAP) / cols
+            // a name too long for its column wraps rather than being cut
+            Summary(slot.label, flow(names.map { wrap(it, p, colW) }, cols), colW, tone)
         }
+    }
+
+    /** Fills columns top to bottom, breaking only between names so a wrapped one is never split. */
+    private fun flow(entries: List<List<String>>, cols: Int): List<List<String>> {
+        if (cols <= 1) return listOf(entries.flatten())
+        val target = Math.ceil(entries.sumOf { it.size }.toDouble() / cols).toInt().coerceAtLeast(1)
+        val out = mutableListOf<List<String>>()
+        var cur = mutableListOf<String>()
+        entries.forEach { e ->
+            if (cur.isNotEmpty() && cur.size + e.size > target && out.size < cols - 1) {
+                out.add(cur); cur = mutableListOf()
+            }
+            cur.addAll(e)
+        }
+        out.add(cur)
+        return out
     }
 
     /** One card per time on the sheet - which is not always three, so it cannot be divided by 3. */
     private fun cardWidth(w: Float, n: Int) = (w - 2 * PAD - (n - 1) * CARD_GAP) / n
     private fun cardHeight(cards: List<Summary>) =
-        CARD_HEAD + cards.maxOf { it.lines.size } * LINE_H + CARD_PAD
+        CARD_HEAD + cards.maxOf { it.rows } * LINE_H + CARD_PAD
 
     private fun peopleIn(room: Room) = room.beds.sumOf { it.slots.size }
     private fun blockH(room: Room) = ROOM_HEAD_H + peopleIn(room) * ROW_H
@@ -164,6 +187,8 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
     private const val CARD_HEAD = 96f    // the time at the top of a card, down to its first name
     private const val LINE_H = 50f       // one name
     private const val NAME_SZ = 32f
+    private const val INNER_GAP = 34f    // between name columns inside one card
+    private const val MAX_COLS = 4       // past this a column is too narrow to read down
     // A Hebrew sheet is Hebrew throughout - a lone English phrase in the middle of it reads
     // like something the app forgot to translate.
     private const val TITLE = "חסרים"                  // absent
@@ -223,8 +248,11 @@ private class Summary(val label: String, val lines: List<String>, val tone: Int)
             )
             c.drawText(s.label, d.p(x + CARD_PAD), y + 52f, d.align(paint(40f, ink, bold = true)))
             val p = d.align(paint(NAME_SZ, s.tone))
-            s.lines.forEachIndexed { j, line ->
-                c.drawText(line, d.p(x + CARD_PAD), y + CARD_HEAD + j * LINE_H, p)
+            s.cols.forEachIndexed { k, col ->
+                val cx = x + CARD_PAD + k * (s.colW + INNER_GAP)
+                col.forEachIndexed { j, line ->
+                    c.drawText(line, d.p(cx), y + CARD_HEAD + j * LINE_H, p)
+                }
             }
         }
     }

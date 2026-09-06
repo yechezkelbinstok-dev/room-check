@@ -100,6 +100,22 @@ class NightImageTest {
         }
     }
 
+    /** One round, a long list of missing - the case that left most of the card an empty slab. */
+    @Test
+    fun oneTimeManyMissing() {
+        val vm = AppViewModel(NightStore(folder.newFolder()))
+        vm.onlyRoundTonight("1130")
+        Roster.PEOPLE.forEach { vm.setMark(it.id, "1130", Mark.IN) }
+        listOf("p3", "p6", "p9", "p11", "p14", "p17", "p19", "p24", "p29")
+            .forEach { vm.setMark(it, "1130", Mark.OUT) }
+        val state = vm.state.value
+        paparazzi.snapshot(name = "sheet-one-time-many") {
+            val bmp = NightImage.render(vm.logic(state), state.dateKey, true, com.roomcheck.app.data.Slots.all(state.night))
+            dump(bmp, "night-image-one-many.png")
+            Image(bmp.asImageBitmap(), null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
+        }
+    }
+
     @Test
     fun worstCaseSheet() {
         val vm = everybodyMissing()
