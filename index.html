@@ -904,7 +904,7 @@ function checkScreen(){
   return headHTML()+
     (showingReview()?reviewHTML():
       (state.editing?`<div class="lock" style="margin-bottom:0"><span>Editing a closed night</span><button data-a="done">Done</button></div>`:``)+marksHTML())+
-    `<div class="bar"><div class="st" id="stat"></div>${showingReview()?``:`<button class="fbtn" data-a="closenight">Finish</button>`}<button class="cp" data-a="copy">Copy</button></div>`;
+    `<div class="bar"><div class="st" id="stat"></div>${showingReview()?``:`<button class="fbtn" data-a="closenight">Save</button>`}<button class="cp" data-a="copy">Copy</button></div>`;
 }
 function peopleScreen(){
   const exc=allP().filter(({pid})=>isAlways(pid));
@@ -1157,9 +1157,8 @@ document.addEventListener("click",async e=>{
   if(a==="review"){state.review=true;render();window.scrollTo(0,0);return;}
   if(a==="onlyout"){state.onlyOut=t.dataset.v==="1";render();return;}
   if(a==="closenight"){
-    if(!confirm("Close tonight? It becomes a read-only record — you can still reopen it with Edit."))return;
     state.night.closed=true;touch(CLOSED_KEY);state.editing=false;state.review=false;
-    save();render();window.scrollTo(0,0);toast("Closed for tonight");return;}
+    save();render();window.scrollTo(0,0);toast("Saved");return;}
   if(a==="day"){await flush();await loadNight(shiftDate(state.dateKey,+t.dataset.d));render();return;}
   if(a==="today"){await flush();await loadNight(tonightKey());render();return;}
   if(a==="cal"){await openCal();return;}
@@ -1287,7 +1286,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.7.6";
+const APP_VERSION="1.7.7";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

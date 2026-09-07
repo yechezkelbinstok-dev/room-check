@@ -179,7 +179,7 @@ private fun StickyControls(vm: AppViewModel, state: UiState, logic: NightLogic) 
 private fun RoomsArea(vm: AppViewModel, state: UiState, logic: NightLogic, onOpenPerson: (String) -> Unit) {
     // No bottom padding to clear the bottom bar: that bar is a sibling below this area, not an
     // overlay on top of it. The 90dp it used to reserve was carried over from the web build and
-    // did nothing here but push the Finish note off the bottom of the screen, unread.
+    // did nothing here but push the bottom bar off the bottom of the screen, unread.
     when (state.mode) {
         RoomMode.SCROLL -> LazyColumn(Modifier.fillMaxSize()) {
             items(Roster.PLAN) { room -> RoomBlock(vm, state, logic, room, onOpenPerson) }
@@ -300,7 +300,7 @@ private fun BottomBar(vm: AppViewModel, state: UiState, logic: NightLogic, revie
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (!review) {
-                BarButton(Modifier.weight(1f), "Finish", RC.blue) { vm.closeNight() }
+                BarButton(Modifier.weight(1f), "Save", RC.blue) { vm.closeNight() }
             }
             BarButton(Modifier.weight(1f), "Copy text", RC.text) {
                 clipboard.setText(androidx.compose.ui.text.AnnotatedString(logic.report(state.dateKey)))
