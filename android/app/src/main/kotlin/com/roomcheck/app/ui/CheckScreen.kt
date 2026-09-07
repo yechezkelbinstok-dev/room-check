@@ -90,6 +90,12 @@ private fun TopBar(vm: AppViewModel, state: UiState, locked: Boolean, onCalendar
             Box {
                 IconBtn(Icons.Filled.MoreVert, "More") { menu = true }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    if (!locked) {
+                        DropdownMenuItem(
+                            text = { Text("Who's missing") },
+                            onClick = { menu = false; vm.setTab(Tab.QUICK) }
+                        )
+                    }
                     // tucked in here rather than on the marking screen: most nights are the three
                     // standing rounds and never need it, but the night it does is this night
                     DropdownMenuItem(
@@ -199,7 +205,12 @@ private fun RoomsArea(vm: AppViewModel, state: UiState, logic: NightLogic, onOpe
                         ) { _, dragAmount -> dragX += dragAmount }
                     }
             ) {
-                RoomBlock(vm, state, logic, room, onOpenPerson)
+                // Weighted, so the plan gets the space that is LEFT after the next/previous row
+                // rather than however tall its own shape wants to be. A Column measures an
+                // unweighted child with an unbounded height, so the two deepest rooms used to draw
+                // themselves past the bottom of the screen and take the nav buttons with them -
+                // and this mode has no scroll, so there was no way to reach them at all.
+                RoomBlock(vm, state, logic, room, onOpenPerson, Modifier.weight(1f), fitHeight = true)
                 Row(Modifier.padding(12.dp, 14.dp, 12.dp, 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     NavButton(Modifier.weight(1f), enabled = state.room > 0, label = if (state.room > 0) roomName(state, state.room - 1) else "", back = true) { vm.goRoom(-1) }
                     NavButton(Modifier.weight(1f), enabled = state.room < Roster.PLAN.size - 1, label = if (state.room < Roster.PLAN.size - 1) roomName(state, state.room + 1) else "", back = false) { vm.goRoom(1) }
@@ -237,8 +248,17 @@ private fun NavButton(modifier: Modifier, enabled: Boolean, label: String, back:
 }
 
 @Composable
-private fun RoomBlock(vm: AppViewModel, state: UiState, logic: NightLogic, room: Room, onOpenPerson: (String) -> Unit) {
-    Column(Modifier.padding(bottom = 6.dp)) {
+private fun RoomBlock(
+    vm: AppViewModel,
+    state: UiState,
+    logic: NightLogic,
+    room: Room,
+    onOpenPerson: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    /** One-room mode: shrink the plan to the height on offer instead of overflowing it. */
+    fitHeight: Boolean = false
+) {
+    Column(modifier.padding(bottom = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(
             Modifier.fillMaxWidth().padding(16.dp, 12.dp, 16.dp, 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -264,7 +284,11 @@ private fun RoomBlock(vm: AppViewModel, state: UiState, logic: NightLogic, room:
         FloorPlanCanvas(
             room = room,
             allIn = logic.roomAllIn(room, state.curSlot),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+            // Fitting means NOT pinning the width: aspectRatio can only shrink to the height on
+            // offer if the width is a maximum rather than an exact size, so a deep room comes out
+            // narrower and centred instead of running off the bottom.
+            modifier = if (fitHeight) Modifier.weight(1f, fill = false).padding(horizontal = 12.dp)
+                       else Modifier.fillMaxWidth().padding(horizontal = 12.dp)
         ) { _, pid, bunkLabel, wideCard ->
             PersonSlot(
                 first = logic.first(pid, state.settings.hebrewOnPlan),

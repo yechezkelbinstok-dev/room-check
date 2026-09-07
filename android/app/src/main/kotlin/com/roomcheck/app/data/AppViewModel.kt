@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.time.LocalDateTime
 
 enum class RoomMode { ONE, SCROLL }
-enum class Tab { CHECK, NAMES, SETTINGS, TIMES }
+enum class Tab { CHECK, NAMES, SETTINGS, TIMES, QUICK }
 
 data class UiState(
     val dateKey: String,
@@ -127,6 +127,33 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
                 if (logic(s).statusOf(pid, sid) == Mark.EXC) return@forEach
                 if (all) marks.remove(pid) else marks[pid] = Mark.IN
                 s.night.touch(Merge.markKey(sid, pid))
+            }
+            s.night.marks[sid] = marks
+            persist(s); s
+        }
+    }
+
+    /**
+     * The round trip in one step: type or pick the names that are missing, everyone else in the
+     * roster is marked in, for this one round. A room-by-room pass is the default because most
+     * nights you genuinely have to look at each bed - but if you already know who's out, this is
+     * the whole night in as many taps as there are missing names, not thirty.
+     *
+     * Excused people (indefinitely, or excused for tonight) are left alone either way - their
+     * status already overrides any mark, so writing one over them would do nothing but clutter
+     * the record with a mark that was never live.
+     */
+    fun markMissing(missing: Set<String>, sid: String) {
+        snap()
+        update { s ->
+            val marks = s.night.marks[sid] ?: mutableMapOf()
+            Roster.PEOPLE.forEach { p ->
+                if (logic(s).statusOf(p.id, sid) == Mark.EXC) return@forEach
+                val value = if (p.id in missing) Mark.OUT else Mark.IN
+                if (marks[p.id] != value) {
+                    marks[p.id] = value
+                    s.night.touch(Merge.markKey(sid, p.id))
+                }
             }
             s.night.marks[sid] = marks
             persist(s); s

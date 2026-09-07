@@ -19,6 +19,7 @@ import com.roomcheck.app.data.NightStore
 import com.roomcheck.app.data.Tab
 import com.roomcheck.app.ui.CheckScreen
 import com.roomcheck.app.ui.NamesScreen
+import com.roomcheck.app.ui.QuickMarkScreen
 import com.roomcheck.app.ui.RoomCheckTheme
 import com.roomcheck.app.ui.SettingsScreen
 import com.roomcheck.app.ui.TimesScreen
@@ -55,6 +56,7 @@ class MainActivity : ComponentActivity() {
                     Tab.NAMES -> NamesScreen(vm)
                     Tab.SETTINGS -> SettingsScreen(vm)
                     Tab.TIMES -> TimesScreen(vm)
+                    Tab.QUICK -> QuickMarkScreen(vm)
                 }
             }
         }

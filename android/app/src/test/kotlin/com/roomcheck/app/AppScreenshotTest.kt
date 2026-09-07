@@ -10,6 +10,7 @@ import com.roomcheck.app.data.RoomMode
 import com.roomcheck.app.ui.AddTimeContent
 import com.roomcheck.app.ui.CheckScreen
 import com.roomcheck.app.ui.NamesScreen
+import com.roomcheck.app.ui.QuickMarkScreen
 import com.roomcheck.app.ui.RoomCheckTheme
 import com.roomcheck.app.ui.SettingsScreen
 import com.roomcheck.app.ui.TimesScreen
@@ -155,6 +156,15 @@ class AppScreenshotTest {
                     )
                 }
             }
+        }
+    }
+
+    /** The who's-missing list, with two names picked. */
+    @Test
+    fun quickMark() {
+        val vm = viewModel()
+        paparazzi.snapshot(name = "quick-mark") {
+            RoomCheckTheme { QuickMarkScreen(vm) }
         }
     }
 
