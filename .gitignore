@@ -1,1 +1,8 @@
 node_modules/
+
+# iOS
+ios/RoomCheckCore/.build/
+ios/**/.build/
+ios/**/*.xcworkspace/xcuserdata/
+ios/**/*.xcodeproj/xcuserdata/
+ios/**/DerivedData/
