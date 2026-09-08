@@ -9,6 +9,7 @@ import com.roomcheck.app.data.Roster
 import com.roomcheck.app.data.RoomMode
 import com.roomcheck.app.ui.AddTimeContent
 import com.roomcheck.app.ui.CheckScreen
+import com.roomcheck.app.ui.FindBar
 import com.roomcheck.app.ui.NamesScreen
 import com.roomcheck.app.ui.QuickMarkScreen
 import com.roomcheck.app.ui.RoomCheckTheme
@@ -156,6 +157,30 @@ class AppScreenshotTest {
                     )
                 }
             }
+        }
+    }
+
+    /** The search list part-way through a name, which is the state it is actually used in. */
+    @Test
+    fun findBar() {
+        val vm = viewModel()
+        val st = vm.state.value
+        paparazzi.snapshot(name = "find-bar") {
+            RoomCheckTheme {
+                androidx.compose.material3.Surface {
+                    FindBar(vm, st, vm.logic(st), initialQuery = "men") {}
+                }
+            }
+        }
+    }
+
+    /** Search has jumped to Levitansky in Room 8 and ringed him. */
+    @Test
+    fun foundPerson() {
+        val vm = viewModel()
+        vm.findPerson("p28")
+        paparazzi.snapshot(name = "found-person") {
+            RoomCheckTheme { CheckScreen(vm) }
         }
     }
 

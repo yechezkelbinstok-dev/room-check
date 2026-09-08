@@ -15,6 +15,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -35,12 +37,14 @@ fun CheckScreen(vm: AppViewModel) {
     val review = vm.showingReview(state)
     var showCalendar by remember { mutableStateOf(false) }
     var openPerson by remember { mutableStateOf<String?>(null) }
+    var searching by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().background(RC.bg)) {
         TopBar(vm, state, locked, onCalendar = { showCalendar = true })
 
         if (!review) {
-            StickyControls(vm, state, logic)
+            if (searching) FindBar(vm, state, logic) { searching = false }
+            else StickyControls(vm, state, logic) { searching = true }
         }
 
         Box(Modifier.weight(1f)) {
@@ -58,6 +62,9 @@ fun CheckScreen(vm: AppViewModel) {
     }
     openPerson?.let { pid ->
         PersonSheet(vm, state, pid, onClose = { openPerson = null })
+    }
+    state.highlight?.let { pid ->
+        LaunchedEffect(pid) { kotlinx.coroutines.delay(3500); vm.clearHighlight() }
     }
     state.toast?.let { msg ->
         LaunchedEffect(msg) { kotlinx.coroutines.delay(1700); vm.clearToast() }
@@ -125,7 +132,7 @@ private fun IconBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, desc:
 }
 
 @Composable
-private fun StickyControls(vm: AppViewModel, state: UiState, logic: NightLogic) {
+private fun StickyControls(vm: AppViewModel, state: UiState, logic: NightLogic, onSearch: () -> Unit) {
     Column(Modifier.background(RC.bg).padding(12.dp, 10.dp, 12.dp, 8.dp)) {
         Row(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(11.dp)).background(Color(0xFFE7E7EC)).padding(3.dp),
@@ -176,7 +183,64 @@ private fun StickyControls(vm: AppViewModel, state: UiState, logic: NightLogic) 
                     ) { Text("${i + 1}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = fg) }
                 }
             }
+            IconBtn(Icons.Filled.Search, "Find someone", onClick = onSearch)
             IconBtn(Icons.Filled.Visibility, "Review") { vm.setReview(true) }
+        }
+    }
+}
+
+/**
+ * Type a name, tap it, and the plan jumps to that bed with the person ringed.
+ *
+ * It takes the room chips' place rather than sitting above them: this is for when you are holding
+ * a name and do not know the room, which is exactly when a row of room numbers is no use anyway.
+ */
+@Composable
+internal fun FindBar(
+    vm: AppViewModel,
+    state: UiState,
+    logic: NightLogic,
+    initialQuery: String = "",   // only ever set by the snapshot test, which cannot type
+    onClose: () -> Unit
+) {
+    var query by remember { mutableStateOf(initialQuery) }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    val heb = state.settings.hebrewOnPlan
+
+    val hits = if (query.isBlank()) emptyList() else Roster.PEOPLE.filter { p ->
+        val q = query.trim()
+        listOf(
+            logic.first(p.id, heb), logic.last(p.id, heb),
+            logic.first(p.id, false), logic.last(p.id, false)
+        ).any { it.contains(q, ignoreCase = true) }
+    }.take(6)
+
+    Column(Modifier.background(RC.bg).padding(12.dp, 10.dp, 12.dp, 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = query, onValueChange = { query = it },
+                placeholder = { Text("Name") }, singleLine = true,
+                modifier = Modifier.weight(1f).focusRequester(focus)
+            )
+            IconBtn(Icons.Filled.Close, "Close", onClick = onClose)
+        }
+        hits.forEach { p ->
+            val room = Roster.roomOf[p.id]
+            Row(
+                Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(10.dp))
+                    .background(Color.White).border(1.dp, RC.sep, RoundedCornerShape(10.dp))
+                    .clickable { vm.findPerson(p.id); onClose() }
+                    .padding(13.dp, 11.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(logic.nameOf(p.id, heb), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    room?.let { if (heb) it.hebLabel else it.label } ?: "",
+                    fontSize = 12.5.sp, color = RC.sub
+                )
+            }
         }
     }
 }
@@ -295,6 +359,7 @@ private fun RoomBlock(
                 last = logic.last(pid, state.settings.hebrewOnPlan),
                 bunkLabel = bunkLabel.takeIf { state.settings.bunkLabels },
                 status = logic.statusOf(pid, state.curSlot),
+                highlighted = pid == state.highlight,
                 row = wideCard,
                 onNameClick = { onOpenPerson(pid) },
                 onMark = { mark -> vm.setMark(pid, state.curSlot, mark) }

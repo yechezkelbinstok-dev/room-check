@@ -233,7 +233,9 @@ fun PersonSlot(
     row: Boolean,
     onNameClick: () -> Unit,
     onMark: (Mark) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Ringed because search just landed here - the point is to be findable at a glance. */
+    highlighted: Boolean = false
 ) {
     val bgColor = when (status) {
         Mark.IN -> RC.greenL
@@ -247,7 +249,9 @@ fun PersonSlot(
         else -> RC.text
     }
     Column(
-        modifier.fillMaxSize().background(bgColor).padding(6.dp, 5.dp),
+        modifier.fillMaxSize().background(bgColor)
+            .then(if (highlighted) Modifier.border(2.5.dp, RC.blue, RoundedCornerShape(4.dp)) else Modifier)
+            .padding(6.dp, 5.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

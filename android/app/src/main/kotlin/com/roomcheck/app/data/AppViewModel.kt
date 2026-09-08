@@ -24,6 +24,8 @@ data class UiState(
     val editing: Boolean = false,
     val onlyOut: Boolean = false,
     val rev: Int = 0,
+    /** Who search just jumped to, ringed on the plan until it clears itself. */
+    val highlight: String? = null,
     val sync: SyncState = SyncState.Off,
     val toast: String? = null
 )
@@ -167,9 +169,25 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         toast("Undone")
     }
 
+    /**
+     * Jumps the plan to whoever was searched for and rings them.
+     *
+     * Search is for the moment you are holding a name and do not know which room it sleeps in -
+     * so it has to land you ON the bed, not just tell you the room number. Scroll mode is dropped
+     * for one-room mode on the way, because a ring somewhere down a scrolling list of eight plans
+     * is not being shown where someone is.
+     */
+    fun findPerson(pid: String) {
+        val room = Roster.PLAN.indexOfFirst { r -> r.beds.any { pid in it.slots } }
+        if (room < 0) return
+        update { it.copy(tab = Tab.CHECK, mode = RoomMode.ONE, room = room, highlight = pid) }
+    }
+
+    fun clearHighlight() = update { if (it.highlight == null) it else it.copy(highlight = null) }
+
     fun selectSlot(sid: String) = update { it.copy(curSlot = sid) }
-    fun goRoom(delta: Int) = update { s -> val i = (s.room + delta).coerceIn(0, Roster.PLAN.size - 1); s.copy(room = i) }
-    fun jumpRoom(i: Int) = update { it.copy(room = i.coerceIn(0, Roster.PLAN.size - 1)) }
+    fun goRoom(delta: Int) = update { s -> val i = (s.room + delta).coerceIn(0, Roster.PLAN.size - 1); s.copy(room = i, highlight = null) }
+    fun jumpRoom(i: Int) = update { it.copy(room = i.coerceIn(0, Roster.PLAN.size - 1), highlight = null) }
     fun setMode(m: RoomMode) = update { it.copy(mode = m) }
     fun setTab(t: Tab) = update { it.copy(tab = t) }
     fun setReview(v: Boolean) = update { it.copy(reviewing = v) }
