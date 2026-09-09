@@ -6,3 +6,6 @@ ios/**/.build/
 ios/**/*.xcworkspace/xcuserdata/
 ios/**/*.xcodeproj/xcuserdata/
 ios/**/DerivedData/
+
+# Kotlin daemon scratch
+android/.kotlin/

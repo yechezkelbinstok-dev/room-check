@@ -111,11 +111,12 @@ public enum Roster {
             upright(2, 2, "p8", "p5"),
             across(38, 2, "p7", "p6")
         ]),
-        // single across the top, single down the left wall, bunk on the right wall
-        Room("r3", "Room 3", "חדר ג׳", 100, 106, Door(.bottom, 70), [
-            across(2, 2, "p10"),
+        // Hirsch across the top wall with his foot against the right wall; the other two run down
+        // the side walls level with each other, leaving the middle as the walkway in.
+        Room("r3", "Room 3", "חדר ג׳", 100, 118, Door(.bottom, 70), [
+            across(38, 2, "p10"),
             upright(2, 42, "p9"),
-            upright(66, 28, "p11", "p12")
+            upright(66, 42, "p11", "p12")
         ]),
         // A wider room: the two singles lie end to end along the top wall, right next to each
         // other, and the bunk stands against the right wall below them. Door stays bottom-left.

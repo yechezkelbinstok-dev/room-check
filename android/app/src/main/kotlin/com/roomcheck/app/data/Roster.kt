@@ -90,11 +90,13 @@ object Roster {
         Room("r2", "Room 2", "חדר ב׳", 100f, 78f, Door(DoorWall.BOTTOM, 85f), listOf(
             upright(2f, 2f, "p8", "p5"),        // Levin / Holtzberg
             across(38f, 2f, "p7", "p6"))),      // Raices / Stolik
-        // single across the top, single down the left wall, bunk on the right wall
-        Room("r3", "Room 3", "חדר ג׳", 100f, 106f, Door(DoorWall.BOTTOM, 70f), listOf(
-            across(2f, 2f, "p10"),              // Hirsch
+        // Hirsch's single is across the top wall with its foot against the right wall; the other
+        // two run down the side walls level with each other, so the floor between them is the
+        // walkway in from the door.
+        Room("r3", "Room 3", "חדר ג׳", 100f, 118f, Door(DoorWall.BOTTOM, 70f), listOf(
+            across(38f, 2f, "p10"),             // Hirsch
             upright(2f, 42f, "p9"),             // Heidingsfeld
-            upright(66f, 28f, "p11", "p12"))),  // Wolfe / Tzfasman
+            upright(66f, 42f, "p11", "p12"))),  // Wolfe / Tzfasman
         // A wider room: the two singles lie end to end along the top wall, right next to each
         // other, and the bunk stands against the right wall below them. Door stays bottom-left.
         Room("r4", "Room 4", "חדר ד׳", 126f, 104f, Door(DoorWall.BOTTOM, 26f), listOf(

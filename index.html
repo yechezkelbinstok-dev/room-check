@@ -355,8 +355,8 @@ const PLAN=[
    bedV(2,2,["p2","p1"]), bedV(66,2,["p3","p4"])]},
  {id:"r2",label:"Room 2",heb:"חדר ב׳",w:100,h:78,door:{wall:"bottom",pos:85},beds:[
    bedV(2,2,["p8","p5"]), bedH(38,2,["p7","p6"])]},
- {id:"r3",label:"Room 3",heb:"חדר ג׳",w:100,h:106,door:{wall:"bottom",pos:70},beds:[
-   bedH(2,2,["p10"]), bedV(2,42,["p9"]), bedV(66,28,["p11","p12"])]},
+ {id:"r3",label:"Room 3",heb:"חדר ג׳",w:100,h:118,door:{wall:"bottom",pos:70},beds:[
+   bedH(38,2,["p10"]), bedV(2,42,["p9"]), bedV(66,42,["p11","p12"])]},
  /* wider room: the two singles lie end to end along the top wall, bunk on the right wall */
  {id:"r4",label:"Room 4",heb:"חדר ד׳",w:126,h:104,door:{wall:"bottom",pos:26},beds:[
    bedH(2,2,["p15"]), bedH(64,2,["p14"]), bedV(92,42,["p13","p16"])]},
@@ -1286,7 +1286,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.7.7";
+const APP_VERSION="1.7.8";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
