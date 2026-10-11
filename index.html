@@ -690,6 +690,36 @@ function setRounds(ids){
   if(!want.includes(state.cur))state.cur=want[0];
   save();render();
 }
+/**
+ * The same walk at a different time: everything marked under `from` moves to `to`. This is the
+ * correction for marking a round and only then realising the time was wrong - removing it and
+ * adding the new one does it too, but throws the marks away on the way through.
+ */
+function moveRound(from,to){
+  if(from===to)return;
+  if(!validSlot(to)){toast("Not a time");return;}
+  const every=allSlots().map(s=>s.id);
+  if(!every.includes(from))return;
+  if(every.includes(to)){toast("Already on this night");return;}
+  snap();
+  state.night.slots=state.night.slots||[]; state.night.sheet=state.night.sheet||[];
+  const moved=state.night.marks[from]||{};
+  state.night.marks[to]=moved; delete state.night.marks[from];
+  for(const pid of Object.keys(moved)){touch(markKey(from,pid));touch(markKey(to,pid));}
+  /* a night still on the standing three has to start naming its rounds to hold the new time */
+  const want=(state.night.slots.length?state.night.slots:every).map(x=>x===from?to:x);
+  for(const sid of [...new Set([...state.night.slots,...want,from])]){
+    if(want.includes(sid)){if(!state.night.slots.includes(sid))state.night.slots.push(sid);}
+    else state.night.slots=state.night.slots.filter(x=>x!==sid);
+    touch(slotKey(sid));
+  }
+  if(state.night.sheet.includes(from)){
+    state.night.sheet=[...state.night.sheet.filter(x=>x!==from),to];
+    touch(sheetKey(from));touch(sheetKey(to));
+  }
+  if(state.cur===from)state.cur=to;
+  save();render();
+}
 function snap(){undoStack.push(JSON.parse(JSON.stringify(state.night)));if(undoStack.length>40)undoStack.shift();}
 function setMark(pid,sid,v){
   snap(); const m=state.night.marks[sid]||(state.night.marks[sid]={});
@@ -981,10 +1011,12 @@ function timesScreen(){
     <div class="pan">
     <h2>Times</h2>
     <div class="blk">
-      ${all.map(s=>`<div class="li"><span class="a">${esc(s.label)}</span>${all.length>1?
-        `<span class="z"><button class="lnk" data-a="onlyslot" data-s="${s.id}">Only this</button>`+
-        `<button class="lnk" style="color:var(--red);margin-left:16px" data-a="delslot" data-s="${s.id}">Remove</button></span>`
-        :`<span class="z"></span>`}</div>`).join("")}
+      ${all.map(s=>`<div class="li"><span class="a">${esc(s.label)}</span>`+
+        `<span class="z"><button class="lnk" data-a="chgslot" data-s="${s.id}">Change</button>`+
+        (all.length>1?
+          `<button class="lnk" style="margin-left:16px" data-a="onlyslot" data-s="${s.id}">Only this</button>`+
+          `<button class="lnk" style="color:var(--red);margin-left:16px" data-a="delslot" data-s="${s.id}">Remove</button>`
+          :``)+`</span></div>`).join("")}
       <button class="li" data-a="addslot"><span class="a lnk">Add a time</span></button>
       ${(state.night.slots||[]).length?`<button class="li" data-a="resetslots"><span class="a lnk">Restore defaults</span></button>`:``}
     </div>
@@ -1205,6 +1237,23 @@ document.addEventListener("click",async e=>{
     closePop();
     return setRounds([...allSlots().map(s=>s.id),idForClock(+m[1],+m[2])]);
   }
+  if(a==="chgslot"){
+    const sid=t.dataset.s, h=+sid.slice(0,2), m=sid.slice(2);
+    /* the input is a 24-hour one: 12 on this app's clock is midnight, hour zero on that one */
+    const h24=h===12?0:(h<6?h:h+12);
+    showPop(`<div class="grp"><div class="tprow"><span class="a">Change time</span>
+        <input id="tpick" type="time" value="${String(h24).padStart(2,"0")}:${m}"></div>
+      <button class="li" data-a="chgtime" data-s="${sid}"><span class="a lnk">Change</span></button>
+      </div><button class="cancel" data-a="close">Cancel</button>`);
+    return;
+  }
+  if(a==="chgtime"){
+    const v=(document.getElementById("tpick")||{}).value||"";
+    const m=v.match(/^(\d{2}):(\d{2})$/);
+    if(!m){toast("Not a time");return;}
+    closePop();
+    return moveRound(t.dataset.s,idForClock(+m[1],+m[2]));
+  }
   if(a==="onlyslot"){return setRounds([t.dataset.s]);}
   if(a==="delslot"){return setRounds(allSlots().map(s=>s.id).filter(x=>x!==t.dataset.s));}
   if(a==="resetslots"){
@@ -1286,7 +1335,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.7.8";
+const APP_VERSION="1.8.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

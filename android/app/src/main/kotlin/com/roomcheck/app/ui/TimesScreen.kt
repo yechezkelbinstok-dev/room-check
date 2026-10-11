@@ -30,6 +30,7 @@ fun TimesScreen(vm: AppViewModel) {
     val all = Slots.all(state.night)
     val onSheet = Slots.forSheet(state.night).map { it.id }.toSet()
     var adding by remember { mutableStateOf(false) }
+    var changing by remember { mutableStateOf<String?>(null) }
 
     Column(Modifier.fillMaxSize().background(RC.bg)) {
         Row(
@@ -49,12 +50,14 @@ fun TimesScreen(vm: AppViewModel) {
                     all.forEachIndexed { i, slot ->
                         if (i > 0) HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
                         Row(
-                            Modifier.fillMaxWidth().padding(14.dp, 13.dp),
+                            Modifier.fillMaxWidth().clickable { changing = slot.id }.padding(14.dp, 13.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(slot.label, fontSize = 16.sp)
                             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Text("Change", color = RC.blue, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.clickable { changing = slot.id })
                                 if (all.size > 1) {
                                     Text("Only this", color = RC.blue, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                                         modifier = Modifier.clickable { vm.onlyRoundTonight(slot.id) })
@@ -90,22 +93,41 @@ fun TimesScreen(vm: AppViewModel) {
         }
     }
 
-    if (adding) AddTimeDialog(
-        onAdd = { id -> vm.addRoundTonight(id); adding = false },
+    if (adding) TimeDialog(
+        title = "Add a time", confirm = "Add", at = "1130",
+        onPick = { id -> vm.addRoundTonight(id); adding = false },
         onClose = { adding = false }
     )
+    changing?.let { from ->
+        TimeDialog(
+            title = "Change time", confirm = "Change", at = from,
+            onPick = { id -> vm.moveRoundTonight(from, id); changing = null },
+            onClose = { changing = null }
+        )
+    }
 }
 
+/** [at] is the time the clock opens on, as a slot id - the round being changed, or 11:30 for a new one. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddTimeDialog(onAdd: (String) -> Unit, onClose: () -> Unit) {
-    val st = rememberTimePickerState(initialHour = 23, initialMinute = 30, is24Hour = false)
+private fun TimeDialog(
+    title: String,
+    confirm: String,
+    at: String,
+    onPick: (String) -> Unit,
+    onClose: () -> Unit
+) {
+    val st = rememberTimePickerState(
+        initialHour = Slots.clockHourOf(at),
+        initialMinute = Slots.clockMinuteOf(at),
+        is24Hour = false
+    )
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text("Add a time") },
+        title = { Text(title) },
         text = { AddTimeContent(st) },
         confirmButton = {
-            TextButton(onClick = { onAdd(Slots.idForClock(st.hour, st.minute)) }) { Text("Add") }
+            TextButton(onClick = { onPick(Slots.idForClock(st.hour, st.minute)) }) { Text(confirm) }
         },
         dismissButton = { TextButton(onClick = onClose) { Text("Cancel") } }
     )

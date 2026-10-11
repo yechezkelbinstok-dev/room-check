@@ -52,6 +52,21 @@ object Slots {
     }
 
     /**
+     * The other direction: the 24-hour hour and minute to open a clock picker on for an existing
+     * round. Midnight is the one that catches you out - "1200" here is hour zero there, not twelve.
+     */
+    fun clockHourOf(id: String): Int {
+        val h = hourOf(id)
+        return when {
+            h == 12 -> 0
+            h < 6 -> h
+            else -> h + 12
+        }
+    }
+
+    fun clockMinuteOf(id: String): Int = minuteOf(id)
+
+    /**
      * Every time this night can be marked at: the standing three, plus whatever was added for
      * this night alone: a night that names its own rounds gets those INSTEAD of the standing
      * three, so a night with one check at 12:30 has exactly one column.

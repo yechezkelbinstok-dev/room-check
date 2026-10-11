@@ -262,6 +262,46 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
     fun removeRoundTonight(id: String) =
         setRoundsTonight(Slots.all(_state.value.night).map { it.id } - id)
 
+    /**
+     * The same walk, at a different time: everything already marked under [from] moves to [to].
+     *
+     * This is the correction for having marked a round and only then realising the time was
+     * wrong. Removing the round and adding the new one would do it too, but it throws the marks
+     * away on the way through - thirty beds to walk again for a typo.
+     */
+    fun moveRoundTonight(from: String, to: String) {
+        if (from == to) return
+        if (!Slots.isValidId(to)) { toast("Not a time"); return }
+        val every = Slots.all(_state.value.night).map { it.id }
+        if (from !in every) return
+        if (to in every) { toast("Already on this night"); return }
+        snap()
+        update { s ->
+            s.night.marks.remove(from)?.let { marks ->
+                s.night.marks[to] = marks
+                marks.keys.forEach { pid ->
+                    s.night.touch(Merge.markKey(from, pid)); s.night.touch(Merge.markKey(to, pid))
+                }
+            }
+            // a night still on the standing three has to start naming its rounds to hold the new
+            // time, so it declares the three it had with this one swapped out
+            val want = (if (s.night.rounds.isEmpty()) every else s.night.rounds.toList())
+                .map { if (it == from) to else it }
+            // the old time is stamped too, even on a night that never declared its rounds: a
+            // device that did declare it has to be told it is gone, or the merge hands it back
+            (s.night.rounds.toList() + want + from).distinct().forEach { sid ->
+                if (sid in want) s.night.rounds.add(sid) else s.night.rounds.remove(sid)
+                s.night.touch(Merge.slotKey(sid))
+            }
+            if (s.night.sheetSlots.remove(from)) {
+                s.night.sheetSlots.add(to)
+                s.night.touch(Merge.sheetKey(from)); s.night.touch(Merge.sheetKey(to))
+            }
+            persist(s)
+            s.copy(curSlot = if (s.curSlot == from) to else s.curSlot)
+        }
+    }
+
     /** Puts a round on this night's picture, or takes it off. All of them, unless you say otherwise. */
     fun toggleSheetSlot(id: String) {
         update { s ->
