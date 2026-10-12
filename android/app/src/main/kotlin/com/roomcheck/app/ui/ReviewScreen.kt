@@ -79,6 +79,7 @@ fun ReviewScreen(vm: AppViewModel, state: UiState, logic: NightLogic) {
                                         Mark.IN -> "✓" to RC.green
                                         Mark.OUT -> "✕" to RC.red
                                         Mark.EXC -> "E" to RC.grey
+                                        Mark.AWAY -> "T" to RC.blue
                                         null -> "–" to Color(0xFFC9CBD2)
                                     }
                                     Text(glyph, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = color,

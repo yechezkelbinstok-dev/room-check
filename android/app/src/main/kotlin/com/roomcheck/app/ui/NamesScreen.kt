@@ -27,6 +27,7 @@ fun NamesScreen(vm: AppViewModel) {
     var renamePid by remember { mutableStateOf<String?>(null) }
 
     val alwaysExcused = Roster.PEOPLE.filter { logic.isAlways(it.id) }
+    val away = Roster.PEOPLE.filter { logic.isAway(it.id) }
 
     Column(Modifier.fillMaxSize().background(RC.bg)) {
         Row(
@@ -35,11 +36,32 @@ fun NamesScreen(vm: AppViewModel) {
         ) {
             Column {
                 Text("Names", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                Text("30 bochurim · 8 rooms", fontSize = 12.5.sp, color = RC.sub)
+                Text("${Roster.PEOPLE.size} bochurim · ${Roster.PLAN.size} rooms", fontSize = 12.5.sp, color = RC.sub)
             }
             OutlinedButton(onClick = { vm.setTab(Tab.SETTINGS) }) { Text("Back") }
         }
         LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            if (away.isNotEmpty()) {
+                item { SectionHeader("Not in town") }
+                item {
+                    Card {
+                        away.forEachIndexed { i, p ->
+                            if (i > 0) HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
+                            Row(
+                                Modifier.fillMaxWidth().padding(14.dp, 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(logic.nameOf(p.id), fontSize = 15.sp)
+                                    Text(Roster.roomOf.getValue(p.id).label, fontSize = 12.sp, color = RC.sub)
+                                }
+                                Text("Back in town", fontSize = 13.sp, color = RC.blue, fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.clickable { vm.backInTown(p.id) })
+                            }
+                        }
+                    }
+                }
+            }
             if (alwaysExcused.isNotEmpty()) {
                 item { SectionHeader("Excused indefinitely") }
                 item {
@@ -79,6 +101,7 @@ fun NamesScreen(vm: AppViewModel) {
                                     Text(if (bedSize > 1) (if (i == 0) "top bunk" else "bottom bunk") else "single bed", fontSize = 12.sp, color = RC.sub)
                                 }
                                 if (logic.isAlways(pid)) Text("excused", fontSize = 13.sp, color = RC.sub)
+                                else if (logic.isAway(pid)) Text("not in town", fontSize = 13.sp, color = RC.sub)
                             }
                         }
                     }

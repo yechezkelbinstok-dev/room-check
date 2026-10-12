@@ -312,18 +312,29 @@ private class Summary(val label: String, val cols: List<List<String>>, val colW:
         x: Float, y: Float, colW: Float, d: Dir
     ) {
         val mid = y + ROW_H / 2f
+        if (logic.isAway(pid)) {
+            // Not in town: a grey name, and one plain bar under every time in place of its chips -
+            // nothing to read there, because there was nobody to look for.
+            c.drawText(logic.nameOf(pid, hebrew), d.p(x), mid + 12f, d.align(paint(34f, faint)))
+            val barW = slots.size * COL_W - (COL_W - CHIP)
+            val left = x + colW - slots.size * COL_W + (COL_W - CHIP) / 2f
+            val top = mid - 7f
+            val bx = d.box(left, barW)
+            c.drawRoundRect(RectF(bx, top, bx + barW, top + 14f), 7f, 7f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = greyL })
+            return
+        }
         c.drawText(logic.nameOf(pid, hebrew), d.p(x), mid + 12f, d.align(namePaint()))
         slots.forEachIndexed { i, slot ->
             val cx = x + colW - (slots.size - i) * COL_W + (COL_W - CHIP) / 2f
-            drawChip(c, logic.statusOf(pid, slot.id), d.box(cx, CHIP), mid - CHIP / 2f)
+            drawChip(c, logic.statusOf(pid, slot.id), d.box(cx, CHIP), mid - CHIP / 2f, hebrew)
         }
     }
 
-    private fun drawChip(c: Canvas, mark: Mark?, x: Float, y: Float) {
+    private fun drawChip(c: Canvas, mark: Mark?, x: Float, y: Float, hebrew: Boolean) {
         val (bg, fg) = when (mark) {
             Mark.IN -> greenL to green
             Mark.OUT -> redL to red
-            Mark.EXC -> greyL to grey
+            Mark.EXC, Mark.AWAY -> greyL to grey
             null -> Color.parseColor("#F7F7F9") to faint
         }
         c.drawRoundRect(RectF(x, y, x + CHIP, y + CHIP), 13f, 13f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = bg })
@@ -343,9 +354,12 @@ private class Summary(val label: String, val cols: List<List<String>>, val colW:
                 c.drawLine(cx + 10f, cy - 10f, cx - 10f, cy + 10f, stroke)
             }
             Mark.EXC -> {
+                // פ׳ for patur on a Hebrew sheet - an English letter has no business on it
+                val letter = if (hebrew) "פ׳" else "E"
                 val p = paint(32f, fg, bold = true)
-                c.drawText("E", cx - p.measureText("E") / 2f, cy + 11f, p)
+                c.drawText(letter, cx - p.measureText(letter) / 2f, cy + 11f, p)
             }
+            Mark.AWAY -> {}
             null -> {
                 val p = paint(32f, fg)
                 c.drawText("–", cx - p.measureText("–") / 2f, cy + 11f, p)

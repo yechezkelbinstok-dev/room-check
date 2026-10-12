@@ -6,8 +6,8 @@ import XCTest
 /// the app and looked.
 final class RosterTests: XCTestCase {
     func testThirtyPeopleThirtyIds() {
-        XCTAssertEqual(Roster.PEOPLE.count, 30)
-        XCTAssertEqual(Set(Roster.PEOPLE.map(\.id)).count, 30)
+        XCTAssertEqual(Roster.PEOPLE.count, 29)
+        XCTAssertEqual(Set(Roster.PEOPLE.map(\.id)).count, 29)
     }
 
     func testEightRooms() {

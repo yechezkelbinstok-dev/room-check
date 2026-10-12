@@ -120,14 +120,18 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         }
     }
 
-    fun markRoom(room: Room, sid: String) {
+    /**
+     * Every bed in the room still on the walk set to [value], or cleared when it is null. With
+     * [only], that one person is in and the rest of the room out - the room with one boy in bed.
+     */
+    fun setRoom(room: Room, sid: String, value: Mark?, only: String? = null) {
         snap()
         update { s ->
             val marks = s.night.marks[sid] ?: mutableMapOf()
-            val all = logic(s).roomAllIn(room, sid)
             room.beds.flatMap { it.slots }.forEach { pid ->
-                if (logic(s).statusOf(pid, sid) == Mark.EXC) return@forEach
-                if (all) marks.remove(pid) else marks[pid] = Mark.IN
+                if (logic(s).statusOf(pid, sid).offCheck) return@forEach
+                val want = if (only != null) (if (pid == only) Mark.IN else Mark.OUT) else value
+                if (want == null) marks.remove(pid) else marks[pid] = want
                 s.night.touch(Merge.markKey(sid, pid))
             }
             s.night.marks[sid] = marks
@@ -150,7 +154,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         update { s ->
             val marks = s.night.marks[sid] ?: mutableMapOf()
             Roster.PEOPLE.forEach { p ->
-                if (logic(s).statusOf(p.id, sid) == Mark.EXC) return@forEach
+                if (logic(s).statusOf(p.id, sid).offCheck) return@forEach
                 val value = if (p.id in missing) Mark.OUT else Mark.IN
                 if (marks[p.id] != value) {
                     marks[p.id] = value
@@ -358,9 +362,25 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
     fun toggleAlwaysExcused(pid: String) {
         val ov = store.extra.getOrPut(pid) { PersonOverride() }
         ov.always = !ov.always
+        if (ov.always) ov.away = false
         store.saveState()
         update { it.copy(extra = store.extra.toMap()) }
         toast(if (ov.always) "Excused indefinitely" else "No longer excused")
+    }
+
+    fun toggleAway(pid: String) {
+        val ov = store.extra.getOrPut(pid) { PersonOverride() }
+        ov.away = !ov.away
+        if (ov.away) ov.always = false
+        store.saveState()
+        update { it.copy(extra = store.extra.toMap()) }
+        toast(if (ov.away) "Not in town until you turn it off" else "Back in town")
+    }
+
+    fun backInTown(pid: String) {
+        store.extra[pid]?.away = false
+        store.saveState()
+        update { it.copy(extra = store.extra.toMap()) }
     }
 
     fun unexcuse(pid: String) {

@@ -38,6 +38,7 @@ class NightImageTest {
         listOf("p3", "p6", "p11", "p19", "p24", "p29").forEach { vm.setMark(it, "1115", Mark.OUT) }
         vm.setMark("p8", "1115", Mark.EXC)
         listOf("p13", "p24", "p29").forEach { vm.setMark(it, "1130", Mark.OUT) }
+        vm.toggleAway("p31")
         return vm
     }
 

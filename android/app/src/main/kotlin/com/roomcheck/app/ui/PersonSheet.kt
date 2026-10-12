@@ -23,6 +23,7 @@ fun PersonSheet(vm: AppViewModel, state: UiState, pid: String, onClose: () -> Un
     val room = Roster.roomOf.getValue(pid)
     val excusedTonight = state.night.excusedTonight.contains(pid)
     val always = logic.isAlways(pid)
+    val away = logic.isAway(pid)
     var noteText by remember(pid, state.night) { mutableStateOf(state.night.notes[pid] ?: "") }
     var reasonText by remember(pid, state.extra[pid]?.reason) { mutableStateOf(state.extra[pid]?.reason ?: "") }
 
@@ -43,9 +44,26 @@ fun PersonSheet(vm: AppViewModel, state: UiState, pid: String, onClose: () -> Un
                         MarkButtons(logic.statusOf(pid, sid), compact = false, onSet = { m -> vm.setMark(pid, sid, m) })
                     }
                 }
+                HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
+                Text(
+                    "Only one in the room", fontSize = 15.sp, color = RC.blue,
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        if (logic.statusOf(pid, state.curSlot).offCheck) vm.toast("${logic.nameOf(pid)} is off the check")
+                        else { vm.setRoom(room, state.curSlot, null, only = pid); onClose() }
+                    }.padding(14.dp, 13.dp)
+                )
             }
             Spacer(Modifier.height(8.dp))
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(RC.card)) {
+                Row(
+                    Modifier.fillMaxWidth().clickable { vm.toggleAway(pid) }.padding(14.dp, 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(away)
+                    Spacer(Modifier.width(11.dp))
+                    Text("Not in town", fontSize = 15.sp)
+                }
+                HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
                 Row(
                     Modifier.fillMaxWidth().clickable { vm.toggleExcusedTonight(pid) }.padding(14.dp, 12.dp),
                     verticalAlignment = Alignment.CenterVertically

@@ -41,7 +41,7 @@ fun QuickMarkScreen(vm: AppViewModel) {
     // Excused people are not on the list at all: their status already overrides any mark, so
     // picking one could only ever be a tap that did nothing.
     val roster = remember(state.rev, hebrew) {
-        Roster.PEOPLE.filter { logic.statusOf(it.id, state.curSlot) != Mark.EXC }
+        Roster.PEOPLE.filter { !logic.statusOf(it.id, state.curSlot).offCheck }
     }
     val matches = roster.filter { p ->
         val q = query.trim()

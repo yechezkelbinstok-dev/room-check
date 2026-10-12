@@ -5,7 +5,14 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
-enum class Mark { IN, OUT, EXC }
+/**
+ * AWAY is never written into a night: it comes from the person's standing "not in town" switch,
+ * the way "excused indefinitely" gives EXC, so it reads the same whichever night is open.
+ */
+enum class Mark { IN, OUT, EXC, AWAY }
+
+/** Off the walk this round - excused or not in town - so the room is judged without him. */
+val Mark?.offCheck: Boolean get() = this == Mark.EXC || this == Mark.AWAY
 
 data class Night(
     val marks: MutableMap<String, MutableMap<String, Mark>> = mutableMapOf(),
@@ -98,7 +105,7 @@ data class Night(
     }
 }
 
-data class PersonOverride(var first: String? = null, var last: String? = null, var always: Boolean = false, var reason: String? = null)
+data class PersonOverride(var first: String? = null, var last: String? = null, var always: Boolean = false, var reason: String? = null, var away: Boolean = false)
 
 /**
  * The things you can turn on and off, kept off by default: the plan and the sheet read cleaner
@@ -175,6 +182,7 @@ class NightStore(home: File) {
                         first = po.optStringOrNull("first"),
                         last = po.optStringOrNull("last"),
                         always = po.optBoolean("always", false),
+                        away = po.optBoolean("away", false),
                         reason = po.optStringOrNull("reason")
                     )
                 }
@@ -190,6 +198,7 @@ class NightStore(home: File) {
             po.first?.let { o.put("first", it) }
             po.last?.let { o.put("last", it) }
             o.put("always", po.always)
+            o.put("away", po.away)
             po.reason?.let { o.put("reason", it) }
             extraObj.put(pid, o)
         }
@@ -241,6 +250,7 @@ class NightStore(home: File) {
             po.first?.let { o.put("first", it) }
             po.last?.let { o.put("last", it) }
             o.put("always", po.always)
+            o.put("away", po.away)
             po.reason?.let { o.put("reason", it) }
             extraObj.put(pid, o)
         }
@@ -266,6 +276,7 @@ class NightStore(home: File) {
                         first = po.optStringOrNull("first"),
                         last = po.optStringOrNull("last"),
                         always = po.optBoolean("always", false),
+                        away = po.optBoolean("away", false),
                         reason = po.optStringOrNull("reason")
                     )
                 }

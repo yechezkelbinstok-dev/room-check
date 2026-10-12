@@ -1,6 +1,6 @@
 package com.roomcheck.app.data
 
-data class SlotStats(val out: Int, val inCount: Int, val exc: Int, val left: Int, val started: Boolean)
+data class SlotStats(val out: Int, val inCount: Int, val exc: Int, val left: Int, val started: Boolean, val away: Int = 0)
 
 /** [slots] is the times this night is walked at - the standing three plus anything added. */
 class NightLogic(
@@ -12,6 +12,7 @@ class NightLogic(
 
 
     fun isAlways(pid: String): Boolean = extra[pid]?.always == true
+    fun isAway(pid: String): Boolean = extra[pid]?.away == true
     fun first(pid: String): String = extra[pid]?.first ?: Roster.byId.getValue(pid).first
     fun last(pid: String): String = extra[pid]?.last ?: Roster.byId.getValue(pid).last
     fun nameOf(pid: String): String = "${first(pid)} ${last(pid)}"
@@ -35,12 +36,13 @@ class NightLogic(
 
     fun statusOf(pid: String, sid: String): Mark? {
         if (isAlways(pid)) return Mark.EXC
+        if (isAway(pid)) return Mark.AWAY
         if (night.excusedTonight.contains(pid)) return Mark.EXC
         return night.marks[sid]?.get(pid)
     }
 
     private fun livePids(room: Room, sid: String): List<String> =
-        room.beds.flatMap { it.slots }.filter { statusOf(it, sid) != Mark.EXC }
+        room.beds.flatMap { it.slots }.filter { !statusOf(it, sid).offCheck }
 
     fun roomChecked(room: Room, sid: String): Boolean {
         val live = livePids(room, sid)
@@ -52,7 +54,7 @@ class NightLogic(
         var any = false
         for (bed in room.beds) for (pid in bed.slots) {
             val st = statusOf(pid, sid)
-            if (st == Mark.EXC) continue
+            if (st.offCheck) continue
             if (st != Mark.IN) return false
             any = true
         }
@@ -63,23 +65,28 @@ class NightLogic(
         room.beds.flatMap { it.slots }.filter { statusOf(it, sid) == Mark.OUT }
 
     fun stats(sid: String): SlotStats {
-        var out = 0; var inC = 0; var exc = 0
+        var out = 0; var inC = 0; var exc = 0; var away = 0
         Roster.PEOPLE.forEach { p ->
             when (statusOf(p.id, sid)) {
                 Mark.OUT -> out++
                 Mark.IN -> inC++
                 Mark.EXC -> exc++
+                Mark.AWAY -> away++
                 null -> {}
             }
         }
         val left = Roster.PLAN.count { !roomChecked(it, sid) }
-        return SlotStats(out, inC, exc, left, left < Roster.PLAN.size)
+        return SlotStats(out, inC, exc, left, left < Roster.PLAN.size, away)
     }
 
     /** Everyone marked out at [sid], in room order then bed order - the order you walked them. */
     fun missingAt(sid: String): List<String> =
         Roster.PLAN.flatMap { room -> room.beds.flatMap { it.slots } }
             .filter { statusOf(it, sid) == Mark.OUT }
+
+    /** Everyone switched to not in town, in walking order. */
+    fun awayList(): List<String> =
+        Roster.PLAN.flatMap { room -> room.beds.flatMap { it.slots } }.filter { isAway(it) }
 
     fun uncheckedAt(sid: String): List<Room> = Roster.PLAN.filter { !roomChecked(it, sid) }
 
@@ -104,6 +111,12 @@ class NightLogic(
             if (stats(sid).started && unchecked.isNotEmpty()) {
                 lines.add("(still to mark: ${unchecked.joinToString(", ") { it.label }})")
             }
+        }
+        val away = awayList()
+        if (away.isNotEmpty()) {
+            lines.add("")
+            lines.add("Not in town")
+            lines.add(away.joinToString(", ") { nameOf(it) })
         }
         return lines.joinToString("\n")
     }

@@ -240,12 +240,12 @@ fun PersonSlot(
     val bgColor = when (status) {
         Mark.IN -> RC.greenL
         Mark.OUT -> RC.redL
-        Mark.EXC -> RC.greyL
+        Mark.EXC, Mark.AWAY -> RC.greyL
         null -> Color.Transparent
     }
     val nameColor = when (status) {
         Mark.OUT -> RC.red
-        Mark.EXC -> RC.grey
+        Mark.EXC, Mark.AWAY -> RC.grey
         else -> RC.text
     }
     Column(
@@ -269,7 +269,7 @@ fun PersonSlot(
                     Text(last, fontSize = 13.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, color = nameColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(first, fontSize = 9.sp, lineHeight = 11.sp, color = RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                MarkButtons(status, compact = true, onSet = onMark)
+                if (status == Mark.AWAY) AwayTag() else MarkButtons(status, compact = true, onSet = onMark)
             }
         } else {
             // Tall slot. Order here is load-bearing: a Column measures its UNWEIGHTED children
@@ -298,7 +298,13 @@ fun PersonSlot(
                 }
             }
             Spacer(Modifier.height(4.dp))
-            MarkButtons(status, compact = false, onSet = onMark)
+            if (status == Mark.AWAY) AwayTag() else MarkButtons(status, compact = false, onSet = onMark)
         }
     }
+}
+
+/** Stands in for the mark buttons: there is nothing to mark for someone who is not in town. */
+@Composable
+private fun AwayTag() {
+    Text("Not in town", fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold, color = RC.blue, maxLines = 1)
 }

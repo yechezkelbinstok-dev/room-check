@@ -75,15 +75,17 @@ public enum Roster {
         Person("p24", "Leib Meir", "November", "לייב מאיר", "נאוועמבער"),
         Person("p25", "Sadya", "Liberow", "סעדי'", "ליבעראוו"),
         Person("p26", "Yitzchok Sholom", "Lipkind", "יצחק שלום", "ליפקינד"),
-        Person("p27", "Dovid", "Fridman", "דוד", "פרידמאן"),
         Person("p28", "Tzvi Dov HaLevi", "Levitansky", "צבי דוב הלוי", "לויטנסקי"),
         Person("p29", "Yehuda", "Fehler", "יהודה", "פעלער"),
-        Person("p30", "Meir Shlomo", "Ceitlin", "מאיר שלמה", "ציטלין"),
         Person("p31", "Mordechai Shlomo", "Smith", "מרדכי שלמה", "סמיט")
     ]
-    // p27 Fridman and p30 Ceitlin have left. They stay above so the nights they were in still read
-    // with their names; being on no bed in PLAN is what takes them off the check.
-    public static let byId: [String: Person] = Dictionary(uniqueKeysWithValues: PEOPLE.map { ($0.id, $0) })
+
+    /// Gone from the yeshiva. Kept only so the nights they were in still read with their names.
+    static let LEFT: [Person] = [
+        Person("p27", "Dovid", "Fridman", "דוד", "פרידמאן"),
+        Person("p30", "Meir Shlomo", "Ceitlin", "מאיר שלמה", "ציטלין")
+    ]
+    public static let byId: [String: Person] = Dictionary(uniqueKeysWithValues: (PEOPLE + LEFT).map { ($0.id, $0) })
 
     // Every bed is the same twin bed - one footprint, rotated to run along whichever wall it's
     // against. A bunk is the same footprint as a single: two mattresses stack vertically, they

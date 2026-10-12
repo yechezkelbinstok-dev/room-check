@@ -338,12 +338,14 @@ private fun RoomBlock(
                     color = if (out > 0) RC.red else RC.sub, modifier = Modifier.padding(start = 8.dp)
                 )
             }
-            val allIn = logic.roomAllIn(room, state.curSlot)
-            Text(
-                if (allIn) "Clear room" else "Everyone in",
-                fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = RC.blue,
-                modifier = Modifier.clickable { vm.markRoom(room, state.curSlot) }
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                listOf("All in" to Mark.IN, "All out" to Mark.OUT, "Clear" to null).forEach { (text, value) ->
+                    Text(
+                        text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = RC.blue,
+                        modifier = Modifier.clickable { vm.setRoom(room, state.curSlot, value) }
+                    )
+                }
+            }
         }
         FloorPlanCanvas(
             room = room,
@@ -381,6 +383,7 @@ private fun BottomBar(vm: AppViewModel, state: UiState, logic: NightLogic, revie
         val label = logic.slots.firstOrNull { it.id == state.curSlot }?.label ?: state.curSlot
         val bits = mutableListOf(if (st.out > 0) "${st.out} out" else "Nobody out")
         if (st.left > 0) bits.add("${st.left} left")
+        if (st.away > 0) bits.add("${st.away} not in town")
         if (st.exc > 0) bits.add("${st.exc} excused")
         Text(
             "$label · ${bits.joinToString(" · ")}", fontSize = 13.sp, color = RC.sub2,
