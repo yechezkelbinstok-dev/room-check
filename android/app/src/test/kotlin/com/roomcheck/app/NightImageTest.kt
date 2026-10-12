@@ -169,7 +169,7 @@ class NightImageTest {
         }
     }
 
-    /** The pasted text, in the exact shape asked for: date, then each time and who was missing. */
+    /** The pasted text, in the exact shape asked for: date, then each time and who was missing, then who is not in town. */
     @Test
     fun copyTextFormat() {
         val vm = halfCheckedNight()
@@ -186,6 +186,9 @@ class NightImageTest {
             |
             |12:00
             |Not marked
+            |
+            |Not in town
+            |Mordechai Shlomo Smith
             """.trimMargin(),
             body
         )
