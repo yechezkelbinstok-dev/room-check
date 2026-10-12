@@ -88,6 +88,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .rbar .t em{font-style:normal;font-size:13px;font-weight:500;color:var(--sub);margin-left:8px}
 .rbar .t em.miss{color:var(--red);font-weight:600}
 .rbar button{font-size:14px;font-weight:600;color:var(--blue);flex:none;padding-left:12px}
+.rbar .rbtn{display:flex;flex:none}
 
 /* plan */
 .planwrap{padding:0 12px;touch-action:pan-y}
@@ -119,6 +120,8 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .slot.row .mk .e{width:22px}
 .slot.out .ln{color:var(--red)}
 .slot.exc .ln,.slot.exc .fn,.slot.away .ln,.slot.away .fn{color:var(--grey)}
+.slot.away .mk{display:none}
+.slot.away .nb::after{content:"Not in town";display:block;font-size:11px;font-weight:650;color:var(--blue);margin-top:2px}
 .bunk{position:absolute;top:3px;left:7px;font-size:9px;font-weight:500;color:#B7B9C2}
 .slot.col .nb{padding-top:7px}
 .mk{display:flex;gap:3px;flex:none}
@@ -556,6 +559,9 @@ const lastIn=(pid,heb)=>heb&&hasHeb(pid)?P[pid][3]:last(pid);
 const nameIn=(pid,heb)=>firstIn(pid,heb)+" "+lastIn(pid,heb);
 const roomName=r=>state.settings.hebrewOnPlan?r.heb:r.label;
 const isAlways=pid=>!!(state.extra[pid]&&state.extra[pid].always);
+/* out of town until switched back off - kept with the person, not the night, so nobody has to
+   remember to mark him every evening he is away */
+const isAway=pid=>!!(state.extra[pid]&&state.extra[pid].away);
 
 /* seeded from the standing three only: allSlots reads a night, so a night cannot be built from it */
 function blank(){const n={marks:{},tonight:[],notes:{},closed:false,slots:[],sheet:[]};
@@ -636,13 +642,11 @@ async function loadNight(k){
   state.dateKey=k; state.night=norm(p); undoStack=[]; state.editing=false; state.review=false;
   if(k!==tonightKey()&&!state.night.closed){state.night.closed=true;touch(CLOSED_KEY);save();}
 }
-/* Not in town and excused both take a bed off the walk; only the report tells them apart.
-   "away" is an ordinary mark value, so the sync server carries it without knowing it exists. */
+/* Not in town and excused both take a bed off the walk; only the report tells them apart. */
 const offCheck=st=>st==="exc"||st==="away";
-const awayAll=pid=>{const ids=allSlots().map(s=>s.id);
-  return ids.length>0&&ids.every(s=>(state.night.marks[s]||{})[pid]==="away");};
 function statusOf(pid,sid){
   if(isAlways(pid))return "exc";
+  if(isAway(pid))return "away";
   if(state.night.tonight.includes(pid))return "exc";
   return (state.night.marks[sid]||{})[pid]||null;
 }
@@ -736,12 +740,14 @@ function setMark(pid,sid,v){
   touch(markKey(sid,pid));
   save();
 }
-function markRoom(room,sid){
+/* Every bed in the room still on the walk set to one mark, or cleared with v null. With `only`,
+   that one person is in and the rest are out - the room where just one boy is in bed. */
+function setRoom(room,sid,v,only){
   snap(); const m=state.night.marks[sid]||(state.night.marks[sid]={});
-  const all=roomAllIn(room,sid);
   room.beds.forEach(b=>b.slots.forEach(pid=>{
     if(offCheck(statusOf(pid,sid)))return;
-    if(all)delete m[pid]; else m[pid]="in";
+    const want=only?(pid===only?"in":"out"):v;
+    if(want)m[pid]=want; else delete m[pid];
     touch(markKey(sid,pid));
   }));
   save();
@@ -829,7 +835,7 @@ function roomBlock(i){
   return `<div class="roomblock" id="rb-${room.id}">
     <div class="rbar">
       <div class="t"><bdi>${esc(roomName(room))}</bdi><em data-rout="${room.id}"></em></div>
-      <button data-a="allin" data-r="${room.id}"><span data-ain="${room.id}">Everyone in</span></button>
+      <div class="rbtn"><button data-a="roomset" data-r="${room.id}" data-v="in">All in</button><button data-a="roomset" data-r="${room.id}" data-v="out">All out</button><button data-a="roomset" data-r="${room.id}" data-v="">Clear</button></div>
     </div>
     <div class="planwrap"${i===state.room&&state.mode==="one"?' id="pw"':''}>
       <div class="plan" data-plan="${room.id}" style="aspect-ratio:${totalW(room)}/${totalH(room)}">${wallsSVG(room)}${room.beds.map(b=>bedHTML(b,room)).join("")}</div>
@@ -963,10 +969,13 @@ function peopleScreen(){
     ${exc.length?`<h2>Excused indefinitely</h2><div class="blk">${exc.map(({pid,room})=>`
       <div class="li"><span class="a">${esc(nameOf(pid))}<i>${esc(room.label)}${(state.extra[pid]||{}).reason?" · "+esc(state.extra[pid].reason):""}</i></span>
       <button class="z lnk" data-a="unexc" data-p="${pid}">Turn back on</button></div>`).join("")}</div>`:``}
+    ${allP().some(({pid})=>isAway(pid))?`<h2>Not in town</h2><div class="blk">${allP().filter(({pid})=>isAway(pid)).map(({pid,room})=>`
+      <div class="li"><span class="a">${esc(nameOf(pid))}<i>${esc(room.label)}</i></span>
+      <button class="z lnk" data-a="unaway" data-p="${pid}">Back in town</button></div>`).join("")}</div>`:``}
     ${PLAN.map(r=>`<h2>${esc(r.label)}</h2><div class="blk">${
       r.beds.map(b=>b.slots.map((pid,i)=>`<button class="li" data-a="editp" data-p="${pid}">
         <span class="a">${esc(nameOf(pid))}<i>${b.slots.length>1?(i===0?"top bunk":"bottom bunk"):"single bed"}</i></span>
-        ${isAlways(pid)?`<span class="z">excused</span>`:``}</button>`).join("")).join("")
+        ${isAlways(pid)?`<span class="z">excused</span>`:isAway(pid)?`<span class="z">not in town</span>`:``}</button>`).join("")).join("")
     }</div>`).join("")}
     <div style="height:30px"></div>
     </div>`;
@@ -1066,8 +1075,6 @@ function sync(){
     if(ro){const o=outIn(room,sid).length;
       ro.textContent=o?o+" out":room.beds.reduce((a,b)=>a+b.slots.length,0)+" beds";
       ro.className=o?"miss":"";}
-    const ai=document.querySelector(`[data-ain="${room.id}"]`);
-    if(ai)ai.textContent=roomAllIn(room,sid)?"Clear room":"Everyone in";
   });
   PLAN.forEach((r,i)=>{
     const b=document.querySelector(`[data-rp="${r.id}"]`); if(!b)return;
@@ -1106,7 +1113,10 @@ function openWho(pid){
         </div></div>`;}).join("")}
     </div>
     <div class="grp">
-      <button class="li" data-a="awaytn"><span class="ck ${awayAll(pid)?"on":""}"></span><span class="a">Not in town tonight</span></button>
+      <button class="li" data-a="onlyone"><span class="a lnk">Only one in the room</span></button>
+    </div>
+    <div class="grp">
+      <button class="li" data-a="away"><span class="ck ${isAway(pid)?"on":""}"></span><span class="a">Not in town</span></button>
       <button class="li" data-a="exctn"><span class="ck ${tn?"on":""}"></span><span class="a">Excused tonight</span></button>
       <button class="li" data-a="excalways"><span class="ck ${isAlways(pid)?"on":""}"></span><span class="a">Excused indefinitely</span></button>
       ${isAlways(pid)?`<div class="li"><input value="${esc((state.extra[pid]||{}).reason||"")}" placeholder="Reason (optional)" data-a="reason"></div>`:``}
@@ -1205,7 +1215,7 @@ document.addEventListener("click",async e=>{
       if(el)el.scrollIntoView({behavior:"smooth",block:"start"});return;}
     goRoom(+t.dataset.i);return;}
   if(a==="room"){goRoom(state.room+(+t.dataset.d));return;}
-  if(a==="allin"){const r=PLAN.find(x=>x.id===t.dataset.r)||PLAN[state.room];markRoom(r,state.cur);sync();return;}
+  if(a==="roomset"){const r=PLAN.find(x=>x.id===t.dataset.r)||PLAN[state.room];setRoom(r,state.cur,t.dataset.v||null);sync();return;}
   if(a==="mode"){state.mode=t.dataset.m;save();render();window.scrollTo(0,0);return;}
   if(a==="review"){state.review=true;render();window.scrollTo(0,0);return;}
   if(a==="onlyout"){state.onlyOut=t.dataset.v==="1";render();return;}
@@ -1298,14 +1308,15 @@ document.addEventListener("click",async e=>{
       for(const x of every){state.night.sheet=state.night.sheet.filter(y=>y!==x);touch(sheetKey(x));}
     save();render();return;
   }
-  if(a==="awaytn"){const pid=state.who;snap();
-    const on=!awayAll(pid);
-    const i=state.night.tonight.indexOf(pid);
-    if(on&&i>=0){state.night.tonight.splice(i,1);touch(excKey(pid));}
-    allSlots().forEach(({id:s})=>{const m=state.night.marks[s]||(state.night.marks[s]={});
-      if(on)m[pid]="away"; else if(m[pid]==="away")delete m[pid];
-      touch(markKey(s,pid));});
-    save();openWho(pid);render();return;}
+  if(a==="onlyone"){const pid=state.who;
+    if(offCheck(statusOf(pid,state.cur))){toast(nameOf(pid)+" is off the check");return;}
+    setRoom(roomOf(pid),state.cur,null,pid);closePop();render();return;}
+  if(a==="away"){const pid=state.who;
+    state.extra[pid]=state.extra[pid]||{};
+    state.extra[pid].away=!state.extra[pid].away;
+    if(state.extra[pid].away)state.extra[pid].always=false;
+    save();openWho(pid);render();
+    toast(state.extra[pid].away?"Not in town until you turn it off":"Back in town");return;}
   if(a==="exctn"){const pid=state.who;snap();
     const i=state.night.tonight.indexOf(pid);
     if(i>=0)state.night.tonight.splice(i,1);
@@ -1315,8 +1326,12 @@ document.addEventListener("click",async e=>{
   if(a==="excalways"){const pid=state.who;
     state.extra[pid]=state.extra[pid]||{};
     state.extra[pid].always=!state.extra[pid].always;
+    if(state.extra[pid].always)state.extra[pid].away=false;
     save();openWho(pid);render();
     toast(state.extra[pid].always?"Off the reports until you turn him back on":"Back on the sheet");return;}
+  if(a==="unaway"){const pid=t.dataset.p;
+    if(state.extra[pid])state.extra[pid].away=false;
+    save();render();toast(nameOf(pid)+" is back in town");return;}
   if(a==="unexc"){const pid=t.dataset.p;
     if(state.extra[pid])state.extra[pid].always=false;
     save();render();toast(nameOf(pid)+" is back on");return;}
