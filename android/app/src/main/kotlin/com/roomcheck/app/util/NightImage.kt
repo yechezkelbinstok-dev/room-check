@@ -313,14 +313,9 @@ private class Summary(val label: String, val cols: List<List<String>>, val colW:
     ) {
         val mid = y + ROW_H / 2f
         if (logic.isAway(pid)) {
-            // Not in town: a grey name, and one plain bar under every time in place of its chips -
-            // nothing to read there, because there was nobody to look for.
+            // Not in town: a grey name and nothing under the times - there was nobody to look for.
+            // Blank cannot be misread: a round nobody marked still shows its faint "–" chip.
             c.drawText(logic.nameOf(pid, hebrew), d.p(x), mid + 12f, d.align(paint(34f, faint)))
-            val barW = slots.size * COL_W - (COL_W - CHIP)
-            val left = x + colW - slots.size * COL_W + (COL_W - CHIP) / 2f
-            val top = mid - 7f
-            val bx = d.box(left, barW)
-            c.drawRoundRect(RectF(bx, top, bx + barW, top + 14f), 7f, 7f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = greyL })
             return
         }
         c.drawText(logic.nameOf(pid, hebrew), d.p(x), mid + 12f, d.align(namePaint()))
