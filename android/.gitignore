@@ -12,3 +12,5 @@ local.properties
 *.apk
 *.keystore
 *.jks
+# the app's one signing key, kept on purpose: without it no later build installs over this one
+!app/keystore/roomcheck.jks
