@@ -56,8 +56,11 @@ object Roster {
         Person("p27", "Dovid", "Fridman", "דוד", "פרידמאן"),
         Person("p28", "Tzvi Dov HaLevi", "Levitansky", "צבי דוב הלוי", "לויטנסקי"),
         Person("p29", "Yehuda", "Fehler", "יהודה", "פעלער"),
-        Person("p30", "Meir Shlomo", "Ceitlin", "מאיר שלמה", "ציטלין")
+        Person("p30", "Meir Shlomo", "Ceitlin", "מאיר שלמה", "ציטלין"),
+        Person("p31", "Mordechai Shlomo", "Smith", "מרדכי שלמה", "סמיט")
     )
+    // p27 Fridman and p30 Ceitlin have left. They stay above so the nights they were in still read
+    // with their names; being on no bed in PLAN is what takes them off the check.
     val byId: Map<String, Person> = PEOPLE.associateBy { it.id }
 
     // Every bed is the same twin bed - one footprint, rotated to run along whichever wall it's
@@ -116,11 +119,11 @@ object Roster {
             upright(66f, 2f, "p22", "p21"))),   // Brenenson / Belinitzki
         // two beds across the right, door bottom-left on the opposite side
         Room("r7", "Room 7", "חדר ז׳", 100f, 88f, Door(DoorWall.BOTTOM, 14f), listOf(
-            across(38f, 2f, "p26", "p27"),      // Lipkind / Fridman
+            across(38f, 2f, "p26"),             // Lipkind
             across(38f, 54f, "p25"))),          // Liberow
         // bunk across the top, single down the right wall
         Room("r8", "Room 8", "חדר ח׳", 100f, 96f, Door(DoorWall.BOTTOM, 16f), listOf(
-            across(2f, 2f, "p29", "p30"),       // Fehler / Ceitlin
+            across(2f, 2f, "p29", "p31"),       // Fehler / Smith
             upright(66f, 32f, "p28")))          // Levitansky
     )
 

@@ -340,8 +340,11 @@ const P={
  p27:["Dovid","Fridman","דוד","פרידמאן"],
  p28:["Tzvi Dov HaLevi","Levitansky","צבי דוב הלוי","לויטנסקי"],
  p29:["Yehuda","Fehler","יהודה","פעלער"],
- p30:["Meir Shlomo","Ceitlin","מאיר שלמה","ציטלין"]
+ p30:["Meir Shlomo","Ceitlin","מאיר שלמה","ציטלין"],
+ p31:["Mordechai Shlomo","Smith","מרדכי שלמה","סמיט"]
 };
+/* p27 Fridman and p30 Ceitlin have left. They stay above so the nights they were in still read
+   with their names; being on no bed below is what takes them off the check. */
 /* ---- floor plans ----
    Kept identical to the Android app, on purpose: same rooms, same beds, same doors, so whoever
    is covering sees the same picture whichever one they open. Coordinates are the room INTERIOR
@@ -366,9 +369,9 @@ const PLAN=[
  {id:"r6",label:"Room 6",heb:"חדר ו׳",w:100,h:78,door:{wall:"bottom",pos:28},beds:[
    bedV(2,2,["p23","p24"]), bedV(66,2,["p22","p21"])]},
  {id:"r7",label:"Room 7",heb:"חדר ז׳",w:100,h:88,door:{wall:"bottom",pos:14},beds:[
-   bedH(38,2,["p26","p27"]), bedH(38,54,["p25"])]},
+   bedH(38,2,["p26"]), bedH(38,54,["p25"])]},
  {id:"r8",label:"Room 8",heb:"חדר ח׳",w:100,h:96,door:{wall:"bottom",pos:16},beds:[
-   bedH(2,2,["p29","p30"]), bedV(66,32,["p28"])]}
+   bedH(2,2,["p29","p31"]), bedV(66,32,["p28"])]}
 ];
 
 let state={night:null,dateKey:null,cur:"1115",room:0,tab:"check",who:null,mode:"one",review:false,onlyOut:false,
@@ -939,7 +942,7 @@ function checkScreen(){
 function peopleScreen(){
   const exc=allP().filter(({pid})=>isAlways(pid));
   return `<div class="hd"><div class="h1"><div><div class="htitle">Names</div>
-      <div class="gdate">30 bochurim · 8 rooms</div></div>
+      <div class="gdate">${allP().length} bochurim · ${PLAN.length} rooms</div></div>
       <button class="pill" data-a="tab" data-t="settings">Back</button></div></div>
     <div class="pan">
     ${exc.length?`<h2>Excused indefinitely</h2><div class="blk">${exc.map(({pid,room})=>`

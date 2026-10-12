@@ -230,8 +230,10 @@ def trim(path):
 
 def main():
     people, rooms = parse_roster(ROSTER.read_text(encoding="utf-8"))
-    if len(rooms) != 8 or sum(len(b["slots"]) for r in rooms for b in r["beds"]) != len(people):
-        sys.exit(f"parsed {len(rooms)} rooms / {len(people)} people - roster shape changed")
+    # PEOPLE also keeps those who have left, so it is the beds that say who is on the plan
+    seated = [pid for r in rooms for b in r["beds"] for pid in b["slots"]]
+    if len(rooms) != 8 or not seated or any(pid not in people for pid in seated):
+        sys.exit(f"parsed {len(rooms)} rooms / {len(seated)} beds - roster shape changed")
     OUT_PNG.parent.mkdir(parents=True, exist_ok=True)
     OUT_HTML.write_text(build(people, rooms), encoding="utf-8")
 

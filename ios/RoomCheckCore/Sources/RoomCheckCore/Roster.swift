@@ -78,8 +78,11 @@ public enum Roster {
         Person("p27", "Dovid", "Fridman", "דוד", "פרידמאן"),
         Person("p28", "Tzvi Dov HaLevi", "Levitansky", "צבי דוב הלוי", "לויטנסקי"),
         Person("p29", "Yehuda", "Fehler", "יהודה", "פעלער"),
-        Person("p30", "Meir Shlomo", "Ceitlin", "מאיר שלמה", "ציטלין")
+        Person("p30", "Meir Shlomo", "Ceitlin", "מאיר שלמה", "ציטלין"),
+        Person("p31", "Mordechai Shlomo", "Smith", "מרדכי שלמה", "סמיט")
     ]
+    // p27 Fridman and p30 Ceitlin have left. They stay above so the nights they were in still read
+    // with their names; being on no bed in PLAN is what takes them off the check.
     public static let byId: [String: Person] = Dictionary(uniqueKeysWithValues: PEOPLE.map { ($0.id, $0) })
 
     // Every bed is the same twin bed - one footprint, rotated to run along whichever wall it's
@@ -139,12 +142,12 @@ public enum Roster {
         ]),
         // two beds across the right, door bottom-left on the opposite side
         Room("r7", "Room 7", "חדר ז׳", 100, 88, Door(.bottom, 14), [
-            across(38, 2, "p26", "p27"),
+            across(38, 2, "p26"),
             across(38, 54, "p25")
         ]),
         // bunk across the top, single down the right wall
         Room("r8", "Room 8", "חדר ח׳", 100, 96, Door(.bottom, 16), [
-            across(2, 2, "p29", "p30"),
+            across(2, 2, "p29", "p31"),
             upright(66, 32, "p28")
         ])
     ]
