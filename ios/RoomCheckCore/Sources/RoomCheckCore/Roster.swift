@@ -106,9 +106,9 @@ public enum Roster {
     // paired. Coordinates are the room INTERIOR (0-100 across, 0-h deep); the renderer insets this
     // inside the walls so the door box can sit outside them like the sketch draws it.
     public static let PLAN: [Room] = [
-        // bunks on opposite walls, door on the bottom wall between them
+        // Room 2 turned round: a bunk across the top left, the other standing on the right wall
         Room("r1", "Room 1", "חדר א׳", 100, 78, Door(.bottom, 38), [
-            upright(2, 2, "p2", "p1"),
+            across(2, 2, "p2", "p1"),
             upright(66, 2, "p3", "p4")
         ]),
         // bunk on the left wall, the other across the top right

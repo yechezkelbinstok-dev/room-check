@@ -167,7 +167,7 @@ fun FloorPlanCanvas(
 }
 
 /**
- * The three mark buttons, sized to the space they actually get - on BOTH axes. Measuring width
+ * The mark buttons - in, out, and excused unless [withExcused] is off - sized to the space they actually get - on BOTH axes. Measuring width
  * alone was the bug behind the squashed, pill-shaped buttons with a half-cut "E": Modifier.size
  * asks for a square but is still clamped by the incoming height constraint, so a button starved
  * of height silently flattened instead of shrinking. Taking the smaller of the two keeps every
@@ -178,20 +178,22 @@ fun MarkButtons(
     status: Mark?,
     compact: Boolean,
     onSet: (Mark) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    withExcused: Boolean = true
 ) {
     BoxWithConstraints(modifier) {
         val gap = 3.dp
+        val count = if (withExcused) 3 else 2
         val preferred = if (compact) 26.dp else 30.dp
-        val byWidth = (maxWidth - gap * 2) / 3
+        val byWidth = (maxWidth - gap * (count - 1)) / count
         val byHeight = if (maxHeight == Dp.Infinity) preferred else maxHeight
         val size = minOf(byWidth, byHeight, preferred).coerceAtLeast(15.dp)
-        MarkButtonRow(status, size, gap, onSet)
+        MarkButtonRow(status, size, gap, onSet, withExcused)
     }
 }
 
 @Composable
-private fun MarkButtonRow(status: Mark?, size: Dp, gap: Dp, onSet: (Mark) -> Unit) {
+private fun MarkButtonRow(status: Mark?, size: Dp, gap: Dp, onSet: (Mark) -> Unit, withExcused: Boolean) {
     val glyph = size * 0.5f                      // icon scales with the button, never overflows it
     val letter = (size.value * 0.38f).coerceAtLeast(8f).sp
     Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
@@ -201,7 +203,7 @@ private fun MarkButtonRow(status: Mark?, size: Dp, gap: Dp, onSet: (Mark) -> Uni
         MarkButton(size, status == Mark.OUT, RC.red, { onSet(Mark.OUT) }) {
             Icon(Icons.Filled.Close, contentDescription = "Not here", modifier = Modifier.size(glyph))
         }
-        MarkButton(size, status == Mark.EXC, RC.grey, { onSet(Mark.EXC) }) {
+        if (withExcused) MarkButton(size, status == Mark.EXC, RC.grey, { onSet(Mark.EXC) }) {
             Text("E", fontWeight = FontWeight.Bold, fontSize = letter)
         }
     }
@@ -269,7 +271,7 @@ fun PersonSlot(
                     Text(last, fontSize = 13.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, color = nameColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(first, fontSize = 9.sp, lineHeight = 11.sp, color = RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                if (status == Mark.AWAY) AwayTag() else MarkButtons(status, compact = true, onSet = onMark)
+                SlotMarks(status, compact = true, onMark)
             }
         } else {
             // Tall slot. Order here is load-bearing: a Column measures its UNWEIGHTED children
@@ -298,13 +300,26 @@ fun PersonSlot(
                 }
             }
             Spacer(Modifier.height(4.dp))
-            if (status == Mark.AWAY) AwayTag() else MarkButtons(status, compact = false, onSet = onMark)
+            SlotMarks(status, compact = false, onMark)
         }
     }
 }
 
-/** Stands in for the mark buttons: there is nothing to mark for someone who is not in town. */
+/**
+ * What a bed on the plan offers: here or not here. Excused is rare enough to live in the person's
+ * sheet, so the bed has no button for it - and someone off the walk, excused or not in town, gets
+ * a word in place of the buttons, since there is nothing to mark for him.
+ */
 @Composable
-private fun AwayTag() {
-    Text("Not in town", fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold, color = RC.blue, maxLines = 1)
+private fun SlotMarks(status: Mark?, compact: Boolean, onMark: (Mark) -> Unit) {
+    when (status) {
+        Mark.AWAY -> OffTag("Not in town", RC.blue)
+        Mark.EXC -> OffTag("Excused", RC.grey)
+        else -> MarkButtons(status, compact = compact, onSet = onMark, withExcused = false)
+    }
+}
+
+@Composable
+private fun OffTag(text: String, color: Color) {
+    Text(text, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold, color = color, maxLines = 1)
 }

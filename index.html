@@ -120,8 +120,11 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .slot.row .mk .e{width:22px}
 .slot.out .ln{color:var(--red)}
 .slot.exc .ln,.slot.exc .fn,.slot.away .ln,.slot.away .fn{color:var(--grey)}
-.slot.away .mk{display:none}
-.slot.away .nb::after{content:"Not in town";display:block;font-size:11px;font-weight:650;color:var(--blue);margin-top:2px}
+/* excused is rare enough to live in the person's sheet, so a bed has no button for it; anyone off
+   the walk gets a word in place of the buttons */
+.slot.away .mk,.slot.exc .mk{display:none}
+.slot.away .nb::after,.slot.exc .nb::after{content:"Not in town";display:block;font-size:11px;font-weight:650;color:var(--blue);margin-top:2px}
+.slot.exc .nb::after{content:"Excused";color:var(--grey)}
 .bunk{position:absolute;top:3px;left:7px;font-size:9px;font-weight:500;color:#B7B9C2}
 .slot.col .nb{padding-top:7px}
 .mk{display:flex;gap:3px;flex:none}
@@ -359,7 +362,7 @@ const bedV=(x,y,slots)=>({x,y,w:BED_SHORT,h:BED_LONG,slots});   /* against a sid
 const bedH=(x,y,slots)=>({x,y,w:BED_LONG,h:BED_SHORT,slots});   /* against the top or bottom */
 const PLAN=[
  {id:"r1",label:"Room 1",heb:"חדר א׳",w:100,h:78,door:{wall:"bottom",pos:38},beds:[
-   bedV(2,2,["p2","p1"]), bedV(66,2,["p3","p4"])]},
+   bedH(2,2,["p2","p1"]), bedV(66,2,["p3","p4"])]},
  {id:"r2",label:"Room 2",heb:"חדר ב׳",w:100,h:78,door:{wall:"bottom",pos:85},beds:[
    bedV(2,2,["p8","p5"]), bedH(38,2,["p7","p6"])]},
  {id:"r3",label:"Room 3",heb:"חדר ג׳",w:100,h:118,door:{wall:"bottom",pos:70},beds:[
@@ -866,7 +869,6 @@ function bedHTML(bed,room){
       <div class="mk">
         <button class="v-in" data-mk data-p="${pid}" data-v="in" aria-label="${esc(nameOf(pid))} here">${IC.tick}</button>
         <button class="v-out" data-mk data-p="${pid}" data-v="out" aria-label="${esc(nameOf(pid))} not here">${IC.ex}</button>
-        <button class="e" data-mk data-p="${pid}" data-v="exc" aria-label="${esc(nameOf(pid))} excused">E</button>
       </div>
     </div>`;
   }).join("");
@@ -1426,7 +1428,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.9.0";
+const APP_VERSION="1.9.1";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

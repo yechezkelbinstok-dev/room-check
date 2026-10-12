@@ -1,5 +1,5 @@
 /* Room Check — offline shell. Bump CACHE whenever the app changes. */
-const CACHE = "roomcheck-v1.9.0-2";  // "-2": 1.9.0 went out twice, and each needs its own cache
+const CACHE = "roomcheck-v1.9.1-2";  // "-2": a 1.9.1 cache already went out once
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./robots.txt",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png",
   "./icons/favicon-64.png"];
