@@ -90,6 +90,10 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
 
     private fun persist(s: UiState) {
         store.saveLocal(s.dateKey, s.night)
+        schedulePush()
+    }
+
+    private fun schedulePush() {
         // Marking a room is a burst of taps. Wait for it to settle rather than firing a request
         // per tap; the marks are already safely on disk, this is only about sharing them.
         if (store.settings.syncUrl.isNotBlank()) {
@@ -359,35 +363,28 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         }
     }
 
-    fun toggleAlwaysExcused(pid: String) {
-        val ov = store.extra.getOrPut(pid) { PersonOverride() }
-        ov.always = !ov.always
-        if (ov.always) ov.away = false
-        store.saveState()
+    /** A person's setting changed here - saved, shown, and sent on like a mark. */
+    private fun setPerson(pid: String, vararg fields: Pair<String, String?>) {
+        fields.forEach { (field, value) -> store.setPerson(pid, field, value) }
         update { it.copy(extra = store.extra.toMap()) }
-        toast(if (ov.always) "Excused indefinitely" else "No longer excused")
+        schedulePush()
+    }
+
+    fun toggleAlwaysExcused(pid: String) {
+        val on = store.extra[pid]?.always != true
+        if (on) setPerson(pid, "always" to "1", "away" to null) else setPerson(pid, "always" to null)
+        toast(if (on) "Excused indefinitely" else "No longer excused")
     }
 
     fun toggleAway(pid: String) {
-        val ov = store.extra.getOrPut(pid) { PersonOverride() }
-        ov.away = !ov.away
-        if (ov.away) ov.always = false
-        store.saveState()
-        update { it.copy(extra = store.extra.toMap()) }
-        toast(if (ov.away) "Not in town until you turn it off" else "Back in town")
+        val on = store.extra[pid]?.away != true
+        if (on) setPerson(pid, "away" to "1", "always" to null) else setPerson(pid, "away" to null)
+        toast(if (on) "Not in town until you turn it off" else "Back in town")
     }
 
-    fun backInTown(pid: String) {
-        store.extra[pid]?.away = false
-        store.saveState()
-        update { it.copy(extra = store.extra.toMap()) }
-    }
+    fun backInTown(pid: String) = setPerson(pid, "away" to null)
 
-    fun unexcuse(pid: String) {
-        store.extra[pid]?.always = false
-        store.saveState()
-        update { it.copy(extra = store.extra.toMap()) }
-    }
+    fun unexcuse(pid: String) = setPerson(pid, "always" to null)
 
     fun setNote(pid: String, note: String) {
         update { s ->
@@ -397,20 +394,10 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         }
     }
 
-    fun setReason(pid: String, reason: String) {
-        val ov = store.extra.getOrPut(pid) { PersonOverride() }
-        ov.reason = reason.ifBlank { null }
-        store.saveState()
-        update { it.copy(extra = store.extra.toMap()) }
-    }
+    fun setReason(pid: String, reason: String) = setPerson(pid, "reason" to reason.ifBlank { null })
 
-    fun renamePerson(pid: String, first: String, last: String) {
-        val ov = store.extra.getOrPut(pid) { PersonOverride() }
-        ov.first = first.ifBlank { null }
-        ov.last = last.ifBlank { null }
-        store.saveState()
-        update { it.copy(extra = store.extra.toMap()) }
-    }
+    fun renamePerson(pid: String, first: String, last: String) =
+        setPerson(pid, "first" to first.ifBlank { null }, "last" to last.ifBlank { null })
 
     /**
      * Runs a sync if one is configured. Silent by default: it happens on opening the app and after
@@ -431,6 +418,8 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
                 update { s ->
                     s.copy(
                         sync = SyncState.Ok(System.currentTimeMillis(), changed),
+                        // someone switched to not in town on another device shows here too
+                        extra = store.extra.toMap(),
                         // a night that changed under us has to be re-read, or the screen keeps
                         // showing what it had before the other device's marks arrived
                         night = if (changed > 0) store.load(s.dateKey) else s.night

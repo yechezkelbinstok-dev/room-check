@@ -433,6 +433,13 @@ async function adoptNight(date,remote){
   /* The open night lives in memory and may be ahead of storage, so merge against THAT. Reading
      the stored copy instead loses whatever was marked in the last few hundred milliseconds. */
   let local=null;
+  if(date===PEOPLE_DATE){
+    const merged=mergeNights(people,norm(remote));
+    if(JSON.stringify(people||blank())===JSON.stringify(merged))return false;
+    people=merged; state.extra=extraFrom(people);
+    await store.set(NPRE+PEOPLE_DATE,JSON.stringify(people));
+    return true;
+  }
   if(date===state.dateKey){ local=state.night; }
   else { const raw=await store.get(NPRE+date); if(raw){try{local=norm(JSON.parse(raw));}catch(e){}} }
   const merged=mergeNights(local,norm(remote));
@@ -574,6 +581,43 @@ const markKey=(sid,pid)=>"m:"+sid+":"+pid, excKey=pid=>"t:"+pid, noteKey=pid=>"n
 /* an extra round walked on this night only, and whether it goes on this night's picture */
 const slotKey=sid=>"s:"+sid, sheetKey=sid=>"h:"+sid, CLOSED_KEY="c";
 function touch(key,at){ state.night.ts=state.night.ts||{}; state.night.ts[key]=at||Date.now(); }
+/* Everyone's standing settings - not in town, excused indefinitely and why, a changed name - ride
+   to the server as one more night, under a date no real night can have. Each is a note cell named
+   "pid.field", so the server and the merge carry them exactly like a night's notes, the later edit
+   of each winning, with nothing new on the server to deploy. state.extra is only ever a reading of
+   it. Same record, same cells, as the app's NightStore. */
+const PEOPLE_DATE="0000-00-00", PFIELDS=["first","last","reason","always","away"];
+let people=null;
+function peopleNight(extra,stamp){
+  const n=blank(); n.ts={};
+  for(const [pid,po] of Object.entries(extra||{}))for(const f of PFIELDS){
+    const v=(f==="always"||f==="away")?(po[f]?"1":null):(po[f]||null);
+    if(v){n.notes[pid+"."+f]=v;n.ts[noteKey(pid+"."+f)]=stamp;}
+  }
+  return n;
+}
+function extraFrom(n){
+  const out={};
+  for(const [k,v] of Object.entries((n&&n.notes)||{})){
+    const i=k.indexOf("."); if(i<1)continue;
+    const pid=k.slice(0,i), f=k.slice(i+1), po=out[pid]||(out[pid]={});
+    if(f==="always"||f==="away")po[f]=v==="1"; else if(PFIELDS.includes(f))po[f]=v;
+  }
+  return out;
+}
+/* One person's settings changed here: saved, shown, and owed to the server like a mark. */
+async function setPerson(pid,fields){
+  people=people||blank(); people.ts=people.ts||{};
+  for(const [f,v] of Object.entries(fields)){
+    const k=pid+"."+f;
+    if(v===null||v===undefined||v===""||v===false)delete people.notes[k]; else people.notes[k]=v===true?"1":String(v);
+    people.ts[noteKey(k)]=Date.now();
+  }
+  state.extra=extraFrom(people);
+  if(!state.dirty.includes(PEOPLE_DATE))state.dirty.push(PEOPLE_DATE);
+  await store.set(NPRE+PEOPLE_DATE,JSON.stringify(people));
+  save();
+}
 function cellKeys(n){
   const out=new Set();
   for(const sid of Object.keys(n.marks||{}))for(const pid of Object.keys(n.marks[sid]||{}))out.add(markKey(sid,pid));
@@ -1311,12 +1355,10 @@ document.addEventListener("click",async e=>{
   if(a==="onlyone"){const pid=state.who;
     if(offCheck(statusOf(pid,state.cur))){toast(nameOf(pid)+" is off the check");return;}
     setRoom(roomOf(pid),state.cur,null,pid);closePop();render();return;}
-  if(a==="away"){const pid=state.who;
-    state.extra[pid]=state.extra[pid]||{};
-    state.extra[pid].away=!state.extra[pid].away;
-    if(state.extra[pid].away)state.extra[pid].always=false;
-    save();openWho(pid);render();
-    toast(state.extra[pid].away?"Not in town until you turn it off":"Back in town");return;}
+  if(a==="away"){const pid=state.who, on=!isAway(pid);
+    await setPerson(pid,on?{away:true,always:null}:{away:null});
+    openWho(pid);render();
+    toast(on?"Not in town until you turn it off":"Back in town");return;}
   if(a==="exctn"){const pid=state.who;snap();
     const i=state.night.tonight.indexOf(pid);
     if(i>=0)state.night.tonight.splice(i,1);
@@ -1324,17 +1366,16 @@ document.addEventListener("click",async e=>{
     touch(excKey(pid));
     save();openWho(pid);render();return;}
   if(a==="excalways"){const pid=state.who;
-    state.extra[pid]=state.extra[pid]||{};
-    state.extra[pid].always=!state.extra[pid].always;
-    if(state.extra[pid].always)state.extra[pid].away=false;
-    save();openWho(pid);render();
-    toast(state.extra[pid].always?"Off the reports until you turn him back on":"Back on the sheet");return;}
+    const on=!isAlways(pid);
+    await setPerson(pid,on?{always:true,away:null}:{always:null});
+    openWho(pid);render();
+    toast(on?"Off the reports until you turn him back on":"Back on the sheet");return;}
   if(a==="unaway"){const pid=t.dataset.p;
-    if(state.extra[pid])state.extra[pid].away=false;
-    save();render();toast(nameOf(pid)+" is back in town");return;}
+    await setPerson(pid,{away:null});
+    render();toast(nameOf(pid)+" is back in town");return;}
   if(a==="unexc"){const pid=t.dataset.p;
-    if(state.extra[pid])state.extra[pid].always=false;
-    save();render();toast(nameOf(pid)+" is back on");return;}
+    await setPerson(pid,{always:null});
+    render();toast(nameOf(pid)+" is back on");return;}
   if(a==="close"){closePop();return;}
 
   if(a==="dl"){await flush();
@@ -1360,7 +1401,13 @@ document.addEventListener("click",async e=>{
   if(a==="doimp"){let d;try{d=JSON.parse(document.getElementById("im").value);}catch(e){toast("Not a backup");return;}
     if(!d.nights&&!d.extra){toast("Not a backup");return;}
     state.extra=d.extra||{};
-    if(d.nights)for(const k of Object.keys(d.nights))await store.set(k,d.nights[k]);
+    /* a backup carries the people record too: fold it in, never overwrite, or settings changed
+       since the backup was taken would be thrown away */
+    if(d.nights)for(const k of Object.keys(d.nights)){
+      if(k===NPRE+PEOPLE_DATE){try{people=mergeNights(people,norm(JSON.parse(d.nights[k])));}catch(e){}continue;}
+      await store.set(k,d.nights[k]);}
+    if(people)await store.set(NPRE+PEOPLE_DATE,JSON.stringify(people));
+    await loadPeople();
     await store.set(RKEY,JSON.stringify({extra:state.extra,mode:state.mode,settings:state.settings,lastPull:state.lastPull,dirty:state.dirty}));
     await loadNight(state.dateKey);closePop();render();toast("Restored");return;}
 });
@@ -1374,12 +1421,12 @@ document.addEventListener("input",e=>{
   if(a==="synctok"){state.settings.syncToken=t.value.trim();save();return;}
   if(!pid)return;
   if(a==="note"){if(t.value.trim())state.night.notes[pid]=t.value;else delete state.night.notes[pid];touch(noteKey(pid));save();return;}
-  if(a==="first"||a==="last"){state.extra[pid]=state.extra[pid]||{};state.extra[pid][a]=t.value;save();return;}
-  if(a==="reason"){state.extra[pid]=state.extra[pid]||{};state.extra[pid].reason=t.value;save();return;}
+  if(a==="first"||a==="last"){setPerson(pid,{[a]:t.value.trim()});return;}
+  if(a==="reason"){setPerson(pid,{reason:t.value.trim()});return;}
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.9.0";
+const APP_VERSION="1.9.1";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
@@ -1443,6 +1490,19 @@ function gate(){
 }
 
 /* ---------- boot ---------- */
+/* A browser from before people synced has them only in its own list: start the shared record from
+   that, dated as old as can be, so anything set anywhere since wins over it. */
+async function loadPeople(){
+  const raw=await store.get(NPRE+PEOPLE_DATE); let n=null;
+  if(raw){try{n=norm(JSON.parse(raw));}catch(e){}}
+  const seed=peopleNight(state.extra,1);
+  const merged=mergeNights(n,seed);
+  if(!n||JSON.stringify(mergeNights(n,null))!==JSON.stringify(merged)){
+    await store.set(NPRE+PEOPLE_DATE,JSON.stringify(merged));
+    if(!state.dirty.includes(PEOPLE_DATE))state.dirty.push(PEOPLE_DATE);
+  }
+  people=merged; state.extra=extraFrom(people);
+}
 async function boot(){
   if(!window.storage)state.ok=false;
   state.persist=!!(window.storage||LS);
@@ -1452,6 +1512,7 @@ async function boot(){
   if(raw){try{const d=JSON.parse(raw);state.extra=d.extra||{};if(d.mode)state.mode=d.mode;
     if(d.settings)state.settings={...state.settings,...d.settings};
     state.lastPull=d.lastPull||0; state.dirty=Array.isArray(d.dirty)?d.dirty:[];}catch(e){state.extra={};}}
+  await loadPeople();
   await loadNight(tonightKey());
   /* whichever configured round is nearest behind the clock - reading the rounds rather than the
      original three, or deleting 11:15 would leave this opening on a round that no longer exists */

@@ -82,7 +82,7 @@ class SyncClient(private val store: NightStore) {
             if (adopt(date, remote)) changed++
         }
         store.lastPull = res.optLong("now", since)
-        store.saveState()
+        store.rebuildExtra()
         changed
     }
 

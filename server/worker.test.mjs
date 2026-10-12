@@ -46,5 +46,14 @@ check('a later correction wins', after.nights['2026-09-04'].marks['1115'].p1 ===
 await call('/push', { nights: { 'not-a-date': night({}) } });
 check('rubbish date keys are ignored', !(await call('/pull', { since: 0 })).nights['not-a-date']);
 
+// everyone's standing settings ride as the night dated 0000-00-00, one note cell per "pid.field":
+// a later "back in town" from one device clears what an earlier one turned on
+await call('/push', { nights: { '0000-00-00': night({ notes: { 'p31.away': '1', 'p11.reason': 'Home sick' }, ts: { 'n:p31.away': 2000, 'n:p11.reason': 2000 } }) } });
+const back = await call('/push', { nights: { '0000-00-00': night({ ts: { 'n:p31.away': 3000 } }) } });
+const pn = back.nights['0000-00-00'].notes;
+check('people record merges cell by cell', pn['p31.away'] === undefined && pn['p11.reason'] === 'Home sick', JSON.stringify(pn));
+const pulledPeople = (await call('/pull', { since: 0 })).nights['0000-00-00'];
+check('people record comes back on a pull', pulledPeople && pulledPeople.notes['p11.reason'] === 'Home sick');
+
 console.log(bad ? bad + ' failing' : 'server: all checks pass');
 process.exit(bad ? 1 : 0);

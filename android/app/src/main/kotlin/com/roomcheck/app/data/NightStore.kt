@@ -155,7 +155,71 @@ class NightStore(home: File) {
     fun dirtyDates(): Set<String> = dirty.toSet()
     fun clearDirty(done: Set<String>) { dirty.removeAll(done); saveState() }
 
-    init { loadState() }
+    init {
+        loadState()
+        // A device from before people synced has them only in state.json: start the shared
+        // record from that, dated as old as can be so anything set anywhere since wins over it.
+        if (!hasData(PEOPLE_KEY) && extra.isNotEmpty()) {
+            saveLocal(PEOPLE_KEY, Merge.merge(Night(), peopleNight(extra, 1L)))
+        }
+        if (hasData(PEOPLE_KEY)) rebuildExtra()
+    }
+
+    /**
+     * Everyone's standing settings - not in town, excused indefinitely and why, a changed name -
+     * ride to the server as one more night, under a date no real night can have. Each is a note
+     * cell named "pid.field", so the server and the merge carry them exactly like a night's notes,
+     * the later edit of each one winning, with nothing new on the server to deploy.
+     */
+    companion object {
+        const val PEOPLE_KEY = "0000-00-00"
+
+        fun peopleNight(extra: Map<String, PersonOverride>, stamp: Long): Night {
+            val n = Night()
+            extra.forEach { (pid, po) ->
+                listOf(
+                    "first" to po.first, "last" to po.last, "reason" to po.reason,
+                    "always" to (if (po.always) "1" else null), "away" to (if (po.away) "1" else null)
+                ).forEach { (field, v) ->
+                    if (!v.isNullOrEmpty()) { n.notes["$pid.$field"] = v; n.touch(Merge.noteKey("$pid.$field"), stamp) }
+                }
+            }
+            return n
+        }
+
+        fun extraFrom(people: Night): MutableMap<String, PersonOverride> {
+            val out = mutableMapOf<String, PersonOverride>()
+            people.notes.forEach { (key, v) ->
+                val pid = key.substringBefore('.', "")
+                if (pid.isEmpty()) return@forEach
+                val po = out.getOrPut(pid) { PersonOverride() }
+                when (key.substringAfter('.')) {
+                    "first" -> po.first = v
+                    "last" -> po.last = v
+                    "reason" -> po.reason = v
+                    "always" -> po.always = v == "1"
+                    "away" -> po.away = v == "1"
+                }
+            }
+            return out
+        }
+    }
+
+    /** One person's one setting, changed here: saved, owed to the server, and read back. */
+    fun setPerson(pid: String, field: String, value: String?) {
+        val n = load(PEOPLE_KEY)
+        val key = "$pid.$field"
+        if (value.isNullOrEmpty()) n.notes.remove(key) else n.notes[key] = value
+        n.touch(Merge.noteKey(key))
+        saveLocal(PEOPLE_KEY, n)
+        rebuildExtra()
+    }
+
+    /** [extra] is only ever a reading of the shared people record, so it follows what arrives. */
+    fun rebuildExtra() {
+        extra = extraFrom(load(PEOPLE_KEY))
+        saveState()
+    }
 
     private fun loadState() {
         extra = mutableMapOf()
@@ -237,7 +301,7 @@ class NightStore(home: File) {
 
     fun allDateKeys(): Set<String> = dir.listFiles()?.mapNotNull {
         it.name.takeIf { n -> n.endsWith(".json") }?.removeSuffix(".json")
-    }?.toSet() ?: emptySet()
+    }?.filter { it != PEOPLE_KEY }?.toSet() ?: emptySet()
 
     // ---- backup / restore, same schema as the web app's dl/doimp handlers ----
     fun exportBackup(): String {
@@ -288,9 +352,15 @@ class NightStore(home: File) {
                     val dateKey = key.removePrefix("dn:")
                     val nightJsonStr = nightsObj.getString(key)
                     val night = Night.fromJson(JSONObject(nightJsonStr))
-                    save(dateKey, night)
+                    // a backup from the site carries the people record too: fold it in, never
+                    // overwrite, or settings changed since the backup would be thrown away
+                    if (dateKey == PEOPLE_KEY) saveLocal(dateKey, Merge.merge(load(dateKey), night))
+                    else save(dateKey, night)
                 }
             }
+            // the backup's own list, as old as can be, so anything set since it was taken wins
+            saveLocal(PEOPLE_KEY, Merge.merge(load(PEOPLE_KEY), peopleNight(extra, 1L)))
+            rebuildExtra()
             true
         }.getOrElse { false }
     }
