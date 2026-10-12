@@ -9,6 +9,15 @@ It stores nights and nothing else — no accounts, no roster, no names beyond wh
 **It costs nothing.** Cloudflare's free tier covers this many times over: a night is a few kilobytes
 and there are a few hundred a year.
 
+## This yeshiva's server
+
+What goes into **Settings → Sync** on every phone and browser:
+
+- **Server address:** `https://room-check-sync.yechezkelbinstok.workers.dev`
+- **Sync password:** `6iciRn6C1NAU8xOGfHS99ZrCO2wtqjyfNQ-_Lr-jJDg`
+
+Kept here on purpose, so a new phone or a reinstall is never stuck without them.
+
 ---
 
 ## Setting it up from a phone
