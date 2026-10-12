@@ -106,7 +106,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .slot.row{flex-direction:row;align-items:center}
 .slot.in{background:var(--green-l)}
 .slot.out{background:var(--red-l)}
-.slot.exc{background:var(--grey-l)}
+.slot.exc,.slot.away{background:var(--grey-l)}
 .nb{flex:1;min-width:0;text-align:left;padding:1px 0;display:block}
 .slot.col .nb{text-align:center}
 .ln{display:block;font-size:13px;font-weight:650;letter-spacing:-.015em;line-height:1.12;overflow:hidden}
@@ -118,7 +118,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .slot.row .mk button{width:26px;height:26px}
 .slot.row .mk .e{width:22px}
 .slot.out .ln{color:var(--red)}
-.slot.exc .ln,.slot.exc .fn{color:var(--grey)}
+.slot.exc .ln,.slot.exc .fn,.slot.away .ln,.slot.away .fn{color:var(--grey)}
 .bunk{position:absolute;top:3px;left:7px;font-size:9px;font-weight:500;color:#B7B9C2}
 .slot.col .nb{padding-top:7px}
 .mk{display:flex;gap:3px;flex:none}
@@ -143,6 +143,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .rv.g{color:var(--green)}
 .rv.r{color:var(--red)}
 .rv.e{color:var(--grey);font-size:12px}
+.rv.t{color:var(--blue);font-size:12px}
 .rv.n{color:#C9CBD2}
 .next{padding:12px 12px 6px;display:flex;gap:8px}
 .next button{flex:1;background:#fff;border:1px solid var(--sep);border-radius:11px;padding:13px;
@@ -635,6 +636,11 @@ async function loadNight(k){
   state.dateKey=k; state.night=norm(p); undoStack=[]; state.editing=false; state.review=false;
   if(k!==tonightKey()&&!state.night.closed){state.night.closed=true;touch(CLOSED_KEY);save();}
 }
+/* Not in town and excused both take a bed off the walk; only the report tells them apart.
+   "away" is an ordinary mark value, so the sync server carries it without knowing it exists. */
+const offCheck=st=>st==="exc"||st==="away";
+const awayAll=pid=>{const ids=allSlots().map(s=>s.id);
+  return ids.length>0&&ids.every(s=>(state.night.marks[s]||{})[pid]==="away");};
 function statusOf(pid,sid){
   if(isAlways(pid))return "exc";
   if(state.night.tonight.includes(pid))return "exc";
@@ -642,7 +648,7 @@ function statusOf(pid,sid){
 }
 function roomChecked(room,sid){
   const live=[];
-  room.beds.forEach(b=>b.slots.forEach(pid=>{if(statusOf(pid,sid)!=="exc")live.push(pid);}));
+  room.beds.forEach(b=>b.slots.forEach(pid=>{if(!offCheck(statusOf(pid,sid)))live.push(pid);}));
   if(!live.length)return true;
   return live.some(pid=>(state.night.marks[sid]||{})[pid]);
 }
@@ -650,7 +656,7 @@ function roomAllIn(room,sid){
   let any=false;
   for(const b of room.beds)for(const pid of b.slots){
     const st=statusOf(pid,sid);
-    if(st==="exc")continue;
+    if(offCheck(st))continue;
     if(st!=="in")return false;
     any=true;
   }
@@ -658,11 +664,11 @@ function roomAllIn(room,sid){
 }
 const outIn=(room,sid)=>{const o=[];room.beds.forEach(b=>b.slots.forEach(pid=>{if(statusOf(pid,sid)==="out")o.push(pid);}));return o;};
 function stats(sid){
-  let out=0,inn=0,exc=0;
+  let out=0,inn=0,exc=0,away=0;
   allP().forEach(({pid})=>{const s=statusOf(pid,sid);
-    if(s==="out")out++;else if(s==="in")inn++;else if(s==="exc")exc++;});
+    if(s==="out")out++;else if(s==="in")inn++;else if(s==="exc")exc++;else if(s==="away")away++;});
   const left=PLAN.filter(r=>!roomChecked(r,sid)).length;
-  return {out,inn,exc,left,started:left<PLAN.length};
+  return {out,inn,exc,away,left,started:left<PLAN.length};
 }
 const label=id=>{const s=allSlots().find(x=>x.id===id);return s?s.label:id;};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -734,7 +740,7 @@ function markRoom(room,sid){
   snap(); const m=state.night.marks[sid]||(state.night.marks[sid]={});
   const all=roomAllIn(room,sid);
   room.beds.forEach(b=>b.slots.forEach(pid=>{
-    if(statusOf(pid,sid)==="exc")return;
+    if(offCheck(statusOf(pid,sid)))return;
     if(all)delete m[pid]; else m[pid]="in";
     touch(markKey(sid,pid));
   }));
@@ -744,6 +750,8 @@ function undo(){const u=undoStack.pop();if(!u){toast("Nothing to undo");return;}
 
 /* ---------- report ---------- */
 /* Everyone marked out at this time, in room order then bed order - the order you walked them. */
+/* Not in town at any round tonight, in walking order. */
+const awayAt=()=>allP().filter(({pid})=>allSlots().some(s=>statusOf(pid,s.id)==="away")).map(({pid})=>pid);
 const missingAt=sid=>allP().filter(({pid})=>statusOf(pid,sid)==="out").map(({pid})=>pid);
 /* The night as plain text to paste into a message: the date, then each time and just the names
    of whoever wasn't there. Same shape as the app, so it does not matter which one sent it. */
@@ -756,6 +764,8 @@ function report(){
     const u=PLAN.filter(r=>!roomChecked(r,sid));
     if(stats(sid).started&&u.length)L.push("(still to mark: "+u.map(r=>r.label).join(", ")+")");
   });
+  const away=awayAt();
+  if(away.length)L.push("","Not in town",away.map(nameOf).join(", "));
   return L.join("\n");
 }
 
@@ -878,6 +888,7 @@ function headHTML(){
 const GLYPH={in:'<span class="rv g" title="here">✓</span>',
   out:'<span class="rv r" title="not here">✕</span>',
   exc:'<span class="rv e" title="excused">E</span>',
+  away:'<span class="rv t" title="not in town">T</span>',
   none:'<span class="rv n" title="not marked">–</span>'};
 function reviewHTML(){
   let body="", shownAny=false;
@@ -927,8 +938,12 @@ function summaryHTML(){
     return `<div class="sumh"><span class="a">${s.label}</span>${badge}</div><div style="padding:0 12px"><div class="blk">${inner}</div></div>`;
   }).join("");
   const exc=allP().filter(({pid})=>allSlots().map(s=>s.id).some(s=>statusOf(pid,s)==="exc"));
+  const away=awayAt();
   return `<div class="lock"><span>Closed — ${esc(longDate(state.dateKey))}</span><button data-a="edit">Edit</button></div>
     ${blocks}
+    ${away.length?`<div class="sumh"><span class="a">Not in town</span></div><div style="padding:0 12px"><div class="blk">${
+      away.map(pid=>`<div class="li"><span class="a">${esc(nameOf(pid))}</span><span class="z">${esc(roomOf(pid).label)}</span></div>`).join("")
+    }</div></div>`:``}
     ${exc.length?`<div class="sumh"><span class="a">Excused</span></div><div style="padding:0 12px"><div class="blk">${
       exc.map(({pid,room})=>`<div class="li"><span class="a">${esc(nameOf(pid))}</span><span class="z">${esc(room.label)}</span></div>`).join("")
     }</div></div>`:``}`;
@@ -1042,6 +1057,7 @@ function sync(){
     el.classList.toggle("in",st==="in");
     el.classList.toggle("out",st==="out");
     el.classList.toggle("exc",st==="exc");
+    el.classList.toggle("away",st==="away");
   });
   PLAN.forEach(room=>{
     const pl=document.querySelector(`[data-plan="${room.id}"]`);
@@ -1070,6 +1086,7 @@ function sync(){
   if(sl){
     const bits=[st.out?`<b class="r">${st.out} out</b>`:`<b>Nobody out</b>`];
     if(st.left)bits.push(st.left+" left");
+    if(st.away)bits.push(st.away+" not in town");
     if(st.exc)bits.push(st.exc+" excused");
     sl.innerHTML=label(sid)+" · "+bits.join(" · ");
   }
@@ -1089,6 +1106,7 @@ function openWho(pid){
         </div></div>`;}).join("")}
     </div>
     <div class="grp">
+      <button class="li" data-a="awaytn"><span class="ck ${awayAll(pid)?"on":""}"></span><span class="a">Not in town tonight</span></button>
       <button class="li" data-a="exctn"><span class="ck ${tn?"on":""}"></span><span class="a">Excused tonight</span></button>
       <button class="li" data-a="excalways"><span class="ck ${isAlways(pid)?"on":""}"></span><span class="a">Excused indefinitely</span></button>
       ${isAlways(pid)?`<div class="li"><input value="${esc((state.extra[pid]||{}).reason||"")}" placeholder="Reason (optional)" data-a="reason"></div>`:``}
@@ -1280,6 +1298,14 @@ document.addEventListener("click",async e=>{
       for(const x of every){state.night.sheet=state.night.sheet.filter(y=>y!==x);touch(sheetKey(x));}
     save();render();return;
   }
+  if(a==="awaytn"){const pid=state.who;snap();
+    const on=!awayAll(pid);
+    const i=state.night.tonight.indexOf(pid);
+    if(on&&i>=0){state.night.tonight.splice(i,1);touch(excKey(pid));}
+    allSlots().forEach(({id:s})=>{const m=state.night.marks[s]||(state.night.marks[s]={});
+      if(on)m[pid]="away"; else if(m[pid]==="away")delete m[pid];
+      touch(markKey(s,pid));});
+    save();openWho(pid);render();return;}
   if(a==="exctn"){const pid=state.who;snap();
     const i=state.night.tonight.indexOf(pid);
     if(i>=0)state.night.tonight.splice(i,1);
@@ -1338,7 +1364,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.8.0";
+const APP_VERSION="1.9.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
