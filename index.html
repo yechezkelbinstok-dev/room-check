@@ -1426,7 +1426,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.9.1";
+const APP_VERSION="1.9.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
