@@ -192,6 +192,15 @@ h2{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
 .li .z{font-size:13px;color:var(--sub);flex:none}
 .li .lnk{color:var(--blue);font-weight:550}
 .li.dz .a{color:var(--red)}
+/* who's-missing: a picked name reads as out, the way the plan draws an out bed */
+.li.miss{background:var(--red-l)}
+.li.miss .a{color:var(--red);font-weight:600}
+.srch{width:100%;background:var(--card);border:none;border-radius:11px;padding:12px 14px;
+  font:inherit;font-size:15px;color:var(--text);margin-bottom:9px}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px}
+.chip{background:var(--red-l);color:var(--red);font-size:13px;font-weight:600;
+  border-radius:9px;padding:7px 10px}
+.bar .fbtn.wide{flex:1}
 .sw{flex:none;width:44px;height:26px;border-radius:13px;background:#D7D8DE;position:relative;transition:background .15s}
 .sw i{position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;
   box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
@@ -787,6 +796,22 @@ function setMark(pid,sid,v){
   touch(markKey(sid,pid));
   save();
 }
+/**
+ * The whole round in one go: name whoever was not in their room, everyone else is in.
+ *
+ * Anyone off the walk - away, or excused - is left alone entirely: their status already overrides
+ * a mark, so writing one would only be a mark nobody ever reads, and sweeping them into "the rest
+ * are in" would say they were in a room they were never expected to be in.
+ */
+function markMissing(missing,sid){
+  snap(); const m=state.night.marks[sid]||(state.night.marks[sid]={});
+  allP().forEach(({pid})=>{
+    if(offCheck(statusOf(pid,sid)))return;
+    const v=missing.includes(pid)?"out":"in";
+    if(m[pid]!==v){m[pid]=v;touch(markKey(sid,pid));}
+  });
+  save();
+}
 /* Every bed in the room still on the walk set to one mark, or cleared with v null. With `only`,
    that one person is in and the rest are out - the room where just one boy is in bed. */
 function setRoom(room,sid,v,only){
@@ -1027,6 +1052,37 @@ function peopleScreen(){
     </div>`;
 }
 
+/**
+ * Name whoever was not in their room, everyone else is in.
+ *
+ * The room-by-room pass stays the default, because most nights you have to look at each bed. This
+ * is for the night you were told the names - thirty taps to say "everyone except these four" is
+ * the slow way round. Excused people are not on the list: picking one could only be a tap that
+ * did nothing.
+ */
+function missingScreen(){
+  const sid=state.cur, heb=state.settings.hebrewOnPlan;
+  const q=(state.missQ||"").trim().toLowerCase();
+  const picked=state.missPick||[];
+  const rows=allP().filter(({pid})=>!offCheck(statusOf(pid,sid))).filter(({pid})=>
+    !q||[firstIn(pid,heb),lastIn(pid,heb),first(pid),last(pid)].some(x=>String(x).toLowerCase().includes(q)));
+  return `<div class="hd"><div class="h1"><div><div class="htitle">Who's missing</div>
+      <div class="hsub">${esc(slotLabel(sid))}</div></div>
+      <button class="pill" data-a="tab" data-t="check">Cancel</button></div></div>
+    <div class="pan">
+    <input class="srch" id="missq" placeholder="Search" value="${esc(state.missQ||"")}" data-a="missq">
+    ${picked.length?`<div class="chips">${picked.map(pid=>
+      `<button class="chip" data-a="misspick" data-p="${pid}">${esc(nameIn(pid,heb))} ✕</button>`).join("")}</div>`:``}
+    <div class="blk">${rows.map(({pid,room})=>`
+      <button class="li${picked.includes(pid)?" miss":""}" data-a="misspick" data-p="${pid}">
+        <span class="a">${esc(nameIn(pid,heb))}</span>
+        <span class="z">${esc(roomName(room))}</span></button>`).join("")}</div>
+    <div style="height:90px"></div>
+    </div>
+    <div class="bar"><button class="fbtn wide" data-a="missdone">${
+      picked.length?`${picked.length} out, rest in`:`Everyone in`}</button></div>`;
+}
+
 /* Everything that is a preference rather than a night. The two Hebrew switches are separate on
    purpose: marking in Hebrew and sending in Hebrew are different decisions. */
 function settingsScreen(){
@@ -1215,7 +1271,7 @@ function render(){
   const y=window.scrollY;
   document.getElementById("app").innerHTML=
     state.tab==="names"?peopleScreen():state.tab==="settings"?settingsScreen():
-    state.tab==="times"?timesScreen():checkScreen();
+    state.tab==="times"?timesScreen():state.tab==="missing"?missingScreen():checkScreen();
   if(state.tab==="check"&&!showingReview()){sync();if(state.mode==="one")bindSwipe();}
   window.scrollTo(0,y);
 }
@@ -1293,11 +1349,26 @@ document.addEventListener("click",async e=>{
     /* tucked in here rather than on the marking screen: most nights are the standing three and
        never need it, but the night that does is this night */
     showPop(`<div class="grp">
+      ${showingReview()?``:`<button class="li" data-a="missing"><span class="a lnk">Who's missing</span></button>`}
       <button class="li" data-a="tab" data-t="times"><span class="a lnk">Night settings</span>
         <span class="z">${esc(allSlots().map(x=>x.label).join(" · "))}</span></button>
       <button class="li" data-a="tab" data-t="settings"><span class="a lnk">Settings</span></button>
       </div><button class="cancel" data-a="close">Cancel</button>`);
     return;
+  }
+  if(a==="missing"){
+    closePop(); state.missQ=""; state.missPick=[]; state.tab="missing";
+    render(); window.scrollTo(0,0); return;
+  }
+  if(a==="misspick"){
+    const pid=t.dataset.p, at=(state.missPick||[]).indexOf(pid);
+    state.missPick=at<0?[...(state.missPick||[]),pid]:state.missPick.filter(x=>x!==pid);
+    render(); return;
+  }
+  if(a==="missdone"){
+    markMissing(state.missPick||[],state.cur);
+    state.tab="check"; state.missQ=""; state.missPick=[];
+    render(); window.scrollTo(0,0); return;
   }
   if(a==="addslot"){
     /* type="time" is the phone's own clock picker - the same one every other app gets */
@@ -1421,6 +1492,13 @@ document.addEventListener("input",e=>{
   /* the sync fields belong to no person, so they are handled before the person guard below */
   if(a==="syncurl"){state.settings.syncUrl=t.value.trim();save();startPolling();return;}
   if(a==="synctok"){state.settings.syncToken=t.value.trim();save();return;}
+  /* the list narrows as you type, so the field has to survive the re-render that narrows it */
+  if(a==="missq"){
+    state.missQ=t.value; const at=t.selectionStart; render();
+    const box=document.getElementById("missq");
+    if(box){box.focus();try{box.setSelectionRange(at,at);}catch(e){}}
+    return;
+  }
   if(!pid)return;
   if(a==="note"){if(t.value.trim())state.night.notes[pid]=t.value;else delete state.night.notes[pid];touch(noteKey(pid));save();return;}
   if(a==="first"||a==="last"){setPerson(pid,{[a]:t.value.trim()});return;}
@@ -1428,7 +1506,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.9.1";
+const APP_VERSION="1.10.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
