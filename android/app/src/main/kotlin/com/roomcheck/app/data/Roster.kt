@@ -129,6 +129,17 @@ object Roster {
             upright(66f, 32f, "p28")))          // Levitansky
     )
 
+    /** Rooms 1 to 3 are downstairs; every other room is upstairs. */
+    val BOTTOM_FLOOR = setOf("r1", "r2", "r3")
+
+    fun floorName(room: Room, hebrew: Boolean): String =
+        if (room.id in BOTTOM_FLOOR) (if (hebrew) "קומה תחתונה" else "Bottom floor")
+        else (if (hebrew) "קומה עליונה" else "Top floor")
+
+    /** True for the first room of a floor, where a floor's heading or gap belongs. */
+    fun startsFloor(i: Int): Boolean =
+        i == 0 || (PLAN[i].id in BOTTOM_FLOOR) != (PLAN[i - 1].id in BOTTOM_FLOOR)
+
     val roomOf: Map<String, Room> = buildMap {
         PLAN.forEach { room -> room.beds.forEach { bed -> bed.slots.forEach { pid -> put(pid, room) } } }
     }

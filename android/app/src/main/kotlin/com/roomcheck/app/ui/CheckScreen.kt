@@ -167,6 +167,8 @@ private fun StickyControls(vm: AppViewModel, state: UiState, logic: NightLogic, 
             }
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 Roster.PLAN.forEachIndexed { i, room ->
+                    // a wider gap where the stairs are, so the two floors read as two groups
+                    if (i > 0 && Roster.startsFloor(i)) Spacer(Modifier.width(4.dp))
                     val out = logic.outIn(room, state.curSlot).size
                     val checked = logic.roomChecked(room, state.curSlot)
                     val (bg, fg) = when {
@@ -252,7 +254,15 @@ private fun RoomsArea(vm: AppViewModel, state: UiState, logic: NightLogic, onOpe
     // did nothing here but push the bottom bar off the bottom of the screen, unread.
     when (state.mode) {
         RoomMode.SCROLL -> LazyColumn(Modifier.fillMaxSize()) {
-            items(Roster.PLAN) { room -> RoomBlock(vm, state, logic, room, onOpenPerson) }
+            Roster.PLAN.forEachIndexed { i, room ->
+                if (Roster.startsFloor(i)) item {
+                    Text(
+                        Roster.floorName(room, state.settings.hebrewOnPlan).uppercase(), fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold, color = RC.sub2, modifier = Modifier.padding(20.dp, 18.dp, 16.dp, 0.dp)
+                    )
+                }
+                item { RoomBlock(vm, state, logic, room, onOpenPerson) }
+            }
             item { Spacer(Modifier.height(12.dp)) }
         }
         RoomMode.ONE -> {
@@ -336,6 +346,10 @@ private fun RoomBlock(
                     if (out > 0) "$out out" else "$beds beds",
                     fontSize = 13.sp, fontWeight = if (out > 0) FontWeight.Bold else FontWeight.Medium,
                     color = if (out > 0) RC.red else RC.sub, modifier = Modifier.padding(start = 8.dp)
+                )
+                Text(
+                    " · " + Roster.floorName(room, state.settings.hebrewOnPlan),
+                    fontSize = 13.sp, fontWeight = FontWeight.Medium, color = RC.sub
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {

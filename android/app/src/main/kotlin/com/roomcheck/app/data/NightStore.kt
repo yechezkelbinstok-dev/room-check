@@ -134,8 +134,13 @@ private fun JSONArray?.toStringList(): List<String> =
  * Context so the screenshot tests can point a real store at a scratch folder and render the actual
  * screen instead of a stand-in.
  */
-class NightStore(home: File) {
-    constructor(context: Context) : this(context.filesDir)
+/**
+ * [builtInSync] fills in this yeshiva's own server and password wherever none has been entered,
+ * so a new install or a reinstall syncs from the first open. The app turns it on; tests leave it
+ * off, so they never talk to the real server.
+ */
+class NightStore(home: File, private val builtInSync: Boolean = false) {
+    constructor(context: Context) : this(context.filesDir, builtInSync = true)
 
     private val dir = File(home, "nights").apply { mkdirs() }
     private val stateFile = File(home, "state.json")
@@ -157,6 +162,9 @@ class NightStore(home: File) {
 
     init {
         loadState()
+        if (builtInSync && settings.syncUrl.isBlank()) {
+            settings = settings.copy(syncUrl = SYNC_URL, syncToken = settings.syncToken.ifBlank { SYNC_TOKEN })
+        }
         // A device from before people synced has them only in state.json: start the shared
         // record from that, dated as old as can be so anything set anywhere since wins over it.
         if (!hasData(PEOPLE_KEY) && extra.isNotEmpty()) {
@@ -173,6 +181,10 @@ class NightStore(home: File) {
      */
     companion object {
         const val PEOPLE_KEY = "0000-00-00"
+
+        /** This yeshiva's sync server - the same one written down in server/README.md. */
+        const val SYNC_URL = "https://room-check-sync.yechezkelbinstok.workers.dev"
+        const val SYNC_TOKEN = "6iciRn6C1NAU8xOGfHS99ZrCO2wtqjyfNQ-_Lr-jJDg"
 
         fun peopleNight(extra: Map<String, PersonOverride>, stamp: Long): Night {
             val n = Night()

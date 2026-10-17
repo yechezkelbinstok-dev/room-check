@@ -87,6 +87,10 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .rbar .t{font-size:19px;font-weight:650;letter-spacing:-.01em}
 .rbar .t em{font-style:normal;font-size:13px;font-weight:500;color:var(--sub);margin-left:8px}
 .rbar .t em.miss{color:var(--red);font-weight:600}
+.rbar .t em.fl{margin-left:0}
+/* a wider gap where the stairs are, so the two floors read as two groups */
+.rooms button.fs{margin-left:4px}
+.flh{font-size:13px;font-weight:700;color:var(--sub2);text-transform:uppercase;letter-spacing:.02em;padding:18px 16px 0}
 .rbar button{font-size:14px;font-weight:600;color:var(--blue);flex:none;padding-left:12px}
 .rbar .rbtn{display:flex;flex:none}
 
@@ -369,6 +373,11 @@ const P={
 const BED_SHORT=32, BED_LONG=60;
 const bedV=(x,y,slots)=>({x,y,w:BED_SHORT,h:BED_LONG,slots});   /* against a side wall */
 const bedH=(x,y,slots)=>({x,y,w:BED_LONG,h:BED_SHORT,slots});   /* against the top or bottom */
+/* Rooms 1 to 3 are downstairs; every other room is upstairs. Same as the app's Roster. */
+const BOTTOM_FLOOR=["r1","r2","r3"];
+const floorName=(r,heb)=>BOTTOM_FLOOR.includes(r.id)?(heb?"קומה תחתונה":"Bottom floor"):(heb?"קומה עליונה":"Top floor");
+/* the first room of a floor, where its heading or gap belongs */
+const startsFloor=i=>i===0||BOTTOM_FLOOR.includes(PLAN[i].id)!==BOTTOM_FLOOR.includes(PLAN[i-1].id);
 const PLAN=[
  {id:"r1",label:"Room 1",heb:"חדר א׳",w:100,h:78,door:{wall:"bottom",pos:38},beds:[
    bedH(2,2,["p2","p1"]), bedV(66,2,["p3","p4"])]},
@@ -905,7 +914,7 @@ function roomBlock(i){
   const room=PLAN[i];
   return `<div class="roomblock" id="rb-${room.id}">
     <div class="rbar">
-      <div class="t"><bdi>${esc(roomName(room))}</bdi><em data-rout="${room.id}"></em></div>
+      <div class="t"><bdi>${esc(roomName(room))}</bdi><em data-rout="${room.id}"></em><em class="fl"> · ${esc(floorName(room,state.settings.hebrewOnPlan))}</em></div>
       <div class="rbtn"><button data-a="roomset" data-r="${room.id}" data-v="in">All in</button><button data-a="roomset" data-r="${room.id}" data-v="out">All out</button><button data-a="roomset" data-r="${room.id}" data-v="">Clear</button></div>
     </div>
     <div class="planwrap"${i===state.room&&state.mode==="one"?' id="pw"':''}>
@@ -915,7 +924,7 @@ function roomBlock(i){
 }
 function marksHTML(){
   if(state.mode==="scroll")
-    return `<div class="wrap">${PLAN.map((r,i)=>roomBlock(i)).join("")}</div>`;
+    return `<div class="wrap">${PLAN.map((r,i)=>(startsFloor(i)?`<div class="flh">${esc(floorName(r,state.settings.hebrewOnPlan))}</div>`:``)+roomBlock(i)).join("")}</div>`;
   return `<div class="wrap">${roomBlock(state.room)}
     <div class="next">
       <button data-a="room" data-d="-1" ${state.room===0?"disabled":""}><span class="cv">‹</span><bdi>${state.room>0?esc(roomName(PLAN[state.room-1])):""}</bdi></button>
@@ -937,7 +946,7 @@ function headHTML(){
   const times=allSlots().map(s=>`<button data-a="time" data-s="${s.id}" class="${s.id===state.cur?"on":""}">
       <div class="a">${s.label}</div><div class="b" data-tb="${s.id}"></div></button>`).join("");
   const rooms=PLAN.map((r,i)=>`<button data-a="jump" data-i="${i}" data-rp="${r.id}"
-      class="${i===state.room?"on":""}">${i+1}</button>`).join("");
+      class="${i===state.room?"on":""}${i>0&&startsFloor(i)?" fs":""}">${i+1}</button>`).join("");
   return `<div class="hd">
       <div class="topbar">
         <button class="ibtn" data-a="day" data-d="-1" aria-label="Previous night">‹</button>
