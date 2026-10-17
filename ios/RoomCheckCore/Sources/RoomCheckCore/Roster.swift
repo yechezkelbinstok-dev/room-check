@@ -151,7 +151,7 @@ public enum Roster {
             across(38, 54, "p25")
         ]),
         // bunk across the top, single down the right wall
-        Room("r8", "Room 8", "חדר ח׳", 100, 96, Door(.bottom, 16), [
+        Room("r8", "Room 8", "חדר ח׳", 100, 96, Door(.left, 80), [
             across(2, 2, "p29", "p31"),
             upright(66, 32, "p28")
         ])

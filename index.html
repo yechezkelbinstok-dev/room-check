@@ -392,7 +392,7 @@ const PLAN=[
    bedV(2,2,["p23","p24"]), bedV(66,2,["p22","p21"])]},
  {id:"r7",label:"Room 7",heb:"חדר ז׳",w:100,h:88,door:{wall:"bottom",pos:14},beds:[
    bedH(38,2,["p26"]), bedH(38,54,["p25"])]},
- {id:"r8",label:"Room 8",heb:"חדר ח׳",w:100,h:96,door:{wall:"bottom",pos:16},beds:[
+ {id:"r8",label:"Room 8",heb:"חדר ח׳",w:100,h:96,door:{wall:"left",pos:80},beds:[
    bedH(2,2,["p29","p31"]), bedV(66,32,["p28"])]}
 ];
 
@@ -1514,7 +1514,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.10.0";
+const APP_VERSION="1.10.1";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

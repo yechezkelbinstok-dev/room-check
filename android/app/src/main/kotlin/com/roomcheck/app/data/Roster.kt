@@ -123,8 +123,8 @@ object Roster {
         Room("r7", "Room 7", "חדר ז׳", 100f, 88f, Door(DoorWall.BOTTOM, 14f), listOf(
             across(38f, 2f, "p26"),             // Lipkind
             across(38f, 54f, "p25"))),          // Liberow
-        // bunk across the top, single down the right wall
-        Room("r8", "Room 8", "חדר ח׳", 100f, 96f, Door(DoorWall.BOTTOM, 16f), listOf(
+        // bunk across the top, single down the right wall, door low on the left wall
+        Room("r8", "Room 8", "חדר ח׳", 100f, 96f, Door(DoorWall.LEFT, 80f), listOf(
             across(2f, 2f, "p29", "p31"),       // Fehler / Smith
             upright(66f, 32f, "p28")))          // Levitansky
     )
