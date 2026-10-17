@@ -165,24 +165,31 @@ private fun StickyControls(vm: AppViewModel, state: UiState, logic: NightLogic, 
             IconBtn(modeIcon, "Toggle room view") {
                 vm.setMode(if (state.mode == RoomMode.ONE) RoomMode.SCROLL else RoomMode.ONE)
             }
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Roster.PLAN.forEachIndexed { i, room ->
-                    // a wider gap where the stairs are, so the two floors read as two groups
-                    if (i > 0 && Roster.startsFloor(i)) Spacer(Modifier.width(4.dp))
-                    val out = logic.outIn(room, state.curSlot).size
-                    val checked = logic.roomChecked(room, state.curSlot)
-                    val (bg, fg) = when {
-                        i == state.room && state.mode == RoomMode.ONE -> RC.text to Color.White
-                        out > 0 -> RC.redL to RC.red
-                        checked -> RC.greenL to RC.green
-                        else -> Color.White to RC.sub2
+            // One row per floor, the top floor above like the building. Every row is cut into as many
+            // columns as the fullest floor has rooms, so a number sits in the same place on both.
+            val cols = Roster.FLOORS.maxOf { it.size }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Roster.FLOORS.forEach { floor ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        floor.forEach { i ->
+                            val room = Roster.PLAN[i]
+                            val out = logic.outIn(room, state.curSlot).size
+                            val checked = logic.roomChecked(room, state.curSlot)
+                            val (bg, fg) = when {
+                                i == state.room && state.mode == RoomMode.ONE -> RC.text to Color.White
+                                out > 0 -> RC.redL to RC.red
+                                checked -> RC.greenL to RC.green
+                                else -> Color.White to RC.sub2
+                            }
+                            Box(
+                                Modifier.weight(1f).height(34.dp).clip(RoundedCornerShape(9.dp))
+                                    .background(bg).border(1.dp, if (bg == Color.White) RC.sep else Color.Transparent, RoundedCornerShape(9.dp))
+                                    .clickable { vm.jumpRoom(i) },
+                                contentAlignment = Alignment.Center
+                            ) { Text("${i + 1}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = fg) }
+                        }
+                        repeat(cols - floor.size) { Spacer(Modifier.weight(1f)) }
                     }
-                    Box(
-                        Modifier.weight(1f).height(34.dp).clip(RoundedCornerShape(9.dp))
-                            .background(bg).border(1.dp, if (bg == Color.White) RC.sep else Color.Transparent, RoundedCornerShape(9.dp))
-                            .clickable { vm.jumpRoom(i) },
-                        contentAlignment = Alignment.Center
-                    ) { Text("${i + 1}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = fg) }
                 }
             }
             IconBtn(Icons.Filled.Search, "Find someone", onClick = onSearch)
@@ -254,15 +261,7 @@ private fun RoomsArea(vm: AppViewModel, state: UiState, logic: NightLogic, onOpe
     // did nothing here but push the bottom bar off the bottom of the screen, unread.
     when (state.mode) {
         RoomMode.SCROLL -> LazyColumn(Modifier.fillMaxSize()) {
-            Roster.PLAN.forEachIndexed { i, room ->
-                if (Roster.startsFloor(i)) item {
-                    Text(
-                        Roster.floorName(room, state.settings.hebrewOnPlan).uppercase(), fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold, color = RC.sub2, modifier = Modifier.padding(20.dp, 18.dp, 16.dp, 0.dp)
-                    )
-                }
-                item { RoomBlock(vm, state, logic, room, onOpenPerson) }
-            }
+            items(Roster.PLAN) { room -> RoomBlock(vm, state, logic, room, onOpenPerson) }
             item { Spacer(Modifier.height(12.dp)) }
         }
         RoomMode.ONE -> {
@@ -346,10 +345,6 @@ private fun RoomBlock(
                     if (out > 0) "$out out" else "$beds beds",
                     fontSize = 13.sp, fontWeight = if (out > 0) FontWeight.Bold else FontWeight.Medium,
                     color = if (out > 0) RC.red else RC.sub, modifier = Modifier.padding(start = 8.dp)
-                )
-                Text(
-                    " · " + Roster.floorName(room, state.settings.hebrewOnPlan),
-                    fontSize = 13.sp, fontWeight = FontWeight.Medium, color = RC.sub
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {

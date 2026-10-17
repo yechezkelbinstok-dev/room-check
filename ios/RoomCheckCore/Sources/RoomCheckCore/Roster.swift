@@ -105,6 +105,9 @@ public enum Roster {
     // Positions follow the hand-drawn sketch: which wall each bed is against, and which beds are
     // paired. Coordinates are the room INTERIOR (0-100 across, 0-h deep); the renderer insets this
     // inside the walls so the door box can sit outside them like the sketch draws it.
+    /// Rooms 1 to 3 are downstairs; every other room is upstairs.
+    public static let BOTTOM_FLOOR: Set<String> = ["r1", "r2", "r3"]
+
     public static let PLAN: [Room] = [
         // Room 2 turned round: a bunk across the top left, the other standing on the right wall
         Room("r1", "Room 1", "חדר א׳", 100, 78, Door(.bottom, 38), [
