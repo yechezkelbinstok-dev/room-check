@@ -132,8 +132,8 @@ object Roster {
     /** Rooms 1 to 3 are downstairs; every other room is upstairs. */
     val BOTTOM_FLOOR = setOf("r1", "r2", "r3")
 
-    /** Room indexes a row per floor, the top floor first - the way the building stands. */
-    val FLOORS: List<List<Int>> = PLAN.indices.partition { PLAN[it].id !in BOTTOM_FLOOR }.toList()
+    /** Room indexes a row per floor, rooms 1 to 3 first. */
+    val FLOORS: List<List<Int>> = PLAN.indices.partition { PLAN[it].id in BOTTOM_FLOOR }.toList()
 
     val roomOf: Map<String, Room> = buildMap {
         PLAN.forEach { room -> room.beds.forEach { bed -> bed.slots.forEach { pid -> put(pid, room) } } }

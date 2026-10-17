@@ -75,7 +75,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .seg3 button.on .a{color:var(--text)}
 .seg3 .b.out{color:var(--red);font-weight:600}
 .seg3 .b.done{color:var(--green)}
-/* one row of room buttons per floor, the top floor above like the building; five columns so a
+/* one row of room buttons per floor, rooms 1 to 3 on top; five columns so a
    room number sits in the same place whichever row it is on */
 .rooms{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
 .rooms .rrow{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
@@ -945,7 +945,7 @@ function headHTML(){
   const btn=i=>`<button data-a="jump" data-i="${i}" data-rp="${PLAN[i].id}"
       class="${i===state.room?"on":""}">${i+1}</button>`;
   const idx=PLAN.map((r,i)=>i), down=idx.filter(i=>BOTTOM_FLOOR.includes(PLAN[i].id));
-  const rooms=[idx.filter(i=>!down.includes(i)),down].map(row=>`<div class="rrow">${row.map(btn).join("")}</div>`).join("");
+  const rooms=[down,idx.filter(i=>!down.includes(i))].map(row=>`<div class="rrow">${row.map(btn).join("")}</div>`).join("");
   return `<div class="hd">
       <div class="topbar">
         <button class="ibtn" data-a="day" data-d="-1" aria-label="Previous night">‹</button>

@@ -35,7 +35,7 @@ class BuiltInSyncTest {
     }
 
     @Test
-    fun topFloorRowAboveRoomsOneToThree() {
-        assertEquals(listOf(listOf(3, 4, 5, 6, 7), listOf(0, 1, 2)), Roster.FLOORS)
+    fun roomsOneToThreeOnTheTopRow() {
+        assertEquals(listOf(listOf(0, 1, 2), listOf(3, 4, 5, 6, 7)), Roster.FLOORS)
     }
 }

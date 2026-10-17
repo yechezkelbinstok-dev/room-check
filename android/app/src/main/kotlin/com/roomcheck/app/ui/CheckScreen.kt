@@ -165,7 +165,7 @@ private fun StickyControls(vm: AppViewModel, state: UiState, logic: NightLogic, 
             IconBtn(modeIcon, "Toggle room view") {
                 vm.setMode(if (state.mode == RoomMode.ONE) RoomMode.SCROLL else RoomMode.ONE)
             }
-            // One row per floor, the top floor above like the building. Every row is cut into as many
+            // One row per floor, rooms 1 to 3 on top. Every row is cut into as many
             // columns as the fullest floor has rooms, so a number sits in the same place on both.
             val cols = Roster.FLOORS.maxOf { it.size }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
