@@ -728,6 +728,16 @@ function roomAllIn(room,sid){
   }
   return any||roomChecked(room,sid);
 }
+/* How much of a room is missing, as a split button: red across the share of the room still on the
+   walk that is marked out, green across the rest. Null when nobody is out. */
+function missSplit(room,sid){
+  let live=0,out=0;
+  room.beds.forEach(b=>b.slots.forEach(pid=>{const st=statusOf(pid,sid);
+    if(offCheck(st))return; live++; if(st==="out")out++;}));
+  if(!out)return null;
+  const pc=Math.round(out/live*100);
+  return `linear-gradient(to right,#F4C7C3 0 ${pc}%,#D3ECE1 ${pc}% 100%)`;
+}
 const outIn=(room,sid)=>{const o=[];room.beds.forEach(b=>b.slots.forEach(pid=>{if(statusOf(pid,sid)==="out")o.push(pid);}));return o;};
 function stats(sid){
   let out=0,inn=0,exc=0,away=0;
@@ -1190,6 +1200,8 @@ function sync(){
     const b=document.querySelector(`[data-rp="${r.id}"]`); if(!b)return;
     const o=outIn(r,sid).length, ck=roomChecked(r,sid);
     b.className=(i===state.room?"on":"")+(o?" miss":ck?" done":"");
+    const sp=i===state.room?null:missSplit(r,sid);
+    b.style.background=sp||""; b.style.borderColor=sp?"#E8B9B4":""; b.style.color=sp?"#7A1A14":"";
   });
   allSlots().map(s=>s.id).forEach(s=>{
     const e=document.querySelector(`[data-tb="${s}"]`); if(!e)return;
@@ -1514,7 +1526,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.10.1";
+const APP_VERSION="1.11.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

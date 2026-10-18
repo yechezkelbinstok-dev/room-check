@@ -61,6 +61,13 @@ class NightLogic(
         return any || roomChecked(room, sid)
     }
 
+    /** Share of the room still on the walk that is marked out at [sid] - 0 when nobody is. */
+    fun missingShare(room: Room, sid: String): Float {
+        val live = livePids(room, sid)
+        if (live.isEmpty()) return 0f
+        return live.count { statusOf(it, sid) == Mark.OUT }.toFloat() / live.size
+    }
+
     fun outIn(room: Room, sid: String): List<String> =
         room.beds.flatMap { it.slots }.filter { statusOf(it, sid) == Mark.OUT }
 

@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -177,13 +178,27 @@ private fun StickyControls(vm: AppViewModel, state: UiState, logic: NightLogic, 
                             val checked = logic.roomChecked(room, state.curSlot)
                             val (bg, fg) = when {
                                 i == state.room && state.mode == RoomMode.ONE -> RC.text to Color.White
-                                out > 0 -> RC.redL to RC.red
+                                out > 0 -> Color.Transparent to Color(0xFF7A1A14)
                                 checked -> RC.greenL to RC.green
                                 else -> Color.White to RC.sub2
                             }
+                            // A room with someone out is split: red across the share of it that is missing,
+                            // green across the rest, so how bad a room is reads without opening it.
+                            val split = if (out > 0 && !(i == state.room && state.mode == RoomMode.ONE))
+                                logic.missingShare(room, state.curSlot) else null
                             Box(
                                 Modifier.weight(1f).height(34.dp).clip(RoundedCornerShape(9.dp))
-                                    .background(bg).border(1.dp, if (bg == Color.White) RC.sep else Color.Transparent, RoundedCornerShape(9.dp))
+                                    .background(bg)
+                                    .then(if (split != null) Modifier.drawBehind {
+                                        drawRect(Color(0xFFF4C7C3), size = size.copy(width = size.width * split))
+                                        drawRect(Color(0xFFD3ECE1), topLeft = androidx.compose.ui.geometry.Offset(size.width * split, 0f),
+                                            size = size.copy(width = size.width * (1 - split)))
+                                    } else Modifier)
+                                    .border(1.dp, when {
+                                        split != null -> Color(0xFFE8B9B4)
+                                        bg == Color.White -> RC.sep
+                                        else -> Color.Transparent
+                                    }, RoundedCornerShape(9.dp))
                                     .clickable { vm.jumpRoom(i) },
                                 contentAlignment = Alignment.Center
                             ) { Text("${i + 1}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = fg) }

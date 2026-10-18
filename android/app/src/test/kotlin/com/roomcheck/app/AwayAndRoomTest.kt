@@ -67,6 +67,17 @@ class AwayAndRoomTest {
     }
 
     @Test
+    fun theShareMissingCountsOnlyWhoIsOnTheWalk() {
+        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val sid = vm.state.value.curSlot
+        assertEquals(0f, vm.logic().missingShare(room8, sid))
+        vm.setMark("p29", sid, Mark.OUT)
+        assertEquals(1f / 3, vm.logic().missingShare(room8, sid), 0.001f)
+        vm.toggleAway("p31")        // off the walk: the room is now two, and one of them is out
+        assertEquals(0.5f, vm.logic().missingShare(room8, sid), 0.001f)
+    }
+
+    @Test
     fun onlyOneInTheRoomMarksTheRestOut() {
         val vm = AppViewModel(NightStore(folder.newFolder()))
         val sid = vm.state.value.curSlot

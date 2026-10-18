@@ -13,8 +13,8 @@ android {
         applicationId = "com.roomcheck.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 35
-        versionName = "1.10.1"
+        versionCode = 36
+        versionName = "1.11.0"
     }
 
     signingConfigs {
