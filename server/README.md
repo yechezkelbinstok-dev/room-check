@@ -75,6 +75,12 @@ The line under **Sync now** says what happened rather than failing quietly.
 
 ---
 
+## Deploying from a Claude session
+
+`./deploy.sh` builds and tests `worker.single.js`, then puts it live as `room-check-sync`, keeping
+the KV store and `SYNC_TOKEN` as they are. It reads `CF_EMAIL`, `CF_KEY` and `CF_ACCOUNT` from the
+environment, so the key is never written into this public repo.
+
 ## From a computer, if you have one
 
 ```sh
