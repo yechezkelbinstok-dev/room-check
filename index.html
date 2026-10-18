@@ -728,15 +728,17 @@ function roomAllIn(room,sid){
   }
   return any||roomChecked(room,sid);
 }
-/* How much of a room is missing, as a split button: red across the share of the room still on the
-   walk that is marked out, green across the rest. Null when nobody is out. */
-function missSplit(room,sid){
-  let live=0,out=0;
+/* A room's button split by its marks: red across the share of the room still on the walk that is
+   marked out, green across the share marked in, white across whoever is not marked yet. Null when
+   it would be one colour anyway - nothing marked, or everyone in - so those keep their own look. */
+function roomSplit(room,sid){
+  let live=0,out=0,inn=0;
   room.beds.forEach(b=>b.slots.forEach(pid=>{const st=statusOf(pid,sid);
-    if(offCheck(st))return; live++; if(st==="out")out++;}));
-  if(!out)return null;
-  const pc=Math.round(out/live*100);
-  return `linear-gradient(to right,#F4C7C3 0 ${pc}%,#D3ECE1 ${pc}% 100%)`;
+    if(offCheck(st))return; live++; if(st==="out")out++; else if(st==="in")inn++;}));
+  if(!live||(!out&&!inn)||inn===live)return null;
+  const r=Math.round(out/live*100), g=Math.round((out+inn)/live*100);
+  return {bg:`linear-gradient(to right,#F4C7C3 0 ${r}%,#D3ECE1 ${r}% ${g}%,#fff ${g}% 100%)`,
+    border:out?"#E8B9B4":"#BCE0D2", fg:out?"#7A1A14":"var(--green)"};
 }
 const outIn=(room,sid)=>{const o=[];room.beds.forEach(b=>b.slots.forEach(pid=>{if(statusOf(pid,sid)==="out")o.push(pid);}));return o;};
 function stats(sid){
@@ -1200,8 +1202,8 @@ function sync(){
     const b=document.querySelector(`[data-rp="${r.id}"]`); if(!b)return;
     const o=outIn(r,sid).length, ck=roomChecked(r,sid);
     b.className=(i===state.room?"on":"")+(o?" miss":ck?" done":"");
-    const sp=i===state.room?null:missSplit(r,sid);
-    b.style.background=sp||""; b.style.borderColor=sp?"#E8B9B4":""; b.style.color=sp?"#7A1A14":"";
+    const sp=i===state.room?null:roomSplit(r,sid);
+    b.style.background=sp?sp.bg:""; b.style.borderColor=sp?sp.border:""; b.style.color=sp?sp.fg:"";
   });
   allSlots().map(s=>s.id).forEach(s=>{
     const e=document.querySelector(`[data-tb="${s}"]`); if(!e)return;
@@ -1526,7 +1528,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.11.0";
+const APP_VERSION="1.11.1";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

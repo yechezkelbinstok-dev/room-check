@@ -58,7 +58,7 @@ class AppScreenshotTest {
         }
     }
 
-    /** Room buttons split red and green by how much of each room is missing: 1, 2, 3 and 4 of 4. */
+    /** Room buttons split by their marks: red for out, green for in, white for not marked yet. */
     @Test
     fun roomsSplitByShareMissing() {
         val vm = viewModel()
@@ -66,6 +66,8 @@ class AppScreenshotTest {
         val out = listOf("p1", "p5", "p6", "p9", "p10", "p11", "p13", "p14", "p15", "p16")
         listOf("p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9", "p10", "p11", "p12", "p13", "p14", "p15", "p16",
             "p17", "p18", "p19", "p20").forEach { vm.setMark(it, slot, if (it in out) Mark.OUT else Mark.IN) }
+        listOf("p23", "p24", "p22").forEach { vm.setMark(it, slot, Mark.IN) }   // room 6: 3 of 4 in, 1 unmarked
+        vm.setMark("p25", slot, Mark.OUT)                                         // room 7: 1 out, 1 unmarked
         vm.jumpRoom(7)
         paparazzi.snapshot(name = "check-rooms-split") {
             RoomCheckTheme { CheckScreen(vm) }
