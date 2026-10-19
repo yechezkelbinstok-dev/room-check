@@ -1,7 +1,7 @@
 package com.roomcheck.app.data
 
 /**
- * Hebrew is held as its own first and last, not split off one string: "יהודה לייב גור ארי'" has a
+ * Hebrew is held as its own first and last, not split off one string: "יהודה לייב גור ארי׳" has a
  * two-word surname, so any rule that cuts at the last space gets that one wrong. Anyone left blank
  * falls back to English, which is what makes the Hebrew switch safe on a half-filled roster.
  */
@@ -49,9 +49,9 @@ object Roster {
         Person("p20", "Shlomo", "Schwei", "שלמה", "שוויי"),
         Person("p21", "Yaakov", "Belinitzki", "יעקב", "בליניצקי"),
         Person("p22", "Chaim Yehoshua", "Brenenson", "חיים יהושע", "ברענענסאן"),
-        Person("p23", "Yehuda Leib", "Gourarie", "יהודה לייב", "גור ארי'"),
+        Person("p23", "Yehuda Leib", "Gourarie", "יהודה לייב", "גור ארי׳"),
         Person("p24", "Leib Meir", "November", "לייב מאיר", "נאוועמבער"),
-        Person("p25", "Sadya", "Liberow", "סעדי'", "ליבעראוו"),
+        Person("p25", "Sadya", "Liberow", "סעדי׳", "ליבעראוו"),
         Person("p26", "Yitzchok Sholom", "Lipkind", "יצחק שלום", "ליפקינד"),
         Person("p28", "Tzvi Dov HaLevi", "Levitansky", "צבי דוב הלוי", "לויטנסקי"),
         Person("p29", "Yehuda", "Fehler", "יהודה", "פעלער"),

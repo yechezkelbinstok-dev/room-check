@@ -328,7 +328,7 @@ const IC={
 };
 
 /* ---- people: English first/last, then the same in Hebrew ----
-   Hebrew is stored as its own first and last rather than split off one string: "יהודה לייב גור ארי'"
+   Hebrew is stored as its own first and last rather than split off one string: "יהודה לייב גור ארי׳"
    has a two-word surname, so any rule that cuts at the last space gets that one wrong. */
 const P={
  p1:["Shlomo","Altein","שלמה","אלטיין"],
@@ -353,9 +353,9 @@ const P={
  p20:["Shlomo","Schwei","שלמה","שוויי"],
  p21:["Yaakov","Belinitzki","יעקב","בליניצקי"],
  p22:["Chaim Yehoshua","Brenenson","חיים יהושע","ברענענסאן"],
- p23:["Yehuda Leib","Gourarie","יהודה לייב","גור ארי'"],
+ p23:["Yehuda Leib","Gourarie","יהודה לייב","גור ארי׳"],
  p24:["Leib Meir","November","לייב מאיר","נאוועמבער"],
- p25:["Sadya","Liberow","סעדי'","ליבעראוו"],
+ p25:["Sadya","Liberow","סעדי׳","ליבעראוו"],
  p26:["Yitzchok Sholom","Lipkind","יצחק שלום","ליפקינד"],
  p27:["Dovid","Fridman","דוד","פרידמאן"],
  p28:["Tzvi Dov HaLevi","Levitansky","צבי דוב הלוי","לויטנסקי"],
@@ -1528,7 +1528,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.11.1";
+const APP_VERSION="1.11.2";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});
