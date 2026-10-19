@@ -1285,8 +1285,8 @@ function luMonthOf(d,heb){const ms=luMonths(heb);const i=ms.findIndex(m=>m.days.
 const en=t=>`<bdi dir="ltr">${esc(t)}</bdi>`;
 const luKind=k=>k==="off"?"k-off":(k==="trip"||k==="home"||k==="event")?"k-trip":"k-zman";
 
-function luRow(d,today,isNext,E){
-  const cd=luCountdown(d.date,today);
+function luRow(d,today,isNext,E,noCd){
+  const cd=noCd?null:luCountdown(d.date,today);
   return `<div class="lu-row${d.date<today?" past":""}">
     <div class="lu-tile ${luKind(d.k)}">${E?`<b>${d.date.getDate()}</b><i>${LU_MON[d.date.getMonth()].toUpperCase()}</i>`:
       `<b>${ger(hNum(d.h[2]))}</b><i>${esc(hMName(d.h[1],d.h[0]))}</i>`}</div>
@@ -1294,7 +1294,7 @@ function luRow(d,today,isNext,E){
     ${cd?`<div class="lu-cd${isNext?" next":""}">${en(cd)}</div>`:``}
   </div>`;
 }
-const luNext=(d,today,label,E)=>`<div class="lu-nx"><div class="lbl">${esc(label)}</div>${luRow(d,today,true,E)}</div>`;
+const luNext=(d,today,label,E)=>`<div class="lu-nx"><div class="lbl">${esc(label)}</div>${luRow(d,today,true,E,true)}</div>`;
 function luNowCard(st,now,summer,E){
   const today=new Date(now.getFullYear(),now.getMonth(),now.getDate()), night=tonightKey(now);
   /* tonight, named the way the marking screen names it - the Hebrew date has already turned, while
@@ -1911,7 +1911,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.14.0";
+const APP_VERSION="1.14.1";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

@@ -247,7 +247,7 @@ private fun NextUp(d: LuachDay, today: LocalDate, label: String, en: Boolean) {
     Spacer(Modifier.height(12.dp))
     HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
     Text(label, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = RC.sub, modifier = Modifier.padding(top = 10.dp))
-    LuachRow(d, today, isNext = true, en = en, padH = 0.dp)
+    LuachRow(d, today, isNext = true, en = en, padH = 0.dp, countdown = false)
 }
 
 @Composable
@@ -517,7 +517,8 @@ private fun GapBlock(g: LuachGap, today: LocalDate, next: LuachDay?, en: Boolean
 
 @Composable
 private fun LuachRow(
-    d: LuachDay, today: LocalDate, isNext: Boolean, en: Boolean, padH: Dp = 16.dp, onTint: Boolean = false
+    d: LuachDay, today: LocalDate, isNext: Boolean, en: Boolean, padH: Dp = 16.dp, onTint: Boolean = false,
+    countdown: Boolean = true
 ) {
     val past = d.date < today
     val (tint, light) = tintOf(d.kind)
@@ -548,7 +549,8 @@ private fun LuachRow(
             d.note(en)?.let { Text(it, fontSize = 12.5.sp, color = RC.sub2) }
             Text(if (en) Luach.whenTextEn(d) else Luach.whenText(d), style = ltr, fontSize = 12.5.sp, color = RC.sub)
         }
-        Luach.countdown(d.date, today)?.let {
+        // not at the top, where it would only count down the time still to go
+        if (countdown) Luach.countdown(d.date, today)?.let {
             if (isNext) Pill(it, RC.blue, RC.blueL, english = true) else Text(it, style = ltr, fontSize = 12.sp, color = RC.sub)
         }
     }
