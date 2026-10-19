@@ -124,19 +124,37 @@ class LuachTest {
     }
 
     @Test
-    fun theCalendarGoesByHebrewMonthsInHebrewAndRegularMonthsInEnglish() {
-        val heb = Luach.months(en = false)
-        assertEquals("אלול תשפ״ו", heb.first().title)
-        assertEquals("אב תשפ״ז", heb.last().title)
+    fun theCalendarGoesByHebrewMonthsOrRegularOnes() {
+        val dec8 = LocalDate.of(2026, 12, 8)
+        val heb = Luach.months(hebrewMonths = true)
+        assertEquals("אלול תשפ״ו", heb.first().title(en = false))
+        assertEquals("אב תשפ״ז", heb.last().title(en = false))
         assertEquals(13, heb.size)   // a leap year: Elul, then Tishrei to Av with two Adars
-        assertEquals("כסלו תשפ״ז", heb[Luach.monthIndexOf(LocalDate.of(2026, 12, 8), en = false)].title)
-        val eng = Luach.months(en = true)
-        assertEquals("August 2026", eng.first().title)
-        assertEquals("August 2027", eng.last().title)
-        assertEquals("December 2026", eng[Luach.monthIndexOf(LocalDate.of(2026, 12, 8), en = true)].title)
-        assertEquals("Kislev – Teves 5787", eng[Luach.monthIndexOf(LocalDate.of(2026, 12, 8), en = true)].sub)
+        val kislev = heb[Luach.monthIndexOf(dec8, hebrewMonths = true)]
+        assertEquals("כסלו תשפ״ז", kislev.title(en = false))
+        assertEquals("Kislev 5787", kislev.title(en = true))
+        assertEquals("Nov – Dec 2026", kislev.sub(en = true))
+        val greg = Luach.months(hebrewMonths = false)
+        assertEquals("August 2026", greg.first().title(en = true))
+        assertEquals("August 2027", greg.last().title(en = true))
+        val december = greg[Luach.monthIndexOf(dec8, hebrewMonths = false)]
+        assertEquals("December 2026", december.title(en = true))
+        assertEquals("דצמבר 2026", december.title(en = false))
+        assertEquals("Kislev – Teves 5787", december.sub(en = true))
+        assertEquals("כסלו – טבת תשפ״ז", december.sub(en = false))
         // every day of the year is in exactly one month, both ways
-        listOf(heb, eng).forEach { ms -> assertEquals(ms.flatMap { it.days }.size, ms.flatMap { it.days }.toSet().size) }
+        listOf(heb, greg).forEach { ms -> assertEquals(ms.flatMap { it.days }.size, ms.flatMap { it.days }.toSet().size) }
+    }
+
+    @Test
+    fun theLanguagePicksTheMonthsUntilTheSwitchIsSet() {
+        assertTrue(Luach.hebrewMonthsFor("", en = false))
+        assertFalse(Luach.hebrewMonthsFor("", en = true))
+        assertTrue(Luach.hebrewMonthsFor("heb", en = true))
+        assertFalse(Luach.hebrewMonthsFor("greg", en = false))
+        val dir = folder.newFolder()
+        AppViewModel(NightStore(dir)).setSettings { it.copy(luachMonths = "heb") }
+        assertEquals("heb", NightStore(dir).settings.luachMonths)
     }
 
     @Test

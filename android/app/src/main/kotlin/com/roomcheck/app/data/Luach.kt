@@ -83,8 +83,43 @@ sealed interface LuachNow {
     data class Between(val after: Zman?, val before: Zman?) : LuachNow
 }
 
-/** One month of the calendar: its name, the other calendar's months it spans, and its days in order. */
-data class LuachMonth(val title: String, val sub: String, val days: List<LocalDate>)
+/**
+ * One month of the calendar - a Hebrew month or a regular one - and its days in order. It is named
+ * in whichever language the calendar is in, with the other calendar's months it spans under it.
+ */
+data class LuachMonth(val heb: Dates.HebMonth?, val greg: YearMonth?, val days: List<LocalDate>) {
+    fun title(en: Boolean): String = when {
+        heb != null -> if (en) "${Dates.hebMonthNameEn(heb.month, heb.year)} ${heb.year}"
+                       else "${Dates.hebMonthName(heb.month, heb.year)} ${Dates.hebYearStr(heb.year)}"
+        else -> (if (en) greg!!.month.getDisplayName(TextStyle.FULL, Locale.ENGLISH) else HEB_GREG_MONTHS[greg!!.monthValue - 1]) + " ${greg.year}"
+    }
+
+    fun sub(en: Boolean): String {
+        val a = days.first(); val b = days.last()
+        if (heb != null) {
+            fun m(d: LocalDate) = d.month.getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
+            return when {
+                a.month == b.month -> "${m(a)} ${a.year}"
+                a.year == b.year -> "${m(a)} – ${m(b)} ${b.year}"
+                else -> "${m(a)} ${a.year} – ${m(b)} ${b.year}"
+            }
+        }
+        val x = Dates.hebrewOf(a); val y = Dates.hebrewOf(b)
+        fun n(h: Dates.HebDay) = if (en) Dates.hebMonthNameEn(h.month, h.year) else Dates.hebMonthName(h.month, h.year)
+        fun yr(h: Dates.HebDay) = if (en) "${h.year}" else Dates.hebYearStr(h.year)
+        return when {
+            x.month == y.month -> "${n(x)} ${yr(x)}"
+            x.year == y.year -> "${n(x)} – ${n(y)} ${yr(y)}"
+            else -> "${n(x)} ${yr(x)} – ${n(y)} ${yr(y)}"
+        }
+    }
+
+    companion object {
+        val HEB_GREG_MONTHS = listOf(
+            "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"
+        )
+    }
+}
 
 /**
  * The yeshiva's luach for the year - לוח שנת הלימודים תשפ״ו-תשפ״ז, ישיבה גדולה ליובאוויטש
@@ -175,46 +210,46 @@ object Luach {
     private val firstDay = ZMANIM.first().start.date
     private val lastDay = ZMANIM.last().end.date
 
-    /** The year a Hebrew month at a time, Elul to Av, for the calendar in Hebrew. */
+    /** The year a Hebrew month at a time, Elul to Av. */
     val hebrewMonths: List<LuachMonth> by lazy {
         val first = Dates.hebrewOf(firstDay)
         val last = Dates.hebrewOf(lastDay)
         val out = mutableListOf<LuachMonth>()
         var m = Dates.HebMonth(first.year, first.month)
         while (true) {
-            val days = (1..Dates.hebMonthLength(m.year, m.month)).map { Dates.gregorianOf(m.year, m.month, it) }
-            val a = days.first(); val b = days.last()
-            val sub = if (a.month == b.month) monthYear(a) else if (a.year == b.year)
-                "${monthName(a, short = true)} – ${monthName(b, short = true)} ${b.year}"
-            else "${monthName(a, short = true)} ${a.year} – ${monthName(b, short = true)} ${b.year}"
-            out += LuachMonth("${Dates.hebMonthName(m.month, m.year)} ${Dates.hebYearStr(m.year)}", sub, days)
+            out += LuachMonth(m, null, (1..Dates.hebMonthLength(m.year, m.month)).map { Dates.gregorianOf(m.year, m.month, it) })
             if (m.year == last.year && m.month == last.month) break
             m = Dates.nextHebMonth(m)
         }
         out
     }
 
-    /** The year a month at a time, August to August, for the calendar in English. */
+    /** The year a regular month at a time, August to August. */
     val gregorianMonths: List<LuachMonth> by lazy {
         val out = mutableListOf<LuachMonth>()
         var ym = YearMonth.from(firstDay)
         while (!ym.isAfter(YearMonth.from(lastDay))) {
-            val days = (1..ym.lengthOfMonth()).map { ym.atDay(it) }
-            val a = Dates.hebrewOf(days.first()); val b = Dates.hebrewOf(days.last())
-            val sub = if (a.month == b.month) "${Dates.hebMonthNameEn(a.month, a.year)} ${a.year}"
-            else if (a.year == b.year) "${Dates.hebMonthNameEn(a.month, a.year)} – ${Dates.hebMonthNameEn(b.month, b.year)} ${b.year}"
-            else "${Dates.hebMonthNameEn(a.month, a.year)} ${a.year} – ${Dates.hebMonthNameEn(b.month, b.year)} ${b.year}"
-            out += LuachMonth(monthYear(days.first(), short = false), sub, days)
+            out += LuachMonth(null, ym, (1..ym.lengthOfMonth()).map { ym.atDay(it) })
             ym = ym.plusMonths(1)
         }
         out
     }
 
-    fun months(en: Boolean) = if (en) gregorianMonths else hebrewMonths
+    fun months(hebrewMonths: Boolean) = if (hebrewMonths) this.hebrewMonths else gregorianMonths
+
+    /**
+     * Which month system the calendar goes by: as chosen, or - until it is - Hebrew months for the
+     * calendar in Hebrew and regular months for it in English.
+     */
+    fun hebrewMonthsFor(choice: String, en: Boolean): Boolean = when (choice) {
+        "heb" -> true
+        "greg" -> false
+        else -> !en
+    }
 
     /** Which month of the calendar holds this day, or the nearest end of the year when none does. */
-    fun monthIndexOf(date: LocalDate, en: Boolean): Int {
-        val ms = months(en)
+    fun monthIndexOf(date: LocalDate, hebrewMonths: Boolean): Int {
+        val ms = months(hebrewMonths)
         val i = ms.indexOfFirst { date in it.days }
         return when {
             i >= 0 -> i
@@ -225,8 +260,6 @@ object Luach {
 
     private fun monthName(d: LocalDate, short: Boolean) =
         d.month.getDisplayName(if (short) TextStyle.SHORT else TextStyle.FULL, Locale.ENGLISH)
-
-    private fun monthYear(d: LocalDate, short: Boolean = true) = "${monthName(d, short)} ${d.year}"
 
     /** How far through a stretch a moment is, 0 to 1. */
     fun progress(from: LocalDateTime, to: LocalDateTime, at: LocalDateTime): Float {

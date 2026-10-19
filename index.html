@@ -274,6 +274,8 @@ h2{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
 .lu-mh .s{font-size:12px;color:var(--sub)}
 .lu-mh .arr{width:36px;height:36px;border-radius:10px;background:var(--blue-l);color:var(--blue);font-size:22px;font-weight:700}
 .lu-mh .arr:disabled{background:none;color:var(--sep)}
+.lu-msw{display:flex;justify-content:center;margin-bottom:10px}
+.lu-msw .seg2{flex:0 1 300px}
 .lu-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
 .lu-heads{margin-bottom:4px}
 .lu-heads span{text-align:center;font-size:11.5px;font-weight:700;color:var(--sub)}
@@ -500,7 +502,7 @@ let state={night:null,dateKey:null,cur:"1115",room:0,tab:"check",who:null,mode:"
   /* off by default: the plan reads cleaner without them, and Names can switch them back on */
   settings:{bunkLabels:false,hebrewOnPlan:false,hebrewInExport:false,syncUrl:"",syncToken:"",
     /* the yeshiva calendar in English, and as the year's list rather than a month - this device's own choice */
-    luachEnglish:false,luachList:false},
+    luachEnglish:false,luachList:false,luachMonths:""},
   syncMsg:"",syncing:false,lastPull:0,dirty:[]};
 let undoStack=[];
 
@@ -1240,34 +1242,43 @@ const luWhenEn=d=>LU_DOW[d.date.getDay()]+" · "+d.hebEn+(d.t?" · "+luTime(d.t)
 function luRange(a,b){const md=d=>LU_MON[d.getMonth()]+" "+d.getDate();
   return a.getFullYear()===b.getFullYear()?md(a)+" – "+md(b)+", "+b.getFullYear():md(a)+", "+a.getFullYear()+" – "+md(b)+", "+b.getFullYear();}
 
-/* The year a month at a time: by Hebrew months, Elul to Av, for the calendar in Hebrew; by the
-   regular months, August to August, for the calendar in English. */
+/* The year a month at a time: by Hebrew months, Elul to Av, or by the regular months, August to
+   August. Each month is named in whichever language the calendar is in, with the other calendar's
+   months it spans under it. */
+const LU_MONTH_HE=["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
 const LU_MONTHS={};
-function luMonths(en){
-  if(LU_MONTHS[en])return LU_MONTHS[en];
+function luMonths(heb){
+  if(LU_MONTHS[heb])return LU_MONTHS[heb];
   const first=LUACH[0].days[0].date, last=luEnd(LUACH[LUACH.length-1]).date, out=[];
-  if(!en){
+  if(heb){
     let {y,m}=luHebOf(first); const L=luHebOf(last);
     for(;;){const days=[];for(let d=1;d<=hML(m,y);d++){const g=absToG(hToAbs(y,m,d));days.push(new Date(g.y,g.m-1,g.d));}
-      const a=days[0], b=days[days.length-1];
-      const sub=a.getMonth()===b.getMonth()?LU_MON[a.getMonth()]+" "+a.getFullYear():
-        a.getFullYear()===b.getFullYear()?LU_MON[a.getMonth()]+" – "+LU_MON[b.getMonth()]+" "+b.getFullYear():
-        LU_MON[a.getMonth()]+" "+a.getFullYear()+" – "+LU_MON[b.getMonth()]+" "+b.getFullYear();
-      out.push({title:hMName(m,y)+" "+ger(hNum(y%1000)),sub,days});
+      out.push({heb:{y,m},days});
       if(y===L.y&&m===L.m)break; ({y,m}=hNext(y,m));}
   }else{
     for(let y=first.getFullYear(),m=first.getMonth();y<last.getFullYear()||(y===last.getFullYear()&&m<=last.getMonth());m===11?(y++,m=0):m++){
       const days=[];for(let d=1;d<=new Date(y,m+1,0).getDate();d++)days.push(new Date(y,m,d));
-      const a=luHebOf(days[0]), b=luHebOf(days[days.length-1]);
-      const sub=a.m===b.m?hMNameEn(a.m,a.y)+" "+a.y:a.y===b.y?hMNameEn(a.m,a.y)+" – "+hMNameEn(b.m,b.y)+" "+b.y:
-        hMNameEn(a.m,a.y)+" "+a.y+" – "+hMNameEn(b.m,b.y)+" "+b.y;
-      out.push({title:LU_MONTH[m]+" "+y,sub,days});
+      out.push({greg:{y,m},days});
     }
   }
-  return LU_MONTHS[en]=out;
+  return LU_MONTHS[heb]=out;
 }
+function luMTitle(mo,E){
+  if(mo.heb){const {y,m}=mo.heb;return E?hMNameEn(m,y)+" "+y:hMName(m,y)+" "+ger(hNum(y%1000));}
+  return (E?LU_MONTH:LU_MONTH_HE)[mo.greg.m]+" "+mo.greg.y;
+}
+function luMSub(mo,E){
+  const a=mo.days[0], b=mo.days[mo.days.length-1];
+  if(mo.heb)return a.getMonth()===b.getMonth()?LU_MON[a.getMonth()]+" "+a.getFullYear():
+    a.getFullYear()===b.getFullYear()?LU_MON[a.getMonth()]+" – "+LU_MON[b.getMonth()]+" "+b.getFullYear():
+    LU_MON[a.getMonth()]+" "+a.getFullYear()+" – "+LU_MON[b.getMonth()]+" "+b.getFullYear();
+  const x=luHebOf(a), y=luHebOf(b), n=h=>E?hMNameEn(h.m,h.y):hMName(h.m,h.y), yr=h=>E?String(h.y):ger(hNum(h.y%1000));
+  return x.m===y.m?n(x)+" "+yr(x):x.y===y.y?n(x)+" – "+n(y)+" "+yr(y):n(x)+" "+yr(x)+" – "+n(y)+" "+yr(y);
+}
+/* Hebrew months or regular ones: the language picks, unless the month's own switch has been set */
+const luHebMonths=()=>state.settings.luachMonths==="heb"?true:state.settings.luachMonths==="greg"?false:!state.settings.luachEnglish;
 /* which month holds this day, or the nearer end of the year when none does */
-function luMonthOf(d,en){const ms=luMonths(en);const i=ms.findIndex(m=>m.days.some(x=>+x===+d));
+function luMonthOf(d,heb){const ms=luMonths(heb);const i=ms.findIndex(m=>m.days.some(x=>+x===+d));
   return i>=0?i:(d<ms[0].days[0]?0:ms.length-1);}
 
 /* English kept left to right inside the right-to-left calendar: "3 weeks" would otherwise read "weeks 3" */
@@ -1283,11 +1294,6 @@ function luRow(d,today,isNext,E){
     ${cd?`<div class="lu-cd${isNext?" next":""}">${en(cd)}</div>`:``}
   </div>`;
 }
-function luBar(z,now){
-  const f=t=>luProgress(z.days[0].at,luEnd(z).at,t), done=f(now);
-  return `<div class="lu-bar"><i style="width:${(done*100).toFixed(2)}%"></i>${luGaps(z).map(g=>{const a=f(g.from.at),b=f(g.to.at);
-    return `<s class="${luKind(g.from.k)}${b<=done?" gone":""}" style="inset-inline-start:${(a*100).toFixed(2)}%;width:${((b-a)*100).toFixed(2)}%"></s>`;}).join("")}</div>`;
-}
 const luNext=(d,today,label,E)=>`<div class="lu-nx"><div class="lbl">${esc(label)}</div>${luRow(d,today,true,E)}</div>`;
 function luNowCard(st,now,summer,E){
   const today=new Date(now.getFullYear(),now.getMonth(),now.getDate()), night=tonightKey(now);
@@ -1295,10 +1301,9 @@ function luNowCard(st,now,summer,E){
      the month below rings today's daytime date */
   const nd=parseKey(night), nh=luHebOf(new Date(nd.getFullYear(),nd.getMonth(),nd.getDate()+1));
   let body="";
-  if(st.type==="zman"){const z=st.z, s=z.days[0].date, e=luEnd(z).date;
+  if(st.type==="zman"){const z=st.z;
     body=`<div class="big">${esc(luName(z,E))}</div>
-      <div class="sub">${en("Day "+(luDays(s,today)+1)+" of "+(luDays(s,e)+1)+" · ends "+luDate(e))}</div>
-      ${luBar(z,now)}${st.next?luNext(st.next,today,E?"Next":"הבא",E):``}`;
+      ${st.next?luNext(st.next,today,E?"Next":"הבא",E):``}`;
   }else if(st.type==="gap"){const g=st.gap;
     body=`<div class="big ${luKind(g.from.k)}">${esc(luGapName(g,E))}</div>
       <div class="sub">${en((g.trip?"Away · back ":"Off · seder again ")+luWhen(g.to))}</div>
@@ -1318,22 +1323,25 @@ function luNowCard(st,now,summer,E){
 /* One month, the way a wall calendar has it: a week to a row, Sunday first, every day tinted by
    what it is - seder, a break, a trip, or bein hazmanim left plain. A day with a line on the luach
    carries a dot in that line's colour; today is ringed in black, the day tapped in blue. */
-function luMonthCard(m,i,count,today,summer,E,pick){
+function luMonthCard(m,i,count,today,summer,E,H,pick){
   const rtl=!E, lead=m.days[0].getDay();
   const heads=E?LU_DOW:["א׳","ב׳","ג׳","ד׳","ה׳","ו׳","ש׳"];
   let cells="";for(let k=0;k<lead;k++)cells+=`<span></span>`;
   m.days.forEach(d=>{
     const kind=luDayKind(d,summer), lines=luLinesOn(d,summer), h=luHebOf(d);
-    const big=E?d.getDate():ger(hNum(h.d));
+    /* big, the day in the months on screen - a Hebrew one in letters only when the calendar is in Hebrew */
+    const big=!H?d.getDate():E?h.d:ger(hNum(h.d));
     /* the other calendar, small; on the first of its month, the month's name */
-    const small=E?(h.d===1?hMNameEn(h.m,h.y):h.d):(d.getDate()===1?LU_MON[d.getMonth()]+" 1":d.getDate());
+    const small=!H?(h.d===1?(E?hMNameEn(h.m,h.y):hMName(h.m,h.y)):E?h.d:ger(hNum(h.d))):(d.getDate()===1?LU_MON[d.getMonth()]+" 1":d.getDate());
+    const smallTx=H||E?en(String(small)):esc(String(small));
     cells+=`<button class="lu-d d-${kind}${d<today?" past":""}${+d===+today?" today":""}${pick&&+d===+pick?" pick":""}" data-a="lupick" data-k="${luKey(d)}">
-      <b>${big}</b><i>${en(String(small))}</i><u class="${lines.length?luKind(lines[0].k):""}"></u></button>`;
+      <b>${big}</b><i>${smallTx}</i><u class="${lines.length?luKind(lines[0].k):""}"></u></button>`;
   });
   return `<div class="lu-mc">
     <div class="lu-mh"><button class="arr" data-a="lumon" data-d="-1" ${i>0?"":"disabled"}>${rtl?"›":"‹"}</button>
-      <div class="mt"><div class="t">${esc(m.title)}</div><div class="s">${en(m.sub)}</div></div>
+      <div class="mt"><div class="t">${esc(luMTitle(m,E))}</div><div class="s">${H||E?en(luMSub(m,E)):esc(luMSub(m,E))}</div></div>
       <button class="arr" data-a="lumon" data-d="1" ${i<count-1?"":"disabled"}>${rtl?"‹":"›"}</button></div>
+    <div class="lu-msw"><div class="seg2"><button class="${H?"on":""}" data-a="lucal" data-v="heb">${E?"Hebrew months":"חודשים עבריים"}</button><button class="${H?"":"on"}" data-a="lucal" data-v="greg">${E?"Regular months":"חודשים לועזיים"}</button></div></div>
     <div class="lu-grid lu-heads">${heads.map(x=>`<span>${x}</span>`).join("")}</div>
     <div class="lu-grid">${cells}</div>
     <div class="lu-legend"><span class="d-zman">${E?"Seder":"סדר"}</span><span class="d-off">${E?"Break":"הפסקה"}</span>
@@ -1346,7 +1354,7 @@ function luDayCard(d,today,summer,E,next){
   const what=kind==="zman"?luName(z,E):kind==="bein"?(E?"Bein hazmanim":"בין הזמנים"):luGapName(luGapOn(d,summer),E);
   return `<div class="lu-day">
     <div class="top"><b>${E?esc(luDate(d)):esc(ger(hNum(h.d))+" "+hMName(h.m,h.y))}</b><span>${en(E?luHebEn(h):luDate(d))}</span></div>
-    <div class="what d-${kind}"><s></s>${esc(what)}${kind==="zman"?`<span>${en("day "+(luDays(z.days[0].date,d)+1)+" of "+(luDays(z.days[0].date,luEnd(z).date)+1))}</span>`:``}</div>
+    <div class="what d-${kind}"><s></s>${esc(what)}</div>
     ${luLinesOn(d,summer).map(x=>luRow(x,today,x===next,E)).join("")}
   </div>`;
 }
@@ -1380,9 +1388,9 @@ function luBein(end,nextStart,isNow,E){
     <div class="c">${en(nextStart?luLength(luDays(end.date,nextStart.date))+" · "+luRange(end.date,nextStart.date).replace(/, \d{4}$/,""):"from "+luDate(end.date,true))}</div></div><s></s></div>`;
 }
 /* The year as the luach has it: where things stand tonight, then a month at a time on a calendar,
-   or as the luach's own list. In Hebrew it reads right to left and goes by Hebrew months, the
-   regular date small in each day; in English it reads left to right and goes by the regular
-   months, the Hebrew date small instead. */
+   or as the luach's own list. In Hebrew it reads right to left, in English left to right. The month
+   goes by Hebrew months or regular ones, the other calendar's date small in each day - Hebrew
+   months in Hebrew and regular ones in English, unless the month's own switch says otherwise. */
 function luachScreen(now){
   now=now||new Date();
   const E=!!state.settings.luachEnglish, asList=!!state.settings.luachList;
@@ -1391,10 +1399,10 @@ function luachScreen(now){
   const next=st.type==="zman"?st.next:st.type==="gap"?st.gap.to:(st.before?st.before.days[0]:null);
   let body="";
   if(!asList){
-    const ms=luMonths(E);
-    if(state.luMonth==null||state.luMonthEn!==E){state.luMonth=luMonthOf(today,E);state.luMonthEn=E;state.luPick=luKey(today);}
+    const H=luHebMonths(), ms=luMonths(H);
+    if(state.luMonth==null||state.luMonthH!==H){state.luMonth=luMonthOf(today,H);state.luMonthH=H;state.luPick=luKey(today);}
     const m=ms[state.luMonth], pick=state.luPick?parseKey(state.luPick):null;
-    body=luMonthCard(m,state.luMonth,ms.length,today,summer,E,pick)+
+    body=luMonthCard(m,state.luMonth,ms.length,today,summer,E,H,pick)+
       (pick&&m.days.some(d=>+d===+pick)?luDayCard(pick,today,summer,E,next):``)+
       luMonthLines(m,today,summer,E,next)+luSummerCard(summer,E);
   }else{
@@ -1698,7 +1706,8 @@ document.addEventListener("click",async e=>{
   if(a==="tab"){closePop();state.tab=t.dataset.t;render();window.scrollTo(0,0);return;}
   if(a==="lumode"){state.settings.luachList=t.dataset.v==="1";flush();render();return;}
   if(a==="lulang"){state.settings.luachEnglish=t.dataset.v==="1";state.luMonth=null;flush();render();return;}
-  if(a==="lumon"){const n=luMonths(!!state.settings.luachEnglish).length;
+  if(a==="lucal"){state.settings.luachMonths=t.dataset.v;state.luMonth=null;flush();render();return;}
+  if(a==="lumon"){const n=luMonths(luHebMonths()).length;
     state.luMonth=Math.max(0,Math.min(n-1,state.luMonth+Number(t.dataset.d)));render();return;}
   if(a==="lupick"){state.luPick=t.dataset.k;render();return;}
   if(a==="summer"){const on=!summerOn();
@@ -1902,7 +1911,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.13.0";
+const APP_VERSION="1.14.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

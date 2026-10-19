@@ -31,9 +31,9 @@ class LuachScreenTest {
     // the list's items: now card, gap, Elul, bein hazmanim, winter, bein hazmanim, summer, ...
     private val listParts = listOf("top" to 0, "winter" to 4, "summer" to 6)
 
-    private fun shot(name: String, now: String, parts: List<Pair<String, Int>>, english: Boolean = false, list: Boolean = false, summer: Boolean = true) {
+    private fun shot(name: String, now: String, parts: List<Pair<String, Int>>, english: Boolean = false, list: Boolean = false, summer: Boolean = true, months: String = "") {
         val vm = AppViewModel(NightStore(folder.newFolder()))
-        vm.setSettings { it.copy(luachEnglish = english, luachList = list) }
+        vm.setSettings { it.copy(luachEnglish = english, luachList = list, luachMonths = months) }
         if (!summer) vm.setSummerZman(false)
         parts.forEach { (part, item) ->
             paparazzi.snapshot(name = "$name-$part") { RoomCheckTheme { LuachScreen(vm, LocalDateTime.parse(now), firstItem = item) } }
@@ -46,6 +46,14 @@ class LuachScreenTest {
 
     @Test
     fun monthEnglish() = shot("luach-month-en", "2026-10-19T19:00", monthParts, english = true)
+
+    /** English, going by the Hebrew months. */
+    @Test
+    fun monthEnglishHebrewMonths() = shot("luach-month-en-heb", "2026-10-19T19:00", monthParts.take(2), english = true, months = "heb")
+
+    /** Hebrew, going by the regular months. */
+    @Test
+    fun monthHebrewRegularMonths() = shot("luach-month-greg", "2026-10-19T19:00", monthParts.take(2), months = "greg")
 
     /** Kislev in the middle of the Chanukah break: its days tinted as the break. */
     @Test

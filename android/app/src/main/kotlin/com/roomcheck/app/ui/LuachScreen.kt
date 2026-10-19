@@ -63,9 +63,9 @@ private fun tintOf(kind: DayKind): Pair<Color, Color> = when (kind) {
 /**
  * The yeshiva's year as its luach has it: where things stand tonight, then the year either as a
  * calendar, a month at a time, or as the luach's own list - every zman with its breaks and trips
- * and the bein hazmanim between them. In Hebrew it reads right to left and goes by Hebrew months,
- * the regular date small in each day; in English it reads left to right and goes by the regular
- * months, the Hebrew date small instead.
+ * and the bein hazmanim between them. In Hebrew it reads right to left, in English left to right.
+ * The month goes by Hebrew months or regular ones, the other calendar's date small in each day -
+ * Hebrew months in Hebrew and regular ones in English, unless the month's own switch says otherwise.
  */
 @Composable
 fun LuachScreen(vm: AppViewModel, now: LocalDateTime = LocalDateTime.now(), firstItem: Int = 0) {
@@ -85,8 +85,11 @@ fun LuachScreen(vm: AppViewModel, now: LocalDateTime = LocalDateTime.now(), firs
         is LuachNow.InGap -> status.gap.to
         is LuachNow.Between -> status.before?.start
     }
-    var month by remember(en) { mutableIntStateOf(Luach.monthIndexOf(today, en)) }
-    var picked by remember(en) { mutableStateOf<LocalDate?>(today) }
+    // Hebrew months or regular ones: the language picks unless the month switch has been set
+    val hebMonths = Luach.hebrewMonthsFor(state.settings.luachMonths, en)
+    val months = Luach.months(hebMonths)
+    var month by remember(hebMonths) { mutableIntStateOf(Luach.monthIndexOf(today, hebMonths)) }
+    var picked by remember(hebMonths) { mutableStateOf<LocalDate?>(today) }
 
     Column(Modifier.fillMaxSize().background(RC.bg)) {
         Row(
@@ -120,14 +123,18 @@ fun LuachScreen(vm: AppViewModel, now: LocalDateTime = LocalDateTime.now(), firs
                 item { Spacer(Modifier.height(14.dp)) }
                 if (!asList) {
                     item {
-                        MonthCard(Luach.months(en), month, { month = it }, today, summer, en, picked) { picked = it }
+                        MonthCard(
+                            months, month, { month = it }, today, summer, en, hebMonths,
+                            { heb -> vm.setSettings { it.copy(luachMonths = if (heb) "heb" else "greg") } },
+                            picked
+                        ) { picked = it }
                     }
-                    picked?.takeIf { it in Luach.months(en)[month].days }?.let { d ->
+                    picked?.takeIf { it in months[month].days }?.let { d ->
                         item { Spacer(Modifier.height(10.dp)) }
                         item { DayCard(d, today, summer, en, next) }
                     }
                     item { Spacer(Modifier.height(10.dp)) }
-                    item { MonthLines(Luach.months(en)[month], today, summer, en, next) }
+                    item { MonthLines(months[month], today, summer, en, next) }
                 } else {
                     val year = Luach.ZMANIM
                     year.forEachIndexed { i, z ->
@@ -194,11 +201,6 @@ private fun NowCard(status: LuachNow, now: LocalDateTime, summer: Boolean, en: B
             is LuachNow.InZman -> {
                 val z = status.zman
                 Text(z.name(en), fontSize = 27.sp, fontWeight = FontWeight.Bold)
-                val total = Luach.days(z.start.date, z.end.date) + 1
-                val day = Luach.days(z.start.date, today) + 1
-                Text("Day $day of $total · ends ${Luach.dateText(z.end.date)}", style = ltr, fontSize = 13.sp, color = RC.sub2)
-                Spacer(Modifier.height(12.dp))
-                ZmanBar(z, now)
                 status.next?.let { NextUp(it, today, if (en) "Next" else "הבא", en) }
             }
             is LuachNow.InGap -> {
@@ -248,30 +250,6 @@ private fun NextUp(d: LuachDay, today: LocalDate, label: String, en: Boolean) {
     LuachRow(d, today, isNext = true, en = en, padH = 0.dp)
 }
 
-/** The zman from end to end, its breaks and trips shaded in, filled up to now. */
-@Composable
-private fun ZmanBar(z: Zman, now: LocalDateTime) {
-    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    fun f(t: LocalDateTime) = Luach.progress(z.start.at, z.end.at, t)
-    val done = f(now)
-    Box(
-        Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)).background(RC.greyL)
-            .drawBehind {
-                fun span(a: Float, b: Float, c: Color) {
-                    val x0 = if (rtl) size.width * (1 - b) else size.width * a
-                    drawRect(c, Offset(x0, 0f), Size(size.width * (b - a), size.height))
-                }
-                span(0f, done, RC.blue)
-                z.gaps.forEach { g ->
-                    val (strong, light) = tintOf(g.from.kind)
-                    val a = f(g.from.at)
-                    val b = f(g.to.at)
-                    span(a, b, if (b <= done) strong.copy(alpha = 0.55f) else light)
-                }
-            }
-    )
-}
-
 @Composable
 private fun ProgressLine(fraction: Float, color: Color, track: Color) {
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -292,7 +270,7 @@ private fun ProgressLine(fraction: Float, color: Color, track: Color) {
 @Composable
 private fun MonthCard(
     months: List<LuachMonth>, index: Int, onMonth: (Int) -> Unit, today: LocalDate, summer: Boolean,
-    en: Boolean, picked: LocalDate?, onPick: (LocalDate) -> Unit
+    en: Boolean, hebMonths: Boolean, onHebMonths: (Boolean) -> Unit, picked: LocalDate?, onPick: (LocalDate) -> Unit
 ) {
     val m = months[index]
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -300,10 +278,17 @@ private fun MonthCard(
         Row(verticalAlignment = Alignment.CenterVertically) {
             MonthArrow(if (rtl) "›" else "‹", enabled = index > 0) { onMonth(index - 1) }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(m.title, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text(m.sub, style = ltr, fontSize = 12.sp, color = RC.sub)
+                Text(m.title(en), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                // the other calendar's months; English unless they are Hebrew months named in Hebrew
+                Text(m.sub(en), style = if (hebMonths || en) ltr else TextStyle.Default, fontSize = 12.sp, color = RC.sub)
             }
             MonthArrow(if (rtl) "‹" else "›", enabled = index < months.lastIndex) { onMonth(index + 1) }
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.Center) {
+            Segmented(
+                if (en) listOf("Hebrew months", "Regular months") else listOf("חודשים עבריים", "חודשים לועזיים"),
+                if (hebMonths) 0 else 1
+            ) { onHebMonths(it == 0) }
         }
         Spacer(Modifier.height(10.dp))
         val heads = if (en) listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
@@ -319,7 +304,7 @@ private fun MonthCard(
                 (0 until 7).forEach { i ->
                     val d = week.getOrNull(i)
                     Box(Modifier.weight(1f).height(54.dp).padding(1.5.dp)) {
-                        if (d != null) DayCell(d, today, summer, en, picked == d) { onPick(d) }
+                        if (d != null) DayCell(d, today, summer, en, hebMonths, picked == d) { onPick(d) }
                     }
                 }
             }
@@ -344,7 +329,7 @@ private fun MonthArrow(glyph: String, enabled: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun DayCell(d: LocalDate, today: LocalDate, summer: Boolean, en: Boolean, picked: Boolean, onClick: () -> Unit) {
+private fun DayCell(d: LocalDate, today: LocalDate, summer: Boolean, en: Boolean, hebMonths: Boolean, picked: Boolean, onClick: () -> Unit) {
     val kind = Luach.dayKind(d, summer)
     val (_, light) = tintOf(kind)
     val lines = Luach.linesOn(d, summer)
@@ -361,18 +346,23 @@ private fun DayCell(d: LocalDate, today: LocalDate, summer: Boolean, en: Boolean
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            // big, the day in the months on screen - a Hebrew one in letters only when the calendar is in Hebrew
             Text(
-                if (en) d.dayOfMonth.toString() else Dates.hebrewDayOf(h.day),
+                if (!hebMonths) d.dayOfMonth.toString() else if (en) h.day.toString() else Dates.hebrewDayOf(h.day),
                 fontSize = 15.sp, lineHeight = 17.sp, fontWeight = FontWeight.Bold,
                 color = if (kind == DayKind.BEIN) RC.sub2 else RC.text
             )
             // the other calendar, small; on the first of its month, the month's name
-            val small = if (en) {
-                if (h.day == 1) Dates.hebMonthNameEn(h.month, h.year) else h.day.toString()
+            val small = if (!hebMonths) {
+                when {
+                    h.day == 1 -> if (en) Dates.hebMonthNameEn(h.month, h.year) else Dates.hebMonthName(h.month, h.year)
+                    en -> h.day.toString()
+                    else -> Dates.hebrewDayOf(h.day)
+                }
             } else {
                 if (d.dayOfMonth == 1) d.month.getDisplayName(JTextStyle.SHORT, Locale.ENGLISH) + " 1" else d.dayOfMonth.toString()
             }
-            Text(small, style = ltr, fontSize = 9.sp, lineHeight = 11.sp, color = RC.sub, maxLines = 1)
+            Text(small, style = if (hebMonths || en) ltr else TextStyle.Default, fontSize = 9.sp, lineHeight = 11.sp, color = RC.sub, maxLines = 1)
             Box(Modifier.padding(top = 2.dp).size(5.dp).clip(CircleShape).background(
                 lines.firstOrNull()?.let { tintOf(it.kind).first } ?: Color.Transparent
             ))
@@ -416,12 +406,6 @@ private fun DayCard(d: LocalDate, today: LocalDate, summer: Boolean, en: Boolean
         Row(Modifier.padding(top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(9.dp).clip(CircleShape).background(if (kind == DayKind.BEIN) RC.sub else tint))
             Text(what, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = RC.sub2, modifier = Modifier.padding(start = 7.dp))
-            if (z != null && kind == DayKind.ZMAN) {
-                Text(
-                    "day ${Luach.days(z.start.date, d) + 1} of ${Luach.days(z.start.date, z.end.date) + 1}",
-                    style = ltr, fontSize = 12.5.sp, color = RC.sub, modifier = Modifier.padding(start = 8.dp)
-                )
-            }
         }
         Luach.linesOn(d, summer).forEach { LuachRow(it, today, isNext = it == next, en = en, padH = 0.dp) }
     }

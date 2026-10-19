@@ -122,6 +122,8 @@ data class Settings(
     val luachEnglish: Boolean = false,
     /** The yeshiva calendar as the year's list rather than a month at a time. */
     val luachList: Boolean = false,
+    /** The month calendar by Hebrew months ("heb") or regular ones ("greg"); blank follows the language. */
+    val luachMonths: String = "",
     /** Where the shared copy lives. Blank means this device keeps to itself, as it always did. */
     val syncUrl: String = "",
     val syncToken: String = ""
@@ -263,6 +265,7 @@ class NightStore(home: File, private val builtInSync: Boolean = false) {
                         hebrewInExport = it.optBoolean("hebrewInExport", false),
                         luachEnglish = it.optBoolean("luachEnglish", false),
                         luachList = it.optBoolean("luachList", false),
+                        luachMonths = it.optString("luachMonths", ""),
                         syncUrl = it.optString("syncUrl", ""),
                         syncToken = it.optString("syncToken", "")
                     )
@@ -305,6 +308,7 @@ class NightStore(home: File, private val builtInSync: Boolean = false) {
             .put("hebrewInExport", settings.hebrewInExport)
             .put("luachEnglish", settings.luachEnglish)
             .put("luachList", settings.luachList)
+            .put("luachMonths", settings.luachMonths)
             .put("syncUrl", settings.syncUrl)
             .put("syncToken", settings.syncToken))
         root.put("lastPull", lastPull)
