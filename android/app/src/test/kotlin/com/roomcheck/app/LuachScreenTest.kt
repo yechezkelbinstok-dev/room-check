@@ -12,8 +12,8 @@ import org.junit.rules.TemporaryFolder
 import java.time.LocalDateTime
 
 /**
- * The yeshiva calendar at a few moments of the year. The list is longer than a screen, so each
- * moment is drawn from the top and again scrolled down to the winter and summer zmanim.
+ * The yeshiva calendar at a few moments of the year, as a month and as the year's list, in Hebrew
+ * and in English. Each is longer than a screen, so it is drawn more than once, scrolled down.
  */
 class LuachScreenTest {
 
@@ -26,25 +26,40 @@ class LuachScreenTest {
     @get:Rule
     val folder = TemporaryFolder()
 
-    private fun shot(name: String, now: String, summer: Boolean = true) {
+    // the month view's items: now card, gap, month, gap, the day tapped, gap, the month's lines, ...
+    private val monthParts = listOf("top" to 0, "month" to 2, "lines" to 4)
+    // the list's items: now card, gap, Elul, bein hazmanim, winter, bein hazmanim, summer, ...
+    private val listParts = listOf("top" to 0, "winter" to 4, "summer" to 6)
+
+    private fun shot(name: String, now: String, parts: List<Pair<String, Int>>, english: Boolean = false, list: Boolean = false, summer: Boolean = true) {
         val vm = AppViewModel(NightStore(folder.newFolder()))
+        vm.setSettings { it.copy(luachEnglish = english, luachList = list) }
         if (!summer) vm.setSummerZman(false)
-        // the list's items: now card, gap, Elul, bein hazmanim, winter, bein hazmanim, summer, ...
-        listOf("top" to 0, "winter" to 4, "summer" to 6).forEach { (part, item) ->
+        parts.forEach { (part, item) ->
             paparazzi.snapshot(name = "$name-$part") { RoomCheckTheme { LuachScreen(vm, LocalDateTime.parse(now), firstItem = item) } }
         }
     }
 
     /** An ordinary night in the winter zman, the Chanukah break the next thing up. */
     @Test
-    fun winterZman() = shot("luach-winter", "2026-10-19T19:00")
+    fun monthHebrew() = shot("luach-month", "2026-10-19T19:00", monthParts)
 
     @Test
-    fun chanukahBreak() = shot("luach-chanukah", "2026-12-10T12:00")
+    fun monthEnglish() = shot("luach-month-en", "2026-10-19T19:00", monthParts, english = true)
+
+    /** Kislev in the middle of the Chanukah break: its days tinted as the break. */
+    @Test
+    fun monthDuringChanukah() = shot("luach-month-chanukah", "2026-12-10T12:00", monthParts.take(2))
 
     @Test
-    fun beinHazmanim() = shot("luach-bein-hazmanim", "2026-09-25T12:00")
+    fun listHebrew() = shot("luach-list", "2026-10-19T19:00", listParts, list = true)
 
     @Test
-    fun summerZmanSwitchedOff() = shot("luach-no-summer", "2027-04-20T12:00", summer = false)
+    fun listEnglish() = shot("luach-list-en", "2026-10-19T19:00", listParts, english = true, list = true)
+
+    @Test
+    fun beinHazmanim() = shot("luach-bein-hazmanim", "2026-09-25T12:00", listParts.take(1), list = true)
+
+    @Test
+    fun summerZmanSwitchedOff() = shot("luach-no-summer", "2027-04-20T12:00", listParts, list = true, summer = false)
 }

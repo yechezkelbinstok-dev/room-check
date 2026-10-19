@@ -1,6 +1,7 @@
 package com.roomcheck.app
 
 import com.roomcheck.app.data.AppViewModel
+import com.roomcheck.app.data.DayKind
 import com.roomcheck.app.data.Luach
 import com.roomcheck.app.data.LuachNow
 import com.roomcheck.app.data.NightStore
@@ -106,6 +107,47 @@ class LuachTest {
         assertEquals("4 days", Luach.lengthText(4))
         assertEquals("23 days", Luach.lengthText(23))
         assertEquals("27 weeks", Luach.lengthText(186))
+    }
+
+    @Test
+    fun everyDayIsSederABreakATripOrBeinHazmanim() {
+        assertEquals(DayKind.ZMAN, Luach.dayKind(LocalDate.of(2026, 10, 19), true))
+        // the break's first and last days count as the break
+        assertEquals(DayKind.OFF, Luach.dayKind(LocalDate.of(2026, 12, 8), true))
+        assertEquals(DayKind.OFF, Luach.dayKind(LocalDate.of(2026, 12, 15), true))
+        assertEquals(DayKind.ZMAN, Luach.dayKind(LocalDate.of(2026, 12, 16), true))
+        assertEquals(DayKind.BEIN, Luach.dayKind(LocalDate.of(2026, 9, 25), true))
+        assertEquals(DayKind.TRIP, Luach.dayKind(LocalDate.of(2027, 7, 9), true))
+        // with the summer zman off, its days are bein hazmanim
+        assertEquals(DayKind.BEIN, Luach.dayKind(LocalDate.of(2027, 7, 9), false))
+        assertEquals(listOf("הפסקה"), Luach.linesOn(LocalDate.of(2026, 12, 8), true).map { it.title })
+    }
+
+    @Test
+    fun theCalendarGoesByHebrewMonthsInHebrewAndRegularMonthsInEnglish() {
+        val heb = Luach.months(en = false)
+        assertEquals("אלול תשפ״ו", heb.first().title)
+        assertEquals("אב תשפ״ז", heb.last().title)
+        assertEquals(13, heb.size)   // a leap year: Elul, then Tishrei to Av with two Adars
+        assertEquals("כסלו תשפ״ז", heb[Luach.monthIndexOf(LocalDate.of(2026, 12, 8), en = false)].title)
+        val eng = Luach.months(en = true)
+        assertEquals("August 2026", eng.first().title)
+        assertEquals("August 2027", eng.last().title)
+        assertEquals("December 2026", eng[Luach.monthIndexOf(LocalDate.of(2026, 12, 8), en = true)].title)
+        assertEquals("Kislev – Teves 5787", eng[Luach.monthIndexOf(LocalDate.of(2026, 12, 8), en = true)].sub)
+        // every day of the year is in exactly one month, both ways
+        listOf(heb, eng).forEach { ms -> assertEquals(ms.flatMap { it.days }.size, ms.flatMap { it.days }.toSet().size) }
+    }
+
+    @Test
+    fun inEnglishTheLuachReadsInEnglish() {
+        val winter = Luach.ZMANIM.first { it.id == "winter" }
+        assertEquals("Winter zman", winter.name(en = true))
+        val brk = winter.gaps.first()
+        assertEquals("Chanukah break", brk.name(en = true))
+        assertEquals("Break begins", brk.from.title(en = true))
+        assertEquals("Tue · 28 Kislev · 2:00 pm", Luach.whenTextEn(brk.from))
+        assertEquals("Shabbos off", winter.gaps[1].name(en = true))
     }
 
     @Test

@@ -118,6 +118,10 @@ data class Settings(
     val hebrewOnPlan: Boolean = false,
     /** Hebrew names in the sent picture. Separate on purpose: you may want one and not the other. */
     val hebrewInExport: Boolean = false,
+    /** The yeshiva calendar in English rather than Hebrew. */
+    val luachEnglish: Boolean = false,
+    /** The yeshiva calendar as the year's list rather than a month at a time. */
+    val luachList: Boolean = false,
     /** Where the shared copy lives. Blank means this device keeps to itself, as it always did. */
     val syncUrl: String = "",
     val syncToken: String = ""
@@ -257,6 +261,8 @@ class NightStore(home: File, private val builtInSync: Boolean = false) {
                         bunkLabels = it.optBoolean("bunkLabels", false),
                         hebrewOnPlan = it.optBoolean("hebrewOnPlan", false),
                         hebrewInExport = it.optBoolean("hebrewInExport", false),
+                        luachEnglish = it.optBoolean("luachEnglish", false),
+                        luachList = it.optBoolean("luachList", false),
                         syncUrl = it.optString("syncUrl", ""),
                         syncToken = it.optString("syncToken", "")
                     )
@@ -297,6 +303,8 @@ class NightStore(home: File, private val builtInSync: Boolean = false) {
             .put("bunkLabels", settings.bunkLabels)
             .put("hebrewOnPlan", settings.hebrewOnPlan)
             .put("hebrewInExport", settings.hebrewInExport)
+            .put("luachEnglish", settings.luachEnglish)
+            .put("luachList", settings.luachList)
             .put("syncUrl", settings.syncUrl)
             .put("syncToken", settings.syncToken))
         root.put("lastPull", lastPull)

@@ -135,6 +135,21 @@ object Dates {
     fun hebrewDayMonthOf(year: Int, month: Int, day: Int): String =
         "${gershayim(hebNum(day))} ${hebMonthName(month, year)}"
 
+    /** The Hebrew year, month (ICU numbering) and day of a Gregorian day, in daylight. */
+    data class HebDay(val year: Int, val month: Int, val day: Int)
+    fun hebrewOf(date: LocalDate): HebDay {
+        val cal = hebrewCalendarFor(date)
+        return HebDay(cal.get(HebrewCalendar.YEAR), cal.get(HebrewCalendar.MONTH), cal.get(HebrewCalendar.DATE))
+    }
+
+    /** How many days a Hebrew month has: 29 or 30. */
+    fun hebMonthLength(year: Int, month: Int): Int {
+        val cal = HebrewCalendar(UTC)
+        cal.clear()
+        cal.set(year, month, 1, 12, 0, 0)
+        return cal.getActualMaximum(HebrewCalendar.DATE)
+    }
+
     /** Just the day, as a Hebrew numeral: "כ״ח". */
     fun hebrewDayOf(day: Int): String = gershayim(hebNum(day))
 
