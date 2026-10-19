@@ -87,10 +87,10 @@ object Roster {
     // deep as its own beds need plus roughly a 16-unit walkway in from the door. That walkway is
     // all the empty floor there should ever be; a room does not get depth it has no use for.
     val PLAN: List<Room> = listOf(
-        // Room 2 turned round: a bunk across the top left, the other standing on the right wall
+        // both bunks across the right side, one against the top wall and one against the bottom
         Room("r1", "Room 1", "חדר א׳", 100f, 78f, Door(DoorWall.BOTTOM, 38f), listOf(
-            across(2f, 2f, "p2", "p1"),         // Lehr / Shlomo Altein
-            upright(66f, 2f, "p3", "p4"))),     // Piekarski / Pevzner
+            across(38f, 2f, "p3", "p4"),        // Piekarski / Pevzner - across the top right
+            across(38f, 44f, "p2", "p1"))),     // Lehr / Shlomo Altein - across the bottom right, by the door
         // bunk on the left wall, the other across the top right
         Room("r2", "Room 2", "חדר ב׳", 100f, 78f, Door(DoorWall.BOTTOM, 85f), listOf(
             upright(2f, 2f, "p8", "p5"),        // Levin / Holtzberg

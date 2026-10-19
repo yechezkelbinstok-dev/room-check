@@ -205,6 +205,61 @@ h2{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
 .chip{background:var(--red-l);color:var(--red);font-size:13px;font-weight:600;
   border-radius:9px;padding:7px 10px}
 .bar .fbtn.wide{flex:1}
+/* yeshiva calendar: blue seder, amber off, green away */
+.lu{--amber:#9A5B08;--amber-l:#FBF1DF}
+.lu .k-zman{--k:var(--blue);--kl:var(--blue-l)}
+.lu .k-off{--k:var(--amber);--kl:var(--amber-l)}
+.lu .k-trip{--k:var(--green);--kl:var(--green-l)}
+.lu-now{background:var(--card);border-radius:16px;padding:14px 16px 8px;margin-bottom:14px}
+.lu-today{display:flex;justify-content:space-between;font-size:12.5px;color:var(--sub2)}
+.lu-today b{color:var(--blue)}
+.lu-today .g{color:var(--sub)}
+.lu-now .big{font-size:27px;font-weight:700;margin-top:6px}
+.lu-now .big.k-off,.lu-now .big.k-trip{color:var(--k)}
+.lu-now .sub{font-size:13px;color:var(--sub2);margin-bottom:12px}
+.lu-bar{position:relative;height:10px;border-radius:5px;background:var(--grey-l);overflow:hidden;margin-bottom:4px}
+.lu-bar i{position:absolute;top:0;bottom:0;right:0;background:var(--blue)}
+.lu-bar i.k-off,.lu-bar i.k-trip{background:var(--k)}
+.lu-bar i.k-bein{background:var(--sub)}
+.lu-bar s{position:absolute;top:0;bottom:0;background:var(--kl)}
+.lu-bar s.gone{background:var(--k);opacity:.55}
+.lu-nx{border-top:.5px solid var(--sep);margin-top:12px}
+.lu-nx .lbl{font-size:11.5px;font-weight:700;color:var(--sub);padding-top:10px}
+.lu-nx .lu-row{padding-left:0;padding-right:0}
+.lu-z{background:var(--card);border-radius:16px;overflow:hidden}
+.lu-z.cur{box-shadow:0 0 0 1.5px var(--blue) inset}
+.lu-z .hd2{display:flex;align-items:center;gap:10px;padding:14px 16px 12px 14px}
+.lu-z .ttl{flex:1;min-width:0}
+.lu-z.off .ttl{opacity:.5}
+.lu-z .nm{font-size:19px;font-weight:700;display:flex;align-items:center}
+.lu-z .hr{font-size:13px;color:var(--sub2);margin-top:2px}
+.lu-z .gr{font-size:12px;color:var(--sub)}
+.lu-z .rows{border-top:.5px solid var(--sep);padding:4px 0 6px}
+.lu-z .offt{font-size:12.5px;color:var(--sub);padding:0 16px 14px}
+.lu-pill{font-size:11px;font-weight:700;color:var(--sub2);background:var(--grey-l);border-radius:8px;padding:2px 8px;margin-right:8px}
+.lu-pill.now{color:#fff;background:var(--blue)}
+.lu-row{display:flex;align-items:center;gap:12px;padding:8px 16px}
+.lu-row.past{opacity:.42}
+.lu-tile{flex:none;width:46px;height:50px;border-radius:11px;background:var(--kl);color:var(--k);display:grid;place-content:center;text-align:center}
+.lu-tile b{font-size:18px;line-height:20px}
+.lu-tile i{font-style:normal;font-size:10.5px;line-height:12px}
+.lu-gap .lu-tile{background:rgba(255,255,255,.75)}
+.lu-tx{flex:1;min-width:0}
+.lu-tx .t{font-size:15.5px;font-weight:600}
+.lu-tx .n{font-size:12.5px;color:var(--sub2)}
+.lu-tx .w{font-size:12.5px;color:var(--sub)}
+.lu-cd{flex:none;font-size:12px;color:var(--sub)}
+.lu-cd.next{font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-l);border-radius:8px;padding:2px 8px}
+.lu-gap{margin:4px 8px;border-radius:13px;background:var(--kl)}
+.lu-gap .lu-row{padding:8px}
+.lu-gap .len{font-size:11.5px;font-weight:700;color:var(--k);padding-right:66px;margin-bottom:2px}
+.lu-bein{display:flex;align-items:center;gap:12px;padding:14px 0;text-align:center}
+.lu-bein s{flex:1;height:1px;background:var(--sep)}
+.lu-bein .t{font-size:14px;font-weight:700;color:var(--sub2);display:flex;align-items:center;justify-content:center}
+.lu-bein .c{font-size:11.5px;color:var(--sub)}
+.lu-bein.now s{background:var(--blue)}
+.lu-bein.now .t{color:var(--blue)}
+.lu-foot{text-align:center;font-size:12px;color:var(--sub);padding:18px 0 30px}
 .sw{flex:none;width:44px;height:26px;border-radius:13px;background:#D7D8DE;position:relative;transition:background .15s}
 .sw i{position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;
   box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
@@ -377,7 +432,7 @@ const bedH=(x,y,slots)=>({x,y,w:BED_LONG,h:BED_SHORT,slots});   /* against the t
 const BOTTOM_FLOOR=["r1","r2","r3"];
 const PLAN=[
  {id:"r1",label:"Room 1",heb:"חדר א׳",w:100,h:78,door:{wall:"bottom",pos:38},beds:[
-   bedH(2,2,["p2","p1"]), bedV(66,2,["p3","p4"])]},
+   bedH(38,2,["p3","p4"]), bedH(38,44,["p2","p1"])]},
  {id:"r2",label:"Room 2",heb:"חדר ב׳",w:100,h:78,door:{wall:"bottom",pos:85},beds:[
    bedV(2,2,["p8","p5"]), bedH(38,2,["p7","p6"])]},
  {id:"r3",label:"Room 3",heb:"חדר ג׳",w:100,h:118,door:{wall:"bottom",pos:70},beds:[
@@ -525,7 +580,7 @@ const keyOf=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
 const parseKey=k=>{const p=k.split("-");return new Date(+p[0],+p[1]-1,+p[2]);};
 const keyFromAbs=a=>{const g=absToG(a);return g.y+"-"+pad(g.m)+"-"+pad(g.d);};
 const absOfKey=k=>{const p=k.split("-");return gAbs(+p[0],+p[1],+p[2]);};
-function tonightKey(){const n=new Date();if(n.getHours()<6)n.setDate(n.getDate()-1);return keyOf(n);}
+function tonightKey(at){const n=at?new Date(at):new Date();if(n.getHours()<6)n.setDate(n.getDate()-1);return keyOf(n);}
 const longDate=k=>parseKey(k).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"});
 const shiftDate=(k,n)=>keyFromAbs(absOfKey(k)+n);
 
@@ -617,7 +672,9 @@ function peopleNight(extra,stamp){
 function extraFrom(n){
   const out={};
   for(const [k,v] of Object.entries((n&&n.notes)||{})){
-    const i=k.indexOf("."); if(i<1)continue;
+    const i=k.indexOf(".");
+    /* the record also carries what belongs to the yeshiva as a whole, under "yeshiva." */
+    if(i<1||!P[k.slice(0,i)])continue;
     const pid=k.slice(0,i), f=k.slice(i+1), po=out[pid]||(out[pid]={});
     if(f==="always"||f==="away")po[f]=v==="1"; else if(PFIELDS.includes(f))po[f]=v;
   }
@@ -1051,6 +1108,157 @@ function checkScreen(){
       (state.editing?`<div class="lock" style="margin-bottom:0"><span>Editing a closed night</span><button data-a="done">Done</button></div>`:``)+marksHTML())+
     `<div class="bar"><div class="st" id="stat"></div>${showingReview()?``:`<button class="fbtn" data-a="closenight">Save</button>`}<button class="cp" data-a="copy">Copy</button></div>`;
 }
+/* ---------- yeshiva calendar ----------
+   The yeshiva's luach for the year - לוח שנת הלימודים תשפ״ו-תשפ״ז - line for line, with the changes
+   made since written in. Each line is a Hebrew date as printed (year, month with Nisan 1 to Adar II
+   13, day) and its time: the Gregorian date and the weekday are worked out from it, never typed in
+   beside it, so the two cannot disagree. The same lines as the app's Luach.kt.
+   Kinds: start/end of a zman, off/back for a break, trip/home for travelling together, and event
+   for something that happens with the zman carrying on. */
+const LUACH_YEAR="תשפ״ו–תשפ״ז";
+const LUACH=[
+ {id:"elul",name:"זמן אלול",days:[
+   {h:[5786,6,10],t:"17:30",title:"התחלת הזמן",k:"start"},
+   {h:[5786,6,28],title:"נסיעה להרבי",note:"המשך הסדר אחר ר״ה אצל הרבי",k:"event"},
+   {h:[5787,7,6],t:"14:00",title:"סיום הזמן",k:"end"}]},
+ {id:"winter",name:"זמן חורף",days:[
+   {h:[5787,7,27],t:"17:30",title:"התחלת הזמן",k:"start"},
+   /* the luach printed Monday כ״ז כסלו to Monday ד׳ טבת; it has since moved to Tuesday to Tuesday */
+   {h:[5787,9,28],t:"14:00",title:"הפסקה",note:"חנוכה",k:"off"},
+   {h:[5787,10,5],t:"17:30",title:"המשך הזמן",k:"back"},
+   {h:[5787,12,4],t:"11:00",title:"התחלת שבת חופשה",stretch:"שבת חופשה",k:"off"},
+   {h:[5787,12,8],t:"20:30",title:"המשך הזמן",k:"back"},
+   {h:[5787,1,5],t:"14:00",title:"סיום הזמן",k:"end"}]},
+ /* may not happen, so it can be switched off - see summerOn */
+ {id:"summer",name:"זמן קיץ",optional:true,days:[
+   {h:[5787,1,28],t:"17:30",title:"התחלת הזמן",k:"start"},
+   {h:[5787,4,2],title:"נסיעה לבית חיינו",note:"הישיבה יארגן אוטובוס",k:"trip"},
+   {h:[5787,4,7],title:"חזרה לישיבה",k:"home"},
+   {h:[5787,5,15],t:"14:00",title:"סיום הזמן",k:"end"}]}];
+LUACH.forEach(z=>z.days.forEach(d=>{
+  const g=absToG(hToAbs(d.h[0],d.h[1],d.h[2]));
+  d.date=new Date(g.y,g.m-1,g.d);
+  const [hh,mm]=(d.t||"00:00").split(":").map(Number);
+  d.at=new Date(g.y,g.m-1,g.d,hh,mm);    /* a line with no time counts from the start of its day */
+  d.heb=ger(hNum(d.h[2]))+" "+hMName(d.h[1],d.h[0]);
+}));
+const luGaps=z=>{const o=[];for(let i=0;i+1<z.days.length;i++){const a=z.days[i],b=z.days[i+1];
+  if((a.k==="off"&&b.k==="back")||(a.k==="trip"&&b.k==="home"))o.push({from:a,to:b,trip:a.k==="trip",name:a.stretch||a.title});}return o;};
+/* Whether the year has a summer zman. It belongs to the whole yeshiva, so it rides in the shared
+   record with everyone's settings and reads the same on every device. */
+const NO_SUMMER="yeshiva.noSummer";
+const summerOn=()=>!(people&&people.notes&&people.notes[NO_SUMMER]==="1");
+const luYear=summer=>LUACH.filter(z=>summer||!z.optional);
+function luNow(at,summer){
+  const y=luYear(summer);
+  for(let i=0;i<y.length;i++){const z=y[i];
+    if(at<z.days[0].at)return {type:"between",after:y[i-1]||null,before:z};
+    if(at<z.days[z.days.length-1].at){
+      const g=luGaps(z).find(g=>at>=g.from.at&&at<g.to.at);
+      if(g)return {type:"gap",z,gap:g};
+      return {type:"zman",z,next:z.days.find(d=>d.at>at)||null};
+    }
+  }
+  return {type:"between",after:y[y.length-1]||null,before:null};
+}
+const luProgress=(a,b,at)=>{const t=b-a;return t<=0?1:Math.max(0,Math.min(1,(at-a)/t));};
+const luDays=(a,b)=>Math.round((new Date(b.getFullYear(),b.getMonth(),b.getDate())-new Date(a.getFullYear(),a.getMonth(),a.getDate()))/864e5);
+function luLength(n){
+  if(n===1)return "1 day";
+  if(n%7===0)return n===7?"1 week":(n/7)+" weeks";
+  return n<35?n+" days":Math.round(n/7)+" weeks";
+}
+const luCountdown=(d,today)=>{const n=luDays(today,d);return n===0?"today":n===1?"tomorrow":n<0?null:"in "+n+" days";};
+const LU_DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], LU_MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const luDate=(d,yr)=>LU_DOW[d.getDay()]+", "+LU_MON[d.getMonth()]+" "+d.getDate()+(yr?", "+d.getFullYear():"");
+const luTime=t=>{const [h,m]=t.split(":").map(Number);return (h%12===0?12:h%12)+":"+String(m).padStart(2,"0")+" "+(h<12?"am":"pm");};
+const luWhen=d=>luDate(d.date)+(d.t?" · "+luTime(d.t):"");
+function luRange(a,b){const md=d=>LU_MON[d.getMonth()]+" "+d.getDate();
+  return a.getFullYear()===b.getFullYear()?md(a)+" – "+md(b)+", "+b.getFullYear():md(a)+", "+a.getFullYear()+" – "+md(b)+", "+b.getFullYear();}
+/* English kept left to right inside the right-to-left calendar: "3 weeks" would otherwise read "weeks 3" */
+const en=t=>`<bdi dir="ltr">${esc(t)}</bdi>`;
+const luKind=k=>k==="off"?"k-off":(k==="trip"||k==="home"||k==="event")?"k-trip":"k-zman";
+
+function luRow(d,today,isNext){
+  const cd=luCountdown(d.date,today);
+  return `<div class="lu-row${d.date<today?" past":""}">
+    <div class="lu-tile ${luKind(d.k)}"><b>${ger(hNum(d.h[2]))}</b><i>${esc(hMName(d.h[1],d.h[0]))}</i></div>
+    <div class="lu-tx"><div class="t">${esc(d.title)}</div>${d.note?`<div class="n">${esc(d.note)}</div>`:``}<div class="w">${en(luWhen(d))}</div></div>
+    ${cd?`<div class="lu-cd${isNext?" next":""}">${en(cd)}</div>`:``}
+  </div>`;
+}
+function luBar(z,now){
+  const f=t=>luProgress(z.days[0].at,z.days[z.days.length-1].at,t), done=f(now);
+  return `<div class="lu-bar"><i style="width:${(done*100).toFixed(2)}%"></i>${luGaps(z).map(g=>{const a=f(g.from.at),b=f(g.to.at);
+    return `<s class="${luKind(g.from.k)}${b<=done?" gone":""}" style="right:${(a*100).toFixed(2)}%;width:${((b-a)*100).toFixed(2)}%"></s>`;}).join("")}</div>`;
+}
+function luNext(d,today,label){
+  return `<div class="lu-nx"><div class="lbl">${esc(label)}</div>${luRow(d,today,true)}</div>`;
+}
+function luNowCard(st,now,summer){
+  const today=new Date(now.getFullYear(),now.getMonth(),now.getDate()), night=tonightKey(now);
+  let body="";
+  if(st.type==="zman"){const z=st.z, s=z.days[0].date, e=z.days[z.days.length-1].date;
+    body=`<div class="big">${esc(z.name)}</div>
+      <div class="sub">${en("Day "+(luDays(s,today)+1)+" of "+(luDays(s,e)+1)+" · ends "+luDate(e))}</div>
+      ${luBar(z,now)}${st.next?luNext(st.next,today,"הבא"):``}`;
+  }else if(st.type==="gap"){const g=st.gap;
+    body=`<div class="big ${luKind(g.from.k)}">${esc(g.name)}</div>
+      <div class="sub">${en((g.trip?"Away · back ":"Off · seder again ")+luWhen(g.to))}</div>
+      <div class="lu-bar"><i class="${luKind(g.from.k)}" style="width:${(luProgress(g.from.at,g.to.at,now)*100).toFixed(2)}%"></i></div>
+      ${luNext(g.to,today,"הבא")}`;
+  }else{
+    body=`<div class="big">בין הזמנים</div>`;
+    if(st.before){const n=luDays(today,st.before.days[0].date);
+      body+=`<div class="sub">${en(n<=0?"The zman starts today":"The zman starts in "+n+" day"+(n===1?"":"s"))}</div>
+        ${st.after?`<div class="lu-bar"><i class="k-bein" style="width:${(luProgress(st.after.days[st.after.days.length-1].at,st.before.days[0].at,now)*100).toFixed(2)}%"></i></div>`:``}
+        ${luNext(st.before.days[0],today,st.before.name)}`;
+    }else body+=`<div class="sub">${en(!summer&&st.after&&st.after.id==="winter"?"No summer zman this year":"The year's zmanim are over")}</div>`;
+  }
+  return `<div class="lu-now"><div class="lu-today"><span><b>היום</b> · ${esc(hebDayMonth(night))}</span><span class="g">${en(luDate(parseKey(night)))}</span></div>${body}</div>`;
+}
+function luZman(z,today,isCur,next,summer){
+  const off=z.optional&&!summer, s=z.days[0], e=z.days[z.days.length-1];
+  let rows="";
+  if(!off){const gaps=luGaps(z);
+    for(let i=0;i<z.days.length;i++){const d=z.days[i], g=gaps.find(g=>g.from===d);
+      if(g){rows+=`<div class="lu-gap ${luKind(g.from.k)}">${luRow(g.from,today,g.from===next)}
+          <div class="len">${en(luLength(luDays(g.from.date,g.to.date)))}</div>${luRow(g.to,today,g.to===next)}</div>`;i++;}
+      else rows+=luRow(d,today,d===next);
+    }}
+  return `<div class="lu-z${isCur?" cur":""}${off?" off":""}">
+    <div class="hd2"><div class="ttl"><div class="nm">${esc(z.name)}${isCur?`<span class="lu-pill now">עכשיו</span>`:off?``:`<span class="lu-pill">${en(luLength(luDays(s.date,e.date)))}</span>`}</div>
+      <div class="hr">${esc(s.heb)} – ${esc(e.heb)}</div><div class="gr">${en(luRange(s.date,e.date))}</div></div>
+      ${z.optional?`<button class="sw${summer?" on":""}" data-a="summer" aria-label="Summer zman"><i></i></button>`:``}</div>
+    ${off?`<div class="offt">${en("Switched off - no summer zman this year.")}</div>`:`<div class="rows">${rows}</div>`}
+  </div>`;
+}
+function luBein(end,nextStart,isNow){
+  return `<div class="lu-bein${isNow?" now":""}"><s></s><div><div class="t">בין הזמנים${isNow?`<span class="lu-pill now">עכשיו</span>`:``}</div>
+    <div class="c">${en(nextStart?luLength(luDays(end.date,nextStart.date))+" · "+luRange(end.date,nextStart.date).replace(/, \d{4}$/,""):"from "+luDate(end.date,true))}</div></div><s></s></div>`;
+}
+/* The year as the luach has it: where things stand, then each zman with its breaks and trips and
+   the bein hazmanim between them. Right to left like the luach, English day and time under each line. */
+function luachScreen(now){
+  now=now||new Date();
+  const summer=summerOn(), st=luNow(now,summer), today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const cur=st.type==="between"?null:st.z;
+  const next=st.type==="zman"?st.next:st.type==="gap"?st.gap.to:(st.before?st.before.days[0]:null);
+  let list="";
+  LUACH.forEach((z,i)=>{
+    list+=luZman(z,today,cur===z,next,summer);
+    if(!z.optional||summer){
+      const following=LUACH.slice(i+1).find(x=>!x.optional||summer);
+      list+=luBein(z.days[z.days.length-1],following?following.days[0]:null,st.type==="between"&&st.after===z);
+    }
+  });
+  return `<div class="hd"><div class="h1"><div><div class="htitle">Yeshiva calendar</div>
+      <div class="hsub"><bdi>שנת הלימודים ${esc(LUACH_YEAR)}</bdi></div></div>
+      <button class="pill" data-a="tab" data-t="check">Done</button></div></div>
+    <div class="pan lu" dir="rtl">${luNowCard(st,now,summer)}${list}
+      <div class="lu-foot">ישיבה גדולה ליובאוויטש סינסינאטי</div></div>`;
+}
+
 function peopleScreen(){
   const exc=allP().filter(({pid})=>isAlways(pid));
   return `<div class="hd"><div class="h1"><div><div class="htitle">Names</div>
@@ -1293,7 +1501,7 @@ function render(){
   const y=window.scrollY;
   document.getElementById("app").innerHTML=
     state.tab==="names"?peopleScreen():state.tab==="settings"?settingsScreen():
-    state.tab==="times"?timesScreen():state.tab==="missing"?missingScreen():checkScreen();
+    state.tab==="times"?timesScreen():state.tab==="missing"?missingScreen():state.tab==="luach"?luachScreen():checkScreen();
   if(state.tab==="check"&&!showingReview()){sync();if(state.mode==="one")bindSwipe();}
   window.scrollTo(0,y);
 }
@@ -1331,6 +1539,9 @@ document.addEventListener("click",async e=>{
   const a=t.dataset.a;
 
   if(a==="tab"){closePop();state.tab=t.dataset.t;render();window.scrollTo(0,0);return;}
+  if(a==="summer"){const on=!summerOn();
+    await setPerson("yeshiva",{noSummer:on?null:"1"});
+    render();toast(on?"Summer zman on":"Summer zman off");return;}
   if(a==="time"){state.cur=t.dataset.s;
     document.querySelectorAll(".seg3 button").forEach(b=>b.classList.toggle("on",b.dataset.s===state.cur));
     sync(); return;}
@@ -1374,6 +1585,7 @@ document.addEventListener("click",async e=>{
       ${showingReview()?``:`<button class="li" data-a="missing"><span class="a lnk">Who's missing</span></button>`}
       <button class="li" data-a="tab" data-t="times"><span class="a lnk">Night settings</span>
         <span class="z">${esc(allSlots().map(x=>x.label).join(" · "))}</span></button>
+      <button class="li" data-a="tab" data-t="luach"><span class="a lnk">Yeshiva calendar</span></button>
       <button class="li" data-a="tab" data-t="settings"><span class="a lnk">Settings</span></button>
       </div><button class="cancel" data-a="close">Cancel</button>`);
     return;
@@ -1528,7 +1740,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.11.2";
+const APP_VERSION="1.12.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

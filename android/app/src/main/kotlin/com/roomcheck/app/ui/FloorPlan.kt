@@ -10,8 +10,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -253,7 +259,8 @@ fun PersonSlot(
     Column(
         modifier.fillMaxSize().background(bgColor)
             .then(if (highlighted) Modifier.border(2.5.dp, RC.blue, RoundedCornerShape(4.dp)) else Modifier)
-            .padding(6.dp, 5.dp),
+            // a narrow bed spends little on side margin, so a long surname keeps its size
+            .padding(horizontal = if (row) 6.dp else 3.dp, vertical = 5.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -267,10 +274,7 @@ fun PersonSlot(
                         modifier = Modifier.padding(end = 6.dp)
                     )
                 }
-                Column(Modifier.weight(1f).clickable(onClick = onNameClick)) {
-                    Text(last, fontSize = 13.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, color = nameColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(first, fontSize = 9.sp, lineHeight = 11.sp, color = RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+                SlotName(last, first, nameColor, firstSize = 9f, center = false, onClick = onNameClick, modifier = Modifier.weight(1f))
                 SlotMarks(status, compact = true, onMark)
             }
         } else {
@@ -289,18 +293,58 @@ fun PersonSlot(
                     modifier = Modifier.align(Alignment.Start)
                 )
             }
-            Box(
-                Modifier.weight(1f, fill = false).fillMaxWidth().clickable(onClick = onNameClick),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    // a long surname in a narrow bed (Heidingsfeld, Levitansky) may take two lines
-                    Text(last, fontSize = 13.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, color = nameColor, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(first, fontSize = 9.5.sp, lineHeight = 12.sp, color = RC.sub, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
+            SlotName(
+                last, first, nameColor, firstSize = 9.5f, center = true, onClick = onNameClick,
+                modifier = Modifier.weight(1f, fill = false).fillMaxWidth()
+            )
             Spacer(Modifier.height(4.dp))
             SlotMarks(status, compact = false, onMark)
+        }
+    }
+}
+
+/**
+ * A bed's name, made to fit the room the bed actually has instead of spilling out of it.
+ *
+ * The surname is always one line. A long one in a narrow bed - היידינגספעלד, Levitansky - shrinks
+ * until it fits across rather than breaking onto a second line. The first name goes under it only
+ * when there is height for both: in half a bunk squeezed by a deep room, or on a phone set to large
+ * text, the surname alone reads better than a first name half hidden behind the buttons.
+ */
+@Composable
+private fun SlotName(
+    last: String, first: String, color: Color, firstSize: Float, center: Boolean,
+    onClick: () -> Unit, modifier: Modifier = Modifier
+) {
+    BoxWithConstraints(
+        modifier.clickable(onClick = onClick),
+        contentAlignment = if (center) Alignment.Center else Alignment.CenterStart
+    ) {
+        val measurer = rememberTextMeasurer()
+        val base = LocalTextStyle.current
+        val density = LocalDensity.current
+        val maxW = constraints.maxWidth
+        val maxH = constraints.maxHeight
+        val firstStyle = base.merge(TextStyle(fontSize = firstSize.sp, lineHeight = (firstSize * 1.25f).sp))
+        val fit = remember(last, first, maxW, maxH, density, base) {
+            fun lastStyle(size: Float) =
+                base.merge(TextStyle(fontSize = size.sp, lineHeight = (size * 1.15f).sp, fontWeight = FontWeight.Bold))
+            fun measure(text: String, style: TextStyle) =
+                measurer.measure(text, style, maxLines = 1, softWrap = false).size
+            var size = 13f
+            var last1 = measure(last, lastStyle(size))
+            while (size > 7f && (last1.width > maxW || last1.height > maxH)) {
+                size -= 0.5f
+                last1 = measure(last, lastStyle(size))
+            }
+            val firstH = measure(first, firstStyle).height
+            lastStyle(size) to (maxH == Constraints.Infinity || last1.height + firstH <= maxH)
+        }
+        val (lastStyle, showFirst) = fit
+        val align = if (center) TextAlign.Center else TextAlign.Start
+        Column(horizontalAlignment = if (center) Alignment.CenterHorizontally else Alignment.Start) {
+            Text(last, style = lastStyle, color = color, textAlign = align, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+            if (showFirst) Text(first, style = firstStyle, color = RC.sub, textAlign = align, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

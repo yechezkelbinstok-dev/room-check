@@ -111,6 +111,10 @@ private fun TopBar(vm: AppViewModel, state: UiState, locked: Boolean, onCalendar
                         onClick = { menu = false; vm.setTab(Tab.TIMES) }
                     )
                     DropdownMenuItem(
+                        text = { Text("Yeshiva calendar") },
+                        onClick = { menu = false; vm.setTab(Tab.LUACH) }
+                    )
+                    DropdownMenuItem(
                         text = { Text("Settings") },
                         onClick = { menu = false; vm.setTab(Tab.SETTINGS) }
                     )

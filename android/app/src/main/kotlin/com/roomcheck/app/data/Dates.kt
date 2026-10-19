@@ -119,6 +119,25 @@ object Dates {
             hebMonthName(cal.get(HebrewCalendar.MONTH), cal.get(HebrewCalendar.YEAR))
     }
 
+    /** The Gregorian day a Hebrew date falls on in daylight - ICU month numbering, Tishrei = 0. */
+    fun gregorianOf(year: Int, month: Int, day: Int): LocalDate {
+        val heb = HebrewCalendar(UTC)
+        heb.clear()
+        heb.set(year, month, day, 12, 0, 0)
+        val greg = GregorianCalendar(UTC)
+        greg.timeInMillis = heb.timeInMillis
+        return LocalDate.of(
+            greg.get(GregorianCalendar.YEAR), greg.get(GregorianCalendar.MONTH) + 1, greg.get(GregorianCalendar.DAY_OF_MONTH)
+        )
+    }
+
+    /** "כ״ח כסלו" for a Hebrew date given directly. */
+    fun hebrewDayMonthOf(year: Int, month: Int, day: Int): String =
+        "${gershayim(hebNum(day))} ${hebMonthName(month, year)}"
+
+    /** Just the day, as a Hebrew numeral: "כ״ח". */
+    fun hebrewDayOf(day: Int): String = gershayim(hebNum(day))
+
     data class HebMonth(val year: Int, val month: Int)
 
     /** The Hebrew year/month containing the night that starts on this Gregorian date. */

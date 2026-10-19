@@ -9,13 +9,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.time.LocalDateTime
 
 enum class RoomMode { ONE, SCROLL }
-enum class Tab { CHECK, NAMES, SETTINGS, TIMES, QUICK }
+enum class Tab { CHECK, NAMES, SETTINGS, TIMES, QUICK, LUACH }
 
 data class UiState(
     val dateKey: String,
     val night: Night,
     val extra: Map<String, PersonOverride>,
     val settings: Settings,
+    /** Whether the year has a summer zman - one switch for the whole yeshiva, synced like a mark. */
+    val summerZman: Boolean = true,
     val curSlot: String,
     val room: Int = 0,
     val mode: RoomMode = RoomMode.ONE,
@@ -50,6 +52,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
             night = initialNight,
             extra = store.extra,
             settings = store.settings,
+            summerZman = store.summerZman,
             curSlot = defaultSlot(initialNight)
         )
     )
@@ -384,6 +387,13 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
 
     fun backInTown(pid: String) = setPerson(pid, "away" to null)
 
+    /** Turns the year's summer zman on or off, for every device. */
+    fun setSummerZman(on: Boolean) {
+        store.setPerson("yeshiva", "noSummer", if (on) null else "1")
+        update { it.copy(summerZman = store.summerZman) }
+        schedulePush()
+    }
+
     fun unexcuse(pid: String) = setPerson(pid, "always" to null)
 
     fun setNote(pid: String, note: String) {
@@ -420,6 +430,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
                         sync = SyncState.Ok(System.currentTimeMillis(), changed),
                         // someone switched to not in town on another device shows here too
                         extra = store.extra.toMap(),
+                        summerZman = store.summerZman,
                         // a night that changed under us has to be re-read, or the screen keeps
                         // showing what it had before the other device's marks arrived
                         night = if (changed > 0) store.load(s.dateKey) else s.night
@@ -436,7 +447,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
     fun exportBackup(): String = store.exportBackup()
     fun importBackup(text: String): Boolean {
         val ok = store.importBackup(text)
-        if (ok) update { s -> s.copy(extra = store.extra.toMap(), night = loadAndMaybeClose(s.dateKey)) }
+        if (ok) update { s -> s.copy(extra = store.extra.toMap(), summerZman = store.summerZman, night = loadAndMaybeClose(s.dateKey)) }
         return ok
     }
 

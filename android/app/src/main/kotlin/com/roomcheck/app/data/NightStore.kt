@@ -148,6 +148,14 @@ class NightStore(home: File, private val builtInSync: Boolean = false) {
     var extra: MutableMap<String, PersonOverride> = mutableMapOf()
         private set
 
+    /**
+     * Whether the year has a summer zman. It might not happen, so it can be switched off - and it
+     * belongs to the whole yeshiva, so it rides in the shared record with everyone's settings and
+     * reads the same on every device.
+     */
+    var summerZman: Boolean = true
+        private set
+
     var settings: Settings = Settings()
 
     /** How far through the server's changes this device has read. */
@@ -182,6 +190,9 @@ class NightStore(home: File, private val builtInSync: Boolean = false) {
     companion object {
         const val PEOPLE_KEY = "0000-00-00"
 
+        /** Set to "1" in the shared record when the summer zman is switched off; absent, it is on. */
+        const val NO_SUMMER = "yeshiva.noSummer"
+
         /** This yeshiva's sync server - the same one written down in server/README.md. */
         const val SYNC_URL = "https://room-check-sync.yechezkelbinstok.workers.dev"
         const val SYNC_TOKEN = "6iciRn6C1NAU8xOGfHS99ZrCO2wtqjyfNQ-_Lr-jJDg"
@@ -203,7 +214,8 @@ class NightStore(home: File, private val builtInSync: Boolean = false) {
             val out = mutableMapOf<String, PersonOverride>()
             people.notes.forEach { (key, v) ->
                 val pid = key.substringBefore('.', "")
-                if (pid.isEmpty()) return@forEach
+                // the record also carries what belongs to the yeshiva as a whole, under "yeshiva."
+                if (pid.isEmpty() || Roster.byId[pid] == null) return@forEach
                 val po = out.getOrPut(pid) { PersonOverride() }
                 when (key.substringAfter('.')) {
                     "first" -> po.first = v
@@ -229,7 +241,9 @@ class NightStore(home: File, private val builtInSync: Boolean = false) {
 
     /** [extra] is only ever a reading of the shared people record, so it follows what arrives. */
     fun rebuildExtra() {
-        extra = extraFrom(load(PEOPLE_KEY))
+        val people = load(PEOPLE_KEY)
+        extra = extraFrom(people)
+        summerZman = people.notes[NO_SUMMER] != "1"
         saveState()
     }
 
@@ -332,7 +346,9 @@ class NightStore(home: File, private val builtInSync: Boolean = false) {
         }
         root.put("extra", extraObj)
         val nights = JSONObject()
-        allDateKeys().forEach { key -> nights.put("dn:$key", load(key).toJson().toString()) }
+        // the shared record goes too, so a restore brings back the summer zman switch with the nights
+        (allDateKeys() + listOfNotNull(PEOPLE_KEY.takeIf { hasData(it) }))
+            .forEach { key -> nights.put("dn:$key", load(key).toJson().toString()) }
         root.put("nights", nights)
         return root.toString(1)
     }
