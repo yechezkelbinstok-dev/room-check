@@ -20,8 +20,11 @@ enum class LuachKind {
     EVENT
 }
 
-/** What a whole day is, for colouring it on the month: seder, a break, a trip, or bein hazmanim. */
-enum class DayKind { ZMAN, OFF, TRIP, BEIN }
+/**
+ * What a whole day is, for colouring it on the month: seder, a break, a trip, bein hazmanim - or
+ * [NONE], before the year starts or after it ends, when there is nothing to say about it.
+ */
+enum class DayKind { ZMAN, OFF, TRIP, BEIN, NONE }
 
 /**
  * One line of the luach, as printed: a Hebrew date (ICU month numbering, Tishrei = 0) and its time
@@ -59,8 +62,13 @@ data class LuachGap(val from: LuachDay, val to: LuachDay) {
         if (en) from.stretchEn ?: from.titleEn else from.stretch ?: from.title
 }
 
+/**
+ * A zman and its lines. An [optional] zman's stretch after its trip may not happen; [cut] is the zman
+ * with that stretch switched off, ending with the trip.
+ */
 data class Zman(
-    val id: String, val name: String, val nameEn: String, val days: List<LuachDay>, val optional: Boolean = false
+    val id: String, val name: String, val nameEn: String, val days: List<LuachDay>, val optional: Boolean = false,
+    val cut: Boolean = false
 ) {
     val start: LuachDay get() = days.first()
     val end: LuachDay get() = days.last()
@@ -159,7 +167,7 @@ object Luach {
             LuachDay(5787, 5, 8, LuachKind.BACK, "המשך הזמן", "Zman resumes", t(20, 30)),
             LuachDay(5787, 7, 5, LuachKind.END, "סיום הזמן", "Zman ends", t(14, 0))
         )),
-        // may not happen, so it can be switched off - see NightStore.summerZman
+        // what comes after the trip may not happen, so it can be switched off - see NightStore.summerZman
         Zman("summer", "זמן קיץ", "Summer zman", optional = true, days = listOf(
             LuachDay(5787, 7, 28, LuachKind.START, "התחלת הזמן", "Zman begins", t(17, 30)),
             LuachDay(
@@ -171,8 +179,15 @@ object Luach {
         ))
     )
 
-    /** The zmanim the year actually has: the summer zman only while it is switched on. */
-    fun zmanim(summer: Boolean): List<Zman> = ZMANIM.filter { summer || !it.optional }
+    /** The zmanim the year actually has: with the summer zman switched off, it ends with the trip. */
+    fun zmanim(summer: Boolean): List<Zman> = if (summer) ZMANIM else CUT
+
+    private val CUT = ZMANIM.map { z ->
+        if (!z.optional) z else z.copy(days = z.days.takeWhile { it.kind != LuachKind.HOME }, cut = true)
+    }
+
+    /** The year's last day: the summer zman's end, or the trip when it is switched off. */
+    fun lastDay(summer: Boolean): LocalDate = zmanim(summer).last().end.date
 
     fun now(at: LocalDateTime, summer: Boolean): LuachNow {
         val year = zmanim(summer)
@@ -191,7 +206,10 @@ object Luach {
      * of it, and it is the break that the day is remembered for.
      */
     fun dayKind(date: LocalDate, summer: Boolean): DayKind {
+        if (date < firstDay || date > lastDay(summer)) return DayKind.NONE
         val z = zmanOn(date, summer) ?: return DayKind.BEIN
+        // a zman cut short ends with its trip, and the trip's day is the trip
+        if (z.cut && date == z.end.date) return DayKind.TRIP
         val g = z.gaps.firstOrNull { date >= it.from.date && date <= it.to.date } ?: return DayKind.ZMAN
         return if (g.isTrip) DayKind.TRIP else DayKind.OFF
     }
@@ -208,12 +226,12 @@ object Luach {
         zmanOn(date, summer)?.gaps?.firstOrNull { date >= it.from.date && date <= it.to.date }
 
     private val firstDay = ZMANIM.first().start.date
-    private val lastDay = ZMANIM.last().end.date
+    private val yearEnd = ZMANIM.last().end.date
 
     /** The year a Hebrew month at a time, Elul to Av. */
     val hebrewMonths: List<LuachMonth> by lazy {
         val first = Dates.hebrewOf(firstDay)
-        val last = Dates.hebrewOf(lastDay)
+        val last = Dates.hebrewOf(yearEnd)
         val out = mutableListOf<LuachMonth>()
         var m = Dates.HebMonth(first.year, first.month)
         while (true) {
@@ -228,14 +246,19 @@ object Luach {
     val gregorianMonths: List<LuachMonth> by lazy {
         val out = mutableListOf<LuachMonth>()
         var ym = YearMonth.from(firstDay)
-        while (!ym.isAfter(YearMonth.from(lastDay))) {
+        while (!ym.isAfter(YearMonth.from(yearEnd))) {
             out += LuachMonth(null, ym, (1..ym.lengthOfMonth()).map { ym.atDay(it) })
             ym = ym.plusMonths(1)
         }
         out
     }
 
-    fun months(hebrewMonths: Boolean) = if (hebrewMonths) this.hebrewMonths else gregorianMonths
+    /** The months the year has: with the summer zman switched off, none after the trip's. */
+    fun months(hebrewMonths: Boolean, summer: Boolean = true): List<LuachMonth> {
+        val all = if (hebrewMonths) this.hebrewMonths else gregorianMonths
+        val last = lastDay(summer)
+        return all.filter { it.days.first() <= last }
+    }
 
     /**
      * Which month system the calendar goes by: as chosen, or - until it is - Hebrew months for the
@@ -248,8 +271,8 @@ object Luach {
     }
 
     /** Which month of the calendar holds this day, or the nearest end of the year when none does. */
-    fun monthIndexOf(date: LocalDate, hebrewMonths: Boolean): Int {
-        val ms = months(hebrewMonths)
+    fun monthIndexOf(date: LocalDate, hebrewMonths: Boolean, summer: Boolean = true): Int {
+        val ms = months(hebrewMonths, summer)
         val i = ms.indexOfFirst { date in it.days }
         return when {
             i >= 0 -> i

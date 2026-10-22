@@ -1759,7 +1759,7 @@ document.addEventListener("click",async e=>{
       ${showingReview()?``:`<button class="li" data-a="missing"><span class="a lnk">Who's missing</span></button>`}
       <button class="li" data-a="tab" data-t="times"><span class="a lnk">Night settings</span>
         <span class="z">${esc(allSlots().map(x=>x.label).join(" · "))}</span></button>
-      <button class="li" data-a="tab" data-t="luach"><span class="a lnk">Yeshiva calendar</span></button>
+      ${/* the yeshiva calendar is the app's for now; its screen is kept here for when the site has it again */""}
       <button class="li" data-a="tab" data-t="settings"><span class="a lnk">Settings</span></button>
       </div><button class="cancel" data-a="close">Cancel</button>`);
     return;

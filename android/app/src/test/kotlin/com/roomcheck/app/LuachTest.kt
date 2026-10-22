@@ -91,13 +91,24 @@ class LuachTest {
     }
 
     @Test
-    fun withTheSummerZmanOffPesachRunsToTheEndOfTheYear() {
-        val on = Luach.now(at("2027-04-20T12:00"), summer = true) as LuachNow.Between
-        assertEquals("summer", on.before?.id)
-        val off = Luach.now(at("2027-04-20T12:00"), summer = false) as LuachNow.Between
-        assertEquals("winter", off.after?.id)
-        assertNull(off.before)
-        assertEquals(listOf("elul", "winter"), Luach.zmanim(summer = false).map { it.id })
+    fun withTheSummerZmanOffTheYearEndsWithTheTrip() {
+        val trip = Luach.ZMANIM.last().days.first { it.kind == com.roomcheck.app.data.LuachKind.TRIP }
+        val cut = Luach.zmanim(summer = false).last()
+        assertTrue(cut.cut)
+        assertEquals(trip, cut.end)
+        assertEquals(trip.date, Luach.lastDay(summer = false))
+        // Pesach is still bein hazmanim before the summer zman
+        val pesach = Luach.now(at("2027-04-20T12:00"), summer = false) as LuachNow.Between
+        assertEquals("summer", pesach.before?.id)
+        // the trip's day is the trip, and after it there is nothing
+        assertEquals(DayKind.TRIP, Luach.dayKind(trip.date, false))
+        assertEquals(DayKind.NONE, Luach.dayKind(trip.date.plusDays(1), false))
+        val over = Luach.now(trip.date.plusDays(1).atTime(12, 0), summer = false) as LuachNow.Between
+        assertTrue(over.after!!.cut)
+        assertNull(over.before)
+        // no months after the trip's
+        assertEquals("תמוז תשפ״ז", Luach.months(hebrewMonths = true, summer = false).last().title(en = false))
+        assertEquals("July 2027", Luach.months(hebrewMonths = false, summer = false).last().title(en = true))
     }
 
     @Test
@@ -118,8 +129,9 @@ class LuachTest {
         assertEquals(DayKind.ZMAN, Luach.dayKind(LocalDate.of(2026, 12, 16), true))
         assertEquals(DayKind.BEIN, Luach.dayKind(LocalDate.of(2026, 9, 25), true))
         assertEquals(DayKind.TRIP, Luach.dayKind(LocalDate.of(2027, 7, 9), true))
-        // with the summer zman off, its days are bein hazmanim
-        assertEquals(DayKind.BEIN, Luach.dayKind(LocalDate.of(2027, 7, 9), false))
+        // before the year and after it, nothing
+        assertEquals(DayKind.NONE, Luach.dayKind(LocalDate.of(2026, 8, 1), true))
+        assertEquals(DayKind.NONE, Luach.dayKind(LocalDate.of(2027, 8, 19), true))
         assertEquals(listOf("הפסקה"), Luach.linesOn(LocalDate.of(2026, 12, 8), true).map { it.title })
     }
 

@@ -70,4 +70,12 @@ class LuachScreenTest {
 
     @Test
     fun summerZmanSwitchedOff() = shot("luach-no-summer", "2027-04-20T12:00", listParts, list = true, summer = false)
+
+    /** Tammuz with the stretch after the trip switched off: the month blank after it. */
+    @Test
+    fun tammuzSummerOff() = shot("luach-tammuz-no-summer", "2027-07-06T12:00", monthParts.take(2), summer = false)
+
+    /** Before the year starts: Elul's first days blank. */
+    @Test
+    fun beforeTheYear() = shot("luach-before", "2026-08-20T12:00", monthParts.take(2))
 }
