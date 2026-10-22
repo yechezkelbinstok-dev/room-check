@@ -935,13 +935,15 @@ function markMissing(missing,sid){
   });
   save();
 }
-/* Every bed in the room still on the walk set to one mark, or cleared with v null. With `only`,
-   that one person is in and the rest are out - the room where just one boy is in bed. */
-function setRoom(room,sid,v,only){
+/* Every bed in the room still on the walk set to one mark, or cleared with v null.
+   With `only`, that one person gets `onlyMark` and the rest of the room gets the other of in and
+   out - the room where just one boy is in bed, or the room where just one is not. */
+function setRoom(room,sid,v,only,onlyMark){
   snap(); const m=state.night.marks[sid]||(state.night.marks[sid]={});
+  const mine=onlyMark||"in", rest=mine==="out"?"in":"out";
   room.beds.forEach(b=>b.slots.forEach(pid=>{
     if(offCheck(statusOf(pid,sid)))return;
-    const want=only?(pid===only?"in":"out"):v;
+    const want=only?(pid===only?mine:rest):v;
     if(want)m[pid]=want; else delete m[pid];
     touch(markKey(sid,pid));
   }));
@@ -1611,6 +1613,7 @@ function openWho(pid){
     </div>
     <div class="grp">
       <button class="li" data-a="onlyone"><span class="a lnk">Only one in the room</span></button>
+      <button class="li" data-a="onlygone"><span class="a lnk">Only one missing from the room</span></button>
     </div>
     <div class="grp">
       <button class="li" data-a="away"><span class="ck ${isAway(pid)?"on":""}"></span><span class="a">Not in town</span></button>
@@ -1832,7 +1835,10 @@ document.addEventListener("click",async e=>{
   }
   if(a==="onlyone"){const pid=state.who;
     if(offCheck(statusOf(pid,state.cur))){toast(nameOf(pid)+" is off the check");return;}
-    setRoom(roomOf(pid),state.cur,null,pid);closePop();render();return;}
+    setRoom(roomOf(pid),state.cur,null,pid,"in");closePop();render();return;}
+  if(a==="onlygone"){const pid=state.who;
+    if(offCheck(statusOf(pid,state.cur))){toast(nameOf(pid)+" is off the check");return;}
+    setRoom(roomOf(pid),state.cur,null,pid,"out");closePop();render();return;}
   if(a==="away"){const pid=state.who, on=!isAway(pid);
     await setPerson(pid,on?{away:true,always:null}:{away:null});
     openWho(pid);render();
@@ -1911,7 +1917,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.14.1";
+const APP_VERSION="1.15.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

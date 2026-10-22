@@ -129,15 +129,17 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
 
     /**
      * Every bed in the room still on the walk set to [value], or cleared when it is null. With
-     * [only], that one person is in and the rest of the room out - the room with one boy in bed.
+     * [only], that one person gets [onlyMark] and the rest of the room gets the other of IN and
+     * OUT - the room with one boy in bed, or the room with one boy not in it.
      */
-    fun setRoom(room: Room, sid: String, value: Mark?, only: String? = null) {
+    fun setRoom(room: Room, sid: String, value: Mark?, only: String? = null, onlyMark: Mark = Mark.IN) {
         snap()
+        val rest = if (onlyMark == Mark.OUT) Mark.IN else Mark.OUT
         update { s ->
             val marks = s.night.marks[sid] ?: mutableMapOf()
             room.beds.flatMap { it.slots }.forEach { pid ->
                 if (logic(s).statusOf(pid, sid).offCheck) return@forEach
-                val want = if (only != null) (if (pid == only) Mark.IN else Mark.OUT) else value
+                val want = if (only != null) (if (pid == only) onlyMark else rest) else value
                 if (want == null) marks.remove(pid) else marks[pid] = want
                 s.night.touch(Merge.markKey(sid, pid))
             }

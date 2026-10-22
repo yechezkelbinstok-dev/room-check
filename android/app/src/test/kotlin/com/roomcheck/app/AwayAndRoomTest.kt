@@ -6,6 +6,7 @@ import com.roomcheck.app.data.NightStore
 import com.roomcheck.app.data.Roster
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -85,6 +86,28 @@ class AwayAndRoomTest {
         assertEquals(Mark.IN, vm.logic().statusOf("p28", sid))
         assertEquals(Mark.OUT, vm.logic().statusOf("p29", sid))
         assertEquals(Mark.OUT, vm.logic().statusOf("p31", sid))
+    }
+
+    @Test
+    fun onlyOneMissingMarksTheRestIn() {
+        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val sid = vm.state.value.curSlot
+        vm.setRoom(room8, sid, null, only = "p28", onlyMark = Mark.OUT)
+        assertEquals(Mark.OUT, vm.logic().statusOf("p28", sid))
+        assertEquals(Mark.IN, vm.logic().statusOf("p29", sid))
+        assertEquals(Mark.IN, vm.logic().statusOf("p31", sid))
+    }
+
+    /** Whichever way round it is, a bed that is off the walk gets no mark at all. */
+    @Test
+    fun onlyOneMissingStillLeavesAnAwayBedAlone() {
+        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val sid = vm.state.value.curSlot
+        vm.toggleAway("p31")
+        vm.setRoom(room8, sid, null, only = "p28", onlyMark = Mark.OUT)
+        assertEquals(Mark.OUT, vm.logic().statusOf("p28", sid))
+        assertEquals(Mark.IN, vm.logic().statusOf("p29", sid))
+        assertNull(vm.state.value.night.marks[sid]?.get("p31"))
     }
 
     @Test

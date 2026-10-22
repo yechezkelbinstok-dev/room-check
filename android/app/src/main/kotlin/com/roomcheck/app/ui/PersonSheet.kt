@@ -49,7 +49,15 @@ fun PersonSheet(vm: AppViewModel, state: UiState, pid: String, onClose: () -> Un
                     "Only one in the room", fontSize = 15.sp, color = RC.blue,
                     modifier = Modifier.fillMaxWidth().clickable {
                         if (logic.statusOf(pid, state.curSlot).offCheck) vm.toast("${logic.nameOf(pid)} is off the check")
-                        else { vm.setRoom(room, state.curSlot, null, only = pid); onClose() }
+                        else { vm.setRoom(room, state.curSlot, null, only = pid, onlyMark = Mark.IN); onClose() }
+                    }.padding(14.dp, 13.dp)
+                )
+                HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
+                Text(
+                    "Only one missing from the room", fontSize = 15.sp, color = RC.blue,
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        if (logic.statusOf(pid, state.curSlot).offCheck) vm.toast("${logic.nameOf(pid)} is off the check")
+                        else { vm.setRoom(room, state.curSlot, null, only = pid, onlyMark = Mark.OUT); onClose() }
                     }.padding(14.dp, 13.dp)
                 )
             }
