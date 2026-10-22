@@ -1,6 +1,7 @@
 package com.roomcheck.app
 
 import android.os.Bundle
+import java.io.File
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -17,6 +18,8 @@ import androidx.compose.runtime.getValue
 import com.roomcheck.app.data.AppViewModel
 import com.roomcheck.app.data.NightStore
 import com.roomcheck.app.data.Tab
+import com.roomcheck.app.data.UpdateState
+import com.roomcheck.app.data.Updater
 import com.roomcheck.app.ui.CheckScreen
 import com.roomcheck.app.ui.LuachScreen
 import com.roomcheck.app.ui.NamesScreen
@@ -37,15 +40,28 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // the APK an update was installed from, or a download that never finished - but only when
+        // nothing is under way, which a fresh start of the app guarantees
+        if (vm.state.value.update == UpdateState.Unknown) File(cacheDir, "update").deleteRecursively()
         // Sync whenever the app comes to the front, then keep pulling while it stays there, so two
         // people marking at the same time see each other's rooms rather than finding out at the
         // end. repeatOnLifecycle cancels the whole loop the moment the app leaves the screen -
         // nothing ticks in your pocket, which is what keeps this costing nothing.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // back from letting Room Check install apps: the update that was waiting goes on
+                if (vm.askedToInstall && packageManager.canRequestPackageInstalls()) startUpdate(this@MainActivity, vm)
+                vm.checkForUpdate(BuildConfig.VERSION_CODE.toLong())
                 while (true) {
                     vm.syncNow()
                     delay(AppViewModel.FOREGROUND_SYNC_MS)
+                }
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                Updater.failures.collect { reason ->
+                    if (reason != null) { vm.updateFailed(reason); Updater.failures.value = null }
                 }
             }
         }

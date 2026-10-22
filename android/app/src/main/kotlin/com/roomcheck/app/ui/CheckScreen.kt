@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.roomcheck.app.data.*
+import com.roomcheck.app.startUpdate
 import com.roomcheck.app.util.NightImage
 
 @Composable
@@ -39,9 +40,11 @@ fun CheckScreen(vm: AppViewModel) {
     var showCalendar by remember { mutableStateOf(false) }
     var openPerson by remember { mutableStateOf<String?>(null) }
     var searching by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Column(Modifier.fillMaxSize().background(RC.bg)) {
         TopBar(vm, state, locked, onCalendar = { showCalendar = true })
+        UpdateBar(state.update) { startUpdate(context, vm) }
 
         if (!review) {
             if (searching) FindBar(vm, state, logic) { searching = false }
@@ -74,6 +77,29 @@ fun CheckScreen(vm: AppViewModel) {
                 Modifier.padding(bottom = 90.dp).background(Color(0xF0121218).copy(alpha = 0.94f), RoundedCornerShape(10.dp)).padding(17.dp, 9.dp)
             ) { Text(msg, color = Color.White, fontSize = 13.5.sp) }
         }
+    }
+}
+
+/**
+ * A newer build is out: one line under the date, with the button that takes it. It stays until
+ * the update is in, so it can wait for after the bed check.
+ */
+@Composable
+private fun UpdateBar(update: UpdateState, onUpdate: () -> Unit) {
+    val (text, action) = when (update) {
+        is UpdateState.Ready -> "Version ${update.release.version} is out" to "Update"
+        is UpdateState.Downloading -> "Downloading ${update.release.version} · ${(update.fraction * 100).toInt()}%" to null
+        is UpdateState.Installing -> "Installing - the app closes, then open it again" to null
+        is UpdateState.Failed -> if (update.release == null) return else update.reason to "Try again"
+        else -> return
+    }
+    Row(
+        Modifier.padding(12.dp, 8.dp, 12.dp, 0.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(RC.blueL)
+            .heightIn(min = 42.dp).padding(start = 14.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text, fontSize = 13.5.sp, fontWeight = FontWeight.Medium, color = RC.blue, maxLines = 2, modifier = Modifier.weight(1f))
+        if (action != null) TextButton(onClick = onUpdate) { Text(action, fontWeight = FontWeight.Bold, color = RC.blue) }
     }
 }
 

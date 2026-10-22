@@ -18,6 +18,8 @@ import com.roomcheck.app.data.AppViewModel
 import com.roomcheck.app.data.Slots
 import com.roomcheck.app.data.SyncState
 import com.roomcheck.app.data.Tab
+import com.roomcheck.app.data.UpdateState
+import com.roomcheck.app.startUpdate
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -159,6 +161,27 @@ fun SettingsScreen(vm: AppViewModel) {
                         Text("Version", fontSize = 15.sp)
                         Text(BuildConfig.VERSION_NAME, fontSize = 15.sp, color = RC.sub)
                     }
+                    HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
+                    val u = state.update
+                    val waiting = when (u) {
+                        is UpdateState.Ready -> u.release
+                        is UpdateState.Failed -> u.release
+                        else -> null
+                    }
+                    val busy = u is UpdateState.Checking || u is UpdateState.Downloading || u is UpdateState.Installing
+                    Row(
+                        Modifier.fillMaxWidth().clickable(enabled = !busy) {
+                            if (waiting != null) startUpdate(context, vm)
+                            else vm.checkForUpdate(BuildConfig.VERSION_CODE.toLong(), force = true)
+                        }.padding(14.dp, 13.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            if (waiting != null) "Update to ${waiting.version}" else "Check for updates",
+                            color = RC.blue, fontWeight = FontWeight.SemiBold
+                        )
+                        Text(updateLine(u), fontSize = 13.sp, color = RC.sub)
+                    }
                 }
             }
             item { Spacer(Modifier.height(30.dp)) }
@@ -175,6 +198,16 @@ fun SettingsScreen(vm: AppViewModel) {
             onClose = { showImport = false }
         )
     }
+}
+
+/** Beside Check for updates: where it stands, said plainly. */
+private fun updateLine(u: UpdateState): String = when (u) {
+    UpdateState.Unknown, is UpdateState.Ready -> ""
+    UpdateState.Checking -> "Checking…"
+    UpdateState.UpToDate -> "Up to date"
+    is UpdateState.Downloading -> "Downloading ${(u.fraction * 100).toInt()}%"
+    is UpdateState.Installing -> "Installing…"
+    is UpdateState.Failed -> u.reason
 }
 
 /** One line of plain state under Sync now - what happened, not how it works. */

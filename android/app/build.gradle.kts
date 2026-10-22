@@ -1,3 +1,5 @@
+import java.security.MessageDigest
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -13,8 +15,8 @@ android {
         applicationId = "com.roomcheck.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 43
-        versionName = "1.15.0"
+        versionCode = 44
+        versionName = "1.16.0"
     }
 
     signingConfigs {
@@ -61,6 +63,28 @@ android {
             (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
                 "RoomCheck-$versionName.apk"
         }
+    }
+}
+
+// Puts the release APK in dist/ - the only one there - with latest.json beside it, which is what
+// the app reads to find out a newer build is out (data/Updater.kt). The site serves dist/, so
+// pushing these two is releasing it.
+tasks.register("publishApk") {
+    dependsOn("assembleRelease")
+    doLast {
+        val version = android.defaultConfig.versionName!!
+        val code = android.defaultConfig.versionCode!!
+        val name = "RoomCheck-$version.apk"
+        val apk = layout.buildDirectory.file("outputs/apk/release/$name").get().asFile
+        val dist = rootProject.file("../dist")
+        dist.listFiles { f -> f.name.startsWith("RoomCheck-") && f.name.endsWith(".apk") && f.name != name }
+            ?.forEach { it.delete() }
+        apk.copyTo(File(dist, name), overwrite = true)
+        val sha = MessageDigest.getInstance("SHA-256").digest(apk.readBytes())
+            .joinToString("") { "%02x".format(it) }
+        File(dist, "latest.json").writeText(
+            """{"version":"$version","code":$code,"apk":"$name","size":${apk.length()},"sha256":"$sha"}""" + "\n"
+        )
     }
 }
 

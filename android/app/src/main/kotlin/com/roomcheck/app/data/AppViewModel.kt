@@ -2,10 +2,13 @@ package com.roomcheck.app.data
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.File
 import java.time.LocalDateTime
 
 enum class RoomMode { ONE, SCROLL }
@@ -29,6 +32,7 @@ data class UiState(
     /** Who search just jumped to, ringed on the plan until it clears itself. */
     val highlight: String? = null,
     val sync: SyncState = SyncState.Off,
+    val update: UpdateState = UpdateState.Unknown,
     val toast: String? = null
 )
 
@@ -36,6 +40,8 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
     companion object {
         /** How often to pull while the app is actually on screen. Never runs in the background. */
         const val FOREGROUND_SYNC_MS = 30_000L
+        /** How often coming back to the app looks for a newer build; opening it always does. */
+        const val UPDATE_CHECK_MS = 30 * 60_000L
     }
 
     private val undoStack = ArrayDeque<Night>()
@@ -444,6 +450,79 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
                 if (loud) toast(e.message ?: "Could not sync")
             }
         }
+    }
+
+    /** Sent to Android's page for letting Room Check install apps; the update goes on when they are back. */
+    var askedToInstall = false
+    private var lastUpdateCheck = 0L
+
+    /**
+     * Looks on the site for a build newer than the [installed] one - each time the app comes to
+     * the front, but no more than every half hour unless [force]d from Settings. Quiet when it
+     * cannot reach the site; only the Settings line mentions it.
+     */
+    fun checkForUpdate(installed: Long, force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        val busy = _state.value.update.let { it is UpdateState.Checking || it is UpdateState.Downloading || it is UpdateState.Installing }
+        if (busy || (!force && now - lastUpdateCheck < UPDATE_CHECK_MS)) return
+        lastUpdateCheck = now
+        if (force) update { it.copy(update = UpdateState.Checking) }
+        viewModelScope.launch {
+            runCatching { Updater.check(installed) }
+                .onSuccess { r -> if (r != null) offerUpdate(r) else update { it.copy(update = UpdateState.UpToDate) } }
+                .onFailure { e ->
+                    // a build already found stays on offer; only a look with nothing found yet says it failed
+                    if (onOffer() != null) return@onFailure
+                    val why = if (e is java.io.IOException) "Could not reach the site" else e.message ?: "Could not check"
+                    update { it.copy(update = UpdateState.Failed(null, why)) }
+                }
+        }
+    }
+
+    fun offerUpdate(r: Release) = update { it.copy(update = UpdateState.Ready(r)) }
+
+    /** The build waiting to be installed, if there is one - offered, or offered and failed. */
+    private fun onOffer(): Release? = when (val u = _state.value.update) {
+        is UpdateState.Ready -> u.release
+        is UpdateState.Failed -> u.release
+        else -> null
+    }
+
+    /**
+     * Downloads the build on offer and hands it to [install] - Android's side, kept out of here so
+     * nothing in the view model needs a phone. When it works the app is closed and replaced, so
+     * Installing is the last thing this screen shows.
+     */
+    fun runUpdate(dir: File, install: (File) -> Unit) {
+        val r = onOffer() ?: return
+        update { it.copy(update = UpdateState.Downloading(r, 0f)) }
+        viewModelScope.launch {
+            try {
+                // progress arrives on the download's thread; the state is only ever changed here
+                val apk = Updater.download(r, dir) { f ->
+                    viewModelScope.launch {
+                        update { s -> if (s.update is UpdateState.Downloading) s.copy(update = UpdateState.Downloading(r, f)) else s }
+                    }
+                }
+                update { it.copy(update = UpdateState.Installing(r)) }
+                withContext(Dispatchers.IO) { install(apk) }
+            } catch (e: Exception) {
+                val why = if (e is java.io.IOException) "The download stopped - try again" else e.message ?: "Could not update"
+                update { it.copy(update = UpdateState.Failed(r, why)) }
+            }
+        }
+    }
+
+    /** Android turned the install down, or the person cancelled its confirm screen. */
+    fun updateFailed(reason: String) {
+        val r = when (val u = _state.value.update) {
+            is UpdateState.Installing -> u.release
+            is UpdateState.Downloading -> u.release
+            is UpdateState.Ready -> u.release
+            is UpdateState.Failed -> u.release
+            else -> null
+        }
+        update { it.copy(update = UpdateState.Failed(r, reason)) }
     }
 
     fun exportBackup(): String = store.exportBackup()

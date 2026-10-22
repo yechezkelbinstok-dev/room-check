@@ -2,9 +2,17 @@ package com.roomcheck.app
 
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.roomcheck.app.data.AppViewModel
 import com.roomcheck.app.data.Mark
 import com.roomcheck.app.data.NightStore
+import com.roomcheck.app.data.Release
 import com.roomcheck.app.data.Roster
 import com.roomcheck.app.data.RoomMode
 import com.roomcheck.app.ui.AddTimeContent
@@ -128,6 +136,33 @@ class AppScreenshotTest {
         vm.closeNight()
         paparazzi.snapshot(name = "closed-night") {
             RoomCheckTheme { CheckScreen(vm) }
+        }
+    }
+
+    private val newer = Release("1.17.0", 45, "RoomCheck-1.17.0.apk", 11_000_000, "0".repeat(64))
+
+    /** A newer build on the site: the bar under the date, with the button that takes it. */
+    @Test
+    fun checkScreenUpdateReady() {
+        val vm = viewModel()
+        vm.offerUpdate(newer)
+        paparazzi.snapshot(name = "check-update-ready") {
+            RoomCheckTheme { CheckScreen(vm) }
+        }
+    }
+
+    @Test
+    fun settingsUpdateReady() {
+        val vm = viewModel()
+        vm.offerUpdate(newer)
+        // the App section is at the foot of Settings, under the first screenful: drawn tall, and
+        // the bottom of it shown
+        paparazzi.snapshot(name = "settings-update-ready") {
+            RoomCheckTheme {
+                Box(Modifier.fillMaxSize().wrapContentHeight(Alignment.Bottom, unbounded = true)) {
+                    Box(Modifier.requiredHeight(1500.dp)) { SettingsScreen(vm) }
+                }
+            }
         }
     }
 
