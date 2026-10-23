@@ -5,8 +5,9 @@ import RoomCheckCore
 /// with the yeshiva's server. Every change to the night bumps [rev], which is what redraws.
 ///
 /// Everything here runs on the main thread, as SwiftUI calls it - including every read and write
-/// of the store a sync makes. Only the waits on the network leave it.
-final class AppModel: ObservableObject {
+/// of the store a sync makes. Only the waits on the network leave it, which is what makes it safe
+/// to hand to the task that does them.
+final class AppModel: ObservableObject, @unchecked Sendable {
     let session: NightSession
     private let client: SyncClient?
 
@@ -70,14 +71,16 @@ final class AppModel: ObservableObject {
         if loud { syncState = .working }
         let push = client.pushRequest()
         let pullBody = client.pullRequest()
-        Task.detached { [weak self] in
+        // the model lives as long as the app, so the task can simply hold on to it
+        Task.detached {
             do {
-                var pushed: [String: Any]? = nil
-                if let push { pushed = try await client.post(base, "/push", token, push.body) }
+                var answer: [String: Any]? = nil
+                if let push { answer = try await client.post(base, "/push", token, push.body) }
+                let pushed = answer
                 let pulled = try await client.post(base, "/pull", token, pullBody)
-                await MainActor.run { self?.finished(push: push, pushed: pushed, pulled: pulled, loud: loud) }
+                await MainActor.run { self.finished(push: push, pushed: pushed, pulled: pulled, loud: loud) }
             } catch {
-                await MainActor.run { self?.failed(error, loud: loud) }
+                await MainActor.run { self.failed(error, loud: loud) }
             }
         }
     }

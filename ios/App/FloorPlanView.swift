@@ -115,16 +115,35 @@ struct PersonSlot: View {
         }
     }
 
+    /// How big the buttons are and whether the first name fits, worked out from the slot's size.
+    /// The buttons are served before the name, so a long name shortens itself instead of crushing
+    /// them; the first name shows only where there is height for it under the surname.
+    private struct Fit { let padH: CGFloat; let button: CGFloat; let showFirst: Bool }
+
+    private var fit: Fit {
+        let w: CGFloat = size.width, h: CGFloat = size.height
+        let padH: CGFloat = wide ? 6 : 3
+        let padV: CGFloat = 5
+        let labelH: CGFloat = (bunk != nil && !wide) ? 10 : 0
+        var button: CGFloat
+        var nameRoom: CGFloat
+        if wide {
+            button = min(26, h - 2 * padV)
+            nameRoom = h - 2 * padV
+        } else {
+            let byWidth: CGFloat = (w - 2 * padH - 3) / 2
+            let byHeight: CGFloat = h - 2 * padV - labelH - 4 - 15
+            button = min(30, min(byWidth, byHeight))
+            nameRoom = h - 2 * padV - labelH - 4
+        }
+        button = max(15, button)
+        if !wide { nameRoom -= button }
+        return Fit(padH: padH, button: button, showFirst: nameRoom >= 27)
+    }
+
     var body: some View {
-        let padH: Double = wide ? 6 : 3, padV = 5.0
-        let labelH: Double = (bunk != nil && !wide) ? 10 : 0
-        // the buttons are served before the name, so a long name shortens itself instead of
-        // crushing them; the first name shows only where there is height for it under the surname
-        let button: Double = wide
-            ? max(15, min(26, size.height - 2 * padV))
-            : max(15, min(30, (size.width - 2 * padH - 3) / 2, size.height - 2 * padV - labelH - 4 - 15))
-        let nameRoom = wide ? size.height - 2 * padV : size.height - 2 * padV - labelH - 4 - button
-        let showFirst = nameRoom >= 27
+        let f = fit
+        let padH = f.padH, button = f.button, showFirst = f.showFirst
         Group {
             if wide {
                 HStack(spacing: 6) {
@@ -146,7 +165,7 @@ struct PersonSlot: View {
             }
         }
         .padding(.horizontal, padH)
-        .padding(.vertical, padV)
+        .padding(.vertical, 5)
         .frame(width: size.width, height: size.height)
         .background(background)
         .overlay { if highlighted { RoundedRectangle(cornerRadius: 4).stroke(RC.blue, lineWidth: 2.5) } }
@@ -166,7 +185,7 @@ struct PersonSlot: View {
         .onTapGesture(perform: onName)
     }
 
-    @ViewBuilder private func marks(_ size: Double) -> some View {
+    @ViewBuilder private func marks(_ size: CGFloat) -> some View {
         switch status {
         case .away: offTag("Not in town", RC.blue)
         case .exc: offTag("Excused", RC.grey)
@@ -183,7 +202,7 @@ struct PersonSlot: View {
             .lineLimit(1).minimumScaleFactor(0.6)
     }
 
-    private func markButton(_ size: Double, _ symbol: String, on: Bool, color: Color, action: @escaping () -> Void) -> some View {
+    private func markButton(_ size: CGFloat, _ symbol: String, on: Bool, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: size * 0.45, weight: .bold))
