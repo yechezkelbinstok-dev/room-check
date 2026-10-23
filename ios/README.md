@@ -32,8 +32,9 @@ own Apple ID on the way in:
 
 ## So far
 
-The marking screen: the night, the rounds, the room buttons, the floor plan with here and not
-here, a room all in, all out or cleared, only one in the room or only one missing, not in town and
-excused, Save, and the night's text to copy or send. A past night opens as its summary. Still to
-come: the review grid, the picture to send, names, night settings, settings, search, and the
-yeshiva calendar.
+Everything the Android app does but the yeshiva calendar: the marking screen (the night, the
+rounds, the room buttons, the floor plan with here and not here, a whole room at once, only one in
+or only one missing), a person's sheet (each round's marks, not in town, excused, a reason, a note),
+search, Who's missing, the review (who was missing, or everyone's marks room by room), the night's
+picture and text to send, night settings (tonight's times and which go on the picture), settings,
+names and rooms, backups, and sync with the same server as the Android app and the website.
