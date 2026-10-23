@@ -62,6 +62,17 @@ public enum Dates {
     }
 
     public static func longDate(_ key: String) -> String {
+        let (cal, p, dow) = english(key)
+        return "\(cal.weekdaySymbols[dow - 1]), \(cal.monthSymbols[p.m - 1]) \(p.d)"
+    }
+
+    /// The same cut short, for where the long one does not fit: "Wed, Oct 21".
+    public static func shortDate(_ key: String) -> String {
+        let (cal, p, dow) = english(key)
+        return "\(cal.shortWeekdaySymbols[dow - 1]), \(cal.shortMonthSymbols[p.m - 1]) \(p.d)"
+    }
+
+    private static func english(_ key: String) -> (Calendar, (y: Int, m: Int, d: Int), Int) {
         let p = parts(ofKey: key)
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "UTC")!
@@ -71,8 +82,7 @@ public enum Dates {
         var c = DateComponents()
         c.year = p.y; c.month = p.m; c.day = p.d; c.hour = 12
         let d = cal.date(from: c)!
-        let dow = cal.component(.weekday, from: d)
-        return "\(cal.weekdaySymbols[dow - 1]), \(cal.monthSymbols[p.m - 1]) \(p.d)"
+        return (cal, p, cal.component(.weekday, from: d))
     }
 
     // MARK: - Hebrew calendar

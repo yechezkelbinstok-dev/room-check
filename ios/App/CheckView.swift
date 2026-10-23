@@ -87,9 +87,16 @@ struct CheckView: View {
                 Button { pickingNight = true } label: {
                     VStack(spacing: 0) {
                         Text(Dates.hebrewDate(s.dateKey)).font(.headline).foregroundColor(.primary)
-                        Text(Dates.longDate(s.dateKey)).font(.caption).foregroundColor(.secondary)
+                        // in full when there is room; short when Tonight or a large text size takes
+                        // it, rather than cut off before the day of the month
+                        ViewThatFits(in: .horizontal) {
+                            Text(Dates.longDate(s.dateKey))
+                            Text(Dates.shortDate(s.dateKey))
+                        }
+                        .font(.caption).foregroundColor(.secondary)
                     }
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 }
                 .buttonStyle(.plain)
                 Button { s.shiftDay(1) } label: { Image(systemName: "chevron.right").font(.body.weight(.semibold)) }
@@ -268,18 +275,19 @@ struct CheckView: View {
                     UIPasteboard.general.string = report
                     model.show("Copied")
                 } label: {
-                    Label("Copy", systemImage: "doc.on.doc").frame(maxWidth: .infinity)
+                    BarLabel(title: "Copy", icon: "doc.on.doc")
                 }
                 .buttonStyle(.bordered)
                 // the night's picture, drawn only when it is actually sent; Copy is for the text
                 ShareLink(item: NightPictureFile(session: s),
                           preview: SharePreview(Dates.hebrewDayMonth(s.dateKey), image: Image(systemName: "photo"))) {
-                    Label("Send", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
+                    BarLabel(title: "Send", icon: "square.and.arrow.up")
                 }
                 .buttonStyle(.bordered)
                 if !review {
                     Button { s.closeNight() } label: {
-                        Text("Save").fontWeight(.semibold).frame(maxWidth: .infinity)
+                        Text("Save").fontWeight(.semibold).lineLimit(1).minimumScaleFactor(0.6)
+                            .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
                 }
@@ -316,21 +324,19 @@ struct RoomCard: View {
         let sid = s.curSlot
         let hebrew = s.store.settings.hebrewOnPlan
         let out = logic.outIn(room, sid).count
-        let beds = room.beds.reduce(0) { $0 + $1.slots.count }
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(hebrew ? room.hebLabel : room.label).font(.title3.weight(.semibold))
-                Text(out > 0 ? "\(out) out" : "\(beds) beds")
-                    .font(.subheadline.weight(out > 0 ? .semibold : .regular))
-                    .foregroundColor(out > 0 ? RC.red : .secondary)
-                Spacer(minLength: 4)
-                HStack(spacing: 6) {
-                    Button("All in") { s.setRoom(room, sid, .inRoom) }.tint(RC.green)
-                    Button("All out") { s.setRoom(room, sid, .out) }.tint(RC.red)
-                    Button("Clear") { s.setRoom(room, sid, nil) }.tint(.gray)
+            // the whole-room buttons beside the room's name, or under it when a large text size
+            // leaves no room for both on one line
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    title(room, out: out, hebrew: hebrew)
+                    Spacer(minLength: 4)
+                    wholeRoom(room, sid)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                VStack(alignment: .leading, spacing: 8) {
+                    title(room, out: out, hebrew: hebrew)
+                    wholeRoom(room, sid)
+                }
             }
             FloorPlanView(room: room, allIn: logic.roomAllIn(room, sid)) { pid, bunk, wide, size in
                 PersonSlot(
@@ -349,6 +355,45 @@ struct RoomCard: View {
         .background(RC.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
+    }
+
+    private func title(_ room: Room, out: Int, hebrew: Bool) -> some View {
+        let beds = room.beds.reduce(0) { $0 + $1.slots.count }
+        return HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(hebrew ? room.hebLabel : room.label).font(.title3.weight(.semibold))
+            Text(out > 0 ? "\(out) out" : "\(beds) beds")
+                .font(.subheadline.weight(out > 0 ? .semibold : .regular))
+                .foregroundColor(out > 0 ? RC.red : .secondary)
+        }
+        .lineLimit(1)
+    }
+
+    private func wholeRoom(_ room: Room, _ sid: String) -> some View {
+        let s = model.session
+        return HStack(spacing: 6) {
+            Button("All in") { s.setRoom(room, sid, .inRoom) }.tint(RC.green)
+            Button("All out") { s.setRoom(room, sid, .out) }.tint(RC.red)
+            Button("Clear") { s.setRoom(room, sid, nil) }.tint(.gray)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .lineLimit(1)
+    }
+}
+
+/// A bottom bar button's label: its name and icon, or the icon alone when a large text size
+/// leaves no room for both - never the name broken in half.
+private struct BarLabel: View {
+    let title: String
+    let icon: String
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            Label(title, systemImage: icon)
+            Image(systemName: icon)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityLabel(title)
     }
 }
 

@@ -25,6 +25,9 @@ print(best[1])
 
 xcrun simctl boot "$UDID" 2>/dev/null || true
 xcrun simctl bootstatus "$UDID" -b
+# a fresh simulator covers the keyboard, the first time one opens, with a card about sliding to
+# type; a phone that has been used never shows it
+xcrun simctl spawn "$UDID" defaults write com.apple.keyboard.ContinuousPath KeyboardContinuousPathEnabled -bool false || true
 
 xcodebuild -project RoomCheck.xcodeproj -scheme RoomCheck -configuration Debug \
   -destination "id=$UDID" -derivedDataPath build/sim "$@" build -quiet
@@ -67,4 +70,8 @@ xcrun simctl terminate "$UDID" com.roomcheck.app 2>/dev/null || true
 TEST_RUNNER_SHOTS_DIR="$PWD/out/shots" xcodebuild test -project RoomCheck.xcodeproj -scheme RoomCheck \
   -destination "id=$UDID" -derivedDataPath build/sim -only-testing:RoomCheckUITests "$@" -quiet \
   || echo "::warning::the screenshot UI tests failed"
+# what was on the screen when a test did not find what it looked for
+for tree in out/*-tree.txt; do
+  if [ -f "$tree" ]; then echo "== $tree"; cat "$tree"; fi
+done
 ls out/shots

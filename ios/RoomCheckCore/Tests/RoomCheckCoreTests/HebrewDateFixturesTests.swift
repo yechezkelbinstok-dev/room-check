@@ -34,5 +34,7 @@ final class LongDateTests: XCTestCase {
     func testTheEnglishDateIsWrittenOutInFull() {
         XCTAssertEqual(Dates.longDate("2026-10-21"), "Wednesday, October 21")
         XCTAssertEqual(Dates.longDate("2026-10-29"), "Thursday, October 29")
+        XCTAssertEqual(Dates.shortDate("2026-10-20"), "Tue, Oct 20")
+        XCTAssertEqual(Dates.shortDate("2027-01-03"), "Sun, Jan 3")
     }
 }

@@ -11,7 +11,16 @@ final class ScreenshotTests: XCTestCase {
     @MainActor
     func testMenu() {
         let app = launch("check-in-progress")
-        app.buttons["More"].firstMatch.tap()
+        // whatever kind of element the system makes of a menu in the navigation bar; failing
+        // that, where it sits - the top right corner, below the status bar
+        let more = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == 'More' OR identifier == 'More'")).firstMatch
+        if more.waitForExistence(timeout: 5) {
+            more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        } else {
+            saveTree(app, "menu")
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.965, dy: 0.108)).tap()
+        }
         sleep(1)
         shoot("menu")
     }
@@ -28,7 +37,9 @@ final class ScreenshotTests: XCTestCase {
     func testSend() {
         let app = launch("check-in-progress")
         app.buttons["Send"].firstMatch.tap()
-        sleep(3)
+        // the first share sheet on a fresh simulator takes its time
+        if !app.otherElements["ActivityListView"].waitForExistence(timeout: 20) { saveTree(app, "send") }
+        sleep(2)
         shoot("send")
     }
 
@@ -73,6 +84,15 @@ final class ScreenshotTests: XCTestCase {
         let end = row.coordinate(withNormalizedOffset: CGVector(dx: to, dy: 0.5))
         start.press(forDuration: 0.05, thenDragTo: end)
         sleep(1)
+    }
+
+    /// What is on the screen, element by element, for when the one a test wants is not there:
+    /// next to the shots, where the script prints it into the build's log.
+    @MainActor
+    private func saveTree(_ app: XCUIApplication, _ name: String) {
+        guard let dir = ProcessInfo.processInfo.environment["SHOTS_DIR"] else { return }
+        let file = URL(fileURLWithPath: dir).deletingLastPathComponent().appendingPathComponent("\(name)-tree.txt")
+        try? app.debugDescription.write(to: file, atomically: true, encoding: .utf8)
     }
 
     @MainActor
