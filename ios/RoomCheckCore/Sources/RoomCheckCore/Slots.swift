@@ -82,6 +82,16 @@ public enum Slots {
     /// `defaultFor`), or - a night that declares its own - those INSTEAD of them. Any round the night already has marks in counts too, even if
     /// nobody declared it, so an older night whose rounds were recorded some other way still opens
     /// with the columns it was marked in rather than losing them.
+    /// The other direction, for a clock picker opened on an existing round: the 24-hour hour and
+    /// minute. Midnight is the one that catches you out - "1200" is hour zero there, not twelve.
+    public static func clockHourOf(_ id: String) -> Int {
+        let h = hourOf(id)
+        if h == 12 { return 0 }
+        return h < 6 ? h : h + 12
+    }
+
+    public static func clockMinuteOf(_ id: String) -> Int { minuteOf(id) }
+
     public static func all(_ n: Night, dateKey: String? = nil) -> [Slot] {
         let declared = n.rounds.filter(isValidId)
         let base = declared.isEmpty ? defaultFor(dateKey).map(\.id) : Array(declared)

@@ -5,6 +5,9 @@ import RoomCheckCore
 /// Someone tapped on the plan, for the sheet of what can be done about him.
 struct PersonRef: Identifiable { let id: String }
 
+/// The screens the marking screen opens onto, the way Settings opens onto its pages.
+enum Route: Hashable { case night, settings, names, missing }
+
 /// The marking screen, built from Apple's own pieces: the night as the navigation bar's title,
 /// with ‹ › either side and a calendar behind it; the rounds as a segmented control; the rooms as
 /// buttons over pages you swipe between; and a bottom bar like the system's with Copy, Send and
@@ -13,13 +16,16 @@ struct CheckView: View {
     @EnvironmentObject private var model: AppModel
     @State private var person: PersonRef?
     @State private var pickingNight = false
+    @State private var searching = false
+    @State private var showingPicture = false
+    @State private var path = NavigationPath()
 
     private var s: NightSession { model.session }
 
     var body: some View {
         let logic = s.logic
         let review = s.showingReview
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if review {
                     ReviewList(logic: logic)
@@ -31,6 +37,14 @@ struct CheckView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar(review: review) }
             .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar(logic, review: review) }
+            .navigationDestination(for: Route.self) { route in
+                switch route {
+                case .night: NightSettingsView()
+                case .settings: SettingsView()
+                case .names: NamesView()
+                case .missing: WhosMissingView()
+                }
+            }
         }
         .overlay(alignment: .bottom) { toast }
         .sheet(item: $person) { p in
@@ -39,9 +53,23 @@ struct CheckView: View {
         .sheet(isPresented: $pickingNight) {
             NightPicker().environmentObject(model)
         }
+        .sheet(isPresented: $searching) {
+            SearchSheet().environmentObject(model)
+        }
+        .fullScreenCover(isPresented: $showingPicture) {
+            PicturePreview(image: NightPictureFile(session: s).render())
+        }
+        // whoever search landed on is ringed for a moment, then the ring clears itself
+        .onChange(of: s.highlight) { pid in
+            guard pid != nil else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) { s.clearHighlight() }
+        }
         .onAppear {
             if let pid = model.demoPerson { person = PersonRef(id: pid) }
             if model.demoPicker { pickingNight = true }
+            if let route = model.demoRoute { path.append(route) }
+            if model.demoQuery != nil { searching = true }
+            if model.demoPicture { showingPicture = true }
         }
     }
 
@@ -77,32 +105,30 @@ struct CheckView: View {
                     .accessibilityLabel("Undo")
             }
             Menu {
-                if !review {
-                    Button { s.setReviewing(true) } label: { Label("This night's summary", systemImage: "list.bullet.rectangle") }
-                }
-                Button { model.syncNow(loud: true) } label: { Label("Sync now", systemImage: "arrow.triangle.2.circlepath") }
-                Toggle(isOn: Binding(get: { s.store.settings.hebrewOnPlan },
-                                     set: { on in s.updateSettings { $0.hebrewOnPlan = on } })) {
-                    Label("Hebrew names", systemImage: "character.book.closed")
+                Section {
+                    if !review {
+                        // most nights are their usual rounds and never need these, but the night
+                        // that does is this night
+                        Button { path.append(Route.missing) } label: { Label("Who's missing", systemImage: "person.fill.questionmark") }
+                        Button { s.setReviewing(true) } label: { Label("This night's summary", systemImage: "list.bullet.rectangle") }
+                    }
+                    Button { path.append(Route.night) } label: { Label("Night settings", systemImage: "clock") }
                 }
                 Section {
-                    Text(syncLine)
-                    Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
+                    Button { model.syncNow(loud: true) } label: { Label("Sync now", systemImage: "arrow.triangle.2.circlepath") }
+                    Toggle(isOn: Binding(get: { s.store.settings.hebrewOnPlan },
+                                         set: { on in s.updateSettings { $0.hebrewOnPlan = on } })) {
+                        Label("Hebrew names", systemImage: "character.book.closed")
+                    }
+                    Button { path.append(Route.settings) } label: { Label("Settings", systemImage: "gear") }
+                }
+                Section {
+                    Text(model.syncLine)
+                    Text("Version \(model.version)")
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
-        }
-    }
-
-    private var syncLine: String {
-        switch model.syncState {
-        case .off: return "Syncs with the yeshiva's server"
-        case .working: return "Syncing…"
-        case .ok(let at, _):
-            let f = DateFormatter(); f.dateFormat = "h:mm a"
-            return "Last synced " + f.string(from: at).lowercased()
-        case .failed(let reason): return reason
         }
     }
 
@@ -157,15 +183,25 @@ struct CheckView: View {
     /// fullest floor has rooms, so a number sits in the same place on both.
     private func roomButtons(_ logic: NightLogic) -> some View {
         let cols = Roster.FLOORS.map(\.count).max() ?? 5
-        return VStack(spacing: 6) {
-            ForEach(0..<Roster.FLOORS.count, id: \.self) { f in
-                HStack(spacing: 6) {
-                    ForEach(Roster.FLOORS[f], id: \.self) { i in roomButton(i, logic) }
-                    ForEach(0..<(cols - Roster.FLOORS[f].count), id: \.self) { _ in
-                        Color.clear.frame(maxWidth: .infinity).frame(height: 34)
+        return HStack(spacing: 8) {
+            VStack(spacing: 6) {
+                ForEach(0..<Roster.FLOORS.count, id: \.self) { f in
+                    HStack(spacing: 6) {
+                        ForEach(Roster.FLOORS[f], id: \.self) { i in roomButton(i, logic) }
+                        ForEach(0..<(cols - Roster.FLOORS[f].count), id: \.self) { _ in
+                            Color.clear.frame(maxWidth: .infinity).frame(height: 34)
+                        }
                     }
                 }
             }
+            // for when you are holding a name and do not know the room
+            Button { searching = true } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.body.weight(.semibold))
+                    .frame(width: 40, height: 74)
+                    .background(RC.card, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            }
+            .accessibilityLabel("Find someone")
         }
         .padding(.horizontal, 16)
     }
@@ -234,7 +270,9 @@ struct CheckView: View {
                     Label("Copy", systemImage: "doc.on.doc").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                ShareLink(item: report) {
+                // the night's picture, drawn only when it is actually sent; Copy is for the text
+                ShareLink(item: NightPictureFile(session: s),
+                          preview: SharePreview(Dates.hebrewDayMonth(s.dateKey), image: Image(systemName: "photo"))) {
                     Label("Send", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -298,6 +336,7 @@ struct RoomCard: View {
                     first: logic.first(pid, hebrew: hebrew), last: logic.last(pid, hebrew: hebrew),
                     bunk: s.store.settings.bunkLabels ? bunk : nil,
                     status: logic.statusOf(pid, sid), wide: wide, size: size,
+                    highlighted: pid == s.highlight,
                     onName: { onPerson(pid) },
                     onMark: { s.setMark(pid, sid, $0) }
                 )
@@ -309,103 +348,6 @@ struct RoomCard: View {
         .background(RC.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
-    }
-}
-
-/// What can be done about one person, as a sheet of the phone's own switches and buttons.
-struct PersonSheet: View {
-    @EnvironmentObject private var model: AppModel
-    @Environment(\.dismiss) private var dismiss
-    let pid: String
-
-    var body: some View {
-        let s = model.session
-        let logic = s.logic
-        let sid = s.curSlot
-        let round = s.rounds.first { $0.id == sid }?.label ?? sid
-        let room = Roster.roomOf[pid]
-        let hebrew = s.store.settings.hebrewOnPlan
-        let shared = room.map { r in r.beds.reduce(0) { $0 + $1.slots.count } > 1 } ?? false
-        NavigationStack {
-            List {
-                if let room, shared, !logic.statusOf(pid, sid).offCheck {
-                    Section {
-                        Button {
-                            s.setRoom(room, sid, nil, only: pid); dismiss()
-                        } label: {
-                            Label("Only him in the room", systemImage: "person.fill.checkmark")
-                        }
-                        Button {
-                            s.setRoom(room, sid, nil, only: pid, onlyMark: .out); dismiss()
-                        } label: {
-                            Label("Only him missing", systemImage: "person.fill.xmark")
-                        }
-                    } header: {
-                        Text("\(round) · \(hebrew ? room.hebLabel : room.label)")
-                    }
-                }
-                Section {
-                    Toggle("Not in town", isOn: Binding(get: { logic.isAway(pid) }, set: { _ in s.toggleAway(pid) }))
-                    Toggle("Excused tonight", isOn: Binding(get: { s.night.excusedTonight.contains(pid) },
-                                                             set: { _ in s.toggleExcusedTonight(pid) }))
-                    Toggle("Excused until turned off", isOn: Binding(get: { logic.isAlways(pid) },
-                                                                      set: { _ in s.toggleAlwaysExcused(pid) }))
-                } footer: {
-                    Text("Not in town and excused until turned off stay on every night, on every phone, until you switch them off.")
-                }
-            }
-            .navigationTitle(logic.nameOf(pid, hebrew: hebrew))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-            }
-        }
-        .presentationDetents([.medium, .large])
-    }
-}
-
-/// A night already walked, the way Settings lists things: each round with who was missing and
-/// from which room, then who was not in town.
-struct ReviewList: View {
-    @EnvironmentObject private var model: AppModel
-    let logic: NightLogic
-
-    var body: some View {
-        let hebrew = model.session.store.settings.hebrewOnPlan
-        let away = logic.awayList()
-        List {
-            ForEach(logic.slots, id: \.id) { slot in
-                let missing = logic.missingAt(slot.id)
-                let started = logic.stats(slot.id).started
-                Section {
-                    if missing.isEmpty {
-                        Label(started ? "Everybody there" : "Not marked",
-                              systemImage: started ? "checkmark.circle.fill" : "circle.dashed")
-                            .foregroundColor(started ? RC.green : .secondary)
-                    }
-                    ForEach(missing, id: \.self) { pid in
-                        HStack {
-                            Text(logic.nameOf(pid, hebrew: hebrew))
-                            Spacer()
-                            Text(Roster.roomOf[pid].map { hebrew ? $0.hebLabel : $0.label } ?? "")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                } header: {
-                    HStack {
-                        Text(slot.label)
-                        Spacer()
-                        if !missing.isEmpty { Text("\(missing.count) out").foregroundColor(RC.red) }
-                    }
-                }
-            }
-            if !away.isEmpty {
-                Section("Not in town") {
-                    ForEach(away, id: \.self) { pid in Text(logic.nameOf(pid, hebrew: hebrew)) }
-                }
-            }
-        }
-        .listStyle(.insetGrouped)
     }
 }
 
@@ -444,5 +386,17 @@ struct NightPicker: View {
                 day = d
             }
         }
+    }
+}
+
+/// The night's picture full screen - how the screenshot run gets to look at it.
+struct PicturePreview: View {
+    let image: UIImage
+
+    var body: some View {
+        ScrollView {
+            Image(uiImage: image).resizable().scaledToFit()
+        }
+        .background(Color.white.ignoresSafeArea())
     }
 }

@@ -282,4 +282,23 @@ final class NightSessionTests: XCTestCase {
         XCTAssertEqual(NightStore(home: dir, builtInSync: true).settings.syncUrl, "https://example.com")
         XCTAssertEqual(NightStore(home: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)).settings.syncUrl, "")
     }
+
+    // MARK: search, and the time picker
+
+    func testSearchLandsOnTheBedAndRingsIt() {
+        let s = session()
+        s.findPerson("p28")
+        XCTAssertEqual(Roster.PLAN[s.room].id, "r8")
+        XCTAssertEqual(s.highlight, "p28")
+        s.jumpRoom(0)
+        XCTAssertNil(s.highlight)
+    }
+
+    func testAClockPickerOpensOnTheRoundItIsChanging() {
+        XCTAssertEqual(Slots.clockHourOf("1115"), 23)
+        XCTAssertEqual(Slots.clockHourOf("1200"), 0)
+        XCTAssertEqual(Slots.clockHourOf("0130"), 1)
+        XCTAssertEqual(Slots.clockMinuteOf("0130"), 30)
+        XCTAssertEqual(Slots.idForClock(hour24: Slots.clockHourOf("1245"), minute: 45), "1245")
+    }
 }

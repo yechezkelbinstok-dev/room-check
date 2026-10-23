@@ -19,6 +19,8 @@ public final class NightSession {
     public private(set) var room = 0
     public private(set) var editing = false
     public private(set) var reviewing = false
+    /// Who search just jumped to, ringed on the plan until it clears itself.
+    public private(set) var highlight: String?
     private var undoStack: [Night] = []
 
     public var onChange: (() -> Void)?
@@ -138,8 +140,24 @@ public final class NightSession {
     // MARK: - moving about
 
     public func selectSlot(_ sid: String) { curSlot = sid; onChange?() }
+
+    /// Jumps the plan to whoever was searched for and rings them - search is for the moment you
+    /// hold a name and do not know the room, so it lands you ON the bed, not just in the room.
+    public func findPerson(_ pid: String) {
+        guard let i = Roster.PLAN.firstIndex(where: { r in r.beds.contains { $0.slots.contains(pid) } }) else { return }
+        room = i
+        highlight = pid
+        reviewing = false
+        onChange?()
+    }
+
+    public func clearHighlight() {
+        guard highlight != nil else { return }
+        highlight = nil
+        onChange?()
+    }
     public func goRoom(_ delta: Int) { jumpRoom(room + delta) }
-    public func jumpRoom(_ i: Int) { room = max(0, min(Roster.PLAN.count - 1, i)); onChange?() }
+    public func jumpRoom(_ i: Int) { room = max(0, min(Roster.PLAN.count - 1, i)); highlight = nil; onChange?() }
     public func setEditing(_ on: Bool) { editing = on; reviewing = false; onChange?() }
     public func setReviewing(_ on: Bool) { reviewing = on; onChange?() }
 

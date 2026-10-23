@@ -42,11 +42,12 @@ shoot() {   # demo name, file name
 
 mkdir -p out/shots
 xcrun simctl ui "$UDID" appearance light
-for demo in check-empty check-in-progress check-rooms-split check-hebrew check-thursday check-past-night person-sheet night-picker; do
+for demo in check-empty check-in-progress check-rooms-split check-hebrew check-thursday check-past-night person-sheet \
+            night-picker review-everyone night-settings settings names search whos-missing picture picture-hebrew; do
   shoot "$demo" "$demo"
 done
 # the same app in dark mode, which it follows because every colour in it is the system's own
 xcrun simctl ui "$UDID" appearance dark
-for demo in check-in-progress check-past-night person-sheet; do
+for demo in check-in-progress check-past-night person-sheet settings names; do
   shoot "$demo" "$demo-dark"
 done

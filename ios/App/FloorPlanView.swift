@@ -193,16 +193,27 @@ struct PersonSlot: View {
         case .away: offTag("Not in town", .accentColor)
         case .exc: offTag("Excused", .secondary)
         default:
-            HStack(spacing: 3) {
-                markButton(size, "checkmark", on: status == .inRoom, color: RC.green) { onMark(.inRoom) }
-                markButton(size, "xmark", on: status == .out, color: RC.red) { onMark(.out) }
-            }
+            MarkPair(status: status, size: size, onMark: onMark)
         }
     }
 
     private func offTag(_ text: String, _ color: Color) -> some View {
         Text(text).font(.system(size: 11, weight: .semibold)).foregroundColor(color)
             .lineLimit(1).minimumScaleFactor(0.6)
+    }
+}
+
+/// Here and not here, side by side - on a bed, and in a person's sheet.
+struct MarkPair: View {
+    let status: Mark?
+    let size: CGFloat
+    let onMark: (Mark) -> Void
+
+    var body: some View {
+        HStack(spacing: 3) {
+            markButton(size, "checkmark", on: status == .inRoom, color: RC.green) { onMark(.inRoom) }
+            markButton(size, "xmark", on: status == .out, color: RC.red) { onMark(.out) }
+        }
     }
 
     private func markButton(_ size: CGFloat, _ symbol: String, on: Bool, color: Color, action: @escaping () -> Void) -> some View {

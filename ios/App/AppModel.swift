@@ -15,9 +15,16 @@ final class AppModel: ObservableObject, @unchecked Sendable {
     @Published private(set) var toast: String?
     @Published private(set) var syncState: SyncState = .off
 
-    /// For the screenshot run only: a person's sheet, or the night calendar, open at launch.
+    /// For the screenshot run only: what to have open at launch - a person's sheet, the night
+    /// calendar, a screen, search with a name typed, the review's grid, names picked as missing,
+    /// or the night's picture.
     var demoPerson: String?
     var demoPicker = false
+    var demoRoute: Route?
+    var demoQuery: String?
+    var demoEveryone = false
+    var demoPicked: Set<String>?
+    var demoPicture = false
 
     private var syncing = false
     private var pushLater: DispatchWorkItem?
@@ -49,6 +56,23 @@ final class AppModel: ObservableObject, @unchecked Sendable {
             let later = DispatchWorkItem { [weak self] in self?.syncNow() }
             pushLater = later
             DispatchQueue.main.asyncAfter(deadline: .now() + 4, execute: later)
+        }
+    }
+
+    var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    }
+
+    /// Where the sync stands, in a line.
+    var syncLine: String {
+        switch syncState {
+        case .off: return "Ready"
+        case .working: return "Syncing…"
+        case .ok(let at, _):
+            let f = DateFormatter()
+            f.dateFormat = "h:mm a"
+            return "Last synced " + f.string(from: at).lowercased()
+        case .failed(let reason): return reason
         }
     }
 
