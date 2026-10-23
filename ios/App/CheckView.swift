@@ -280,7 +280,7 @@ struct CheckView: View {
                 .buttonStyle(.bordered)
                 // the night's picture, drawn only when it is actually sent; Copy is for the text
                 ShareLink(item: NightPictureFile(session: s),
-                          preview: SharePreview(Dates.hebrewDayMonth(s.dateKey), image: Image(systemName: "photo"))) {
+                          preview: SharePreview(Dates.hebrewDayMonth(s.dateKey), image: Image("ShareIcon"))) {
                     BarLabel(title: "Send", icon: "square.and.arrow.up")
                 }
                 .buttonStyle(.bordered)

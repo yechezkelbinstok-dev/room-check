@@ -30,6 +30,8 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        # the share sheet's Save Image, for the night's picture
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "Saves the night's picture to your photos."
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_VERSION: "5.0"
