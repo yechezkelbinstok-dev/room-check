@@ -328,10 +328,12 @@ struct RoomCard: View {
             // the whole-room buttons beside the room's name, or under it when a large text size
             // leaves no room for both on one line
             ViewThatFits(in: .horizontal) {
+                // fixed at full width: this line is only used when it all fits, and a row of
+                // shrinkable pieces otherwise cuts the buttons short to share out the space
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    title(room, out: out, hebrew: hebrew)
+                    title(room, out: out, hebrew: hebrew).fixedSize()
                     Spacer(minLength: 4)
-                    wholeRoom(room, sid)
+                    wholeRoom(room, sid).fixedSize()
                 }
                 VStack(alignment: .leading, spacing: 8) {
                     title(room, out: out, hebrew: hebrew)
