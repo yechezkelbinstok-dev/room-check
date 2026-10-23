@@ -1,0 +1,77 @@
+name: iPhone app
+
+# Built on GitHub's own Macs, since an iPhone app can only be built with Apple's tools: every push
+# that touches ios/ tests the shared code, builds the app, takes screenshots of it running in the
+# iPhone simulator, and puts the app file and the screenshots on the "ios-latest" release.
+on:
+  push:
+    branches: [claude/connection-status-ksnieg]
+    paths: ['ios/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tools
+        run: |
+          xcodebuild -version
+          swift --version
+          brew install xcodegen
+
+      - name: Version, from the Android app
+        run: |
+          echo "VERSION=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' android/app/build.gradle.kts | head -1)" >> "$GITHUB_ENV"
+          echo "BUILD=$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' android/app/build.gradle.kts | head -1)" >> "$GITHUB_ENV"
+
+      - name: Test the shared code
+        working-directory: ios/RoomCheckCore
+        run: swift test
+
+      - name: Make the Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build for an iPhone
+        working-directory: ios
+        run: |
+          xcodebuild -project RoomCheck.xcodeproj -scheme RoomCheck -configuration Release \
+            -destination 'generic/platform=iOS' -derivedDataPath build/device \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build -quiet
+          # unsigned on purpose: AltStore, SideStore and Sideloadly sign it with your own Apple ID
+          mkdir -p out/Payload
+          cp -R build/device/Build/Products/Release-iphoneos/RoomCheck.app out/Payload/
+          (cd out && zip -qry "RoomCheck-$VERSION.ipa" Payload && rm -rf Payload)
+
+      - name: Screenshots in the simulator
+        working-directory: ios
+        run: ci/screenshots.sh MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: iphone-app
+          path: ios/out/
+
+      - name: Publish to the ios-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ios-latest --yes --cleanup-tag || true
+          gh release create ios-latest ios/out/*.ipa ios/out/shots/*.png \
+            --target "$GITHUB_SHA" --prerelease --title "iPhone app $VERSION (latest build)" \
+            --notes "Built from $GITHUB_SHA. Unsigned: install it with AltStore, SideStore or Sideloadly, which sign it with your Apple ID. The screenshots are the app running in the iPhone simulator."

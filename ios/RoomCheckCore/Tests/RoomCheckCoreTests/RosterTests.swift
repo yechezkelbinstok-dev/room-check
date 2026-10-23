@@ -5,9 +5,19 @@ import XCTest
 /// person left out, a door on a wall with no wall) would be silent until someone actually opened
 /// the app and looked.
 final class RosterTests: XCTestCase {
-    func testThirtyPeopleThirtyIds() {
-        XCTAssertEqual(Roster.PEOPLE.count, 29)
-        XCTAssertEqual(Set(Roster.PEOPLE.map(\.id)).count, 29)
+    /// Counted from the roster rather than written down, so a new bochur or one leaving does not
+    /// turn into a test to edit - what matters is that no two people share an id.
+    func testEveryIdIsUnique() {
+        XCTAssertEqual(Set(Roster.PEOPLE.map(\.id)).count, Roster.PEOPLE.count)
+    }
+
+    /// Those who have left keep their names for the nights they were in, and are on no bed.
+    func testThoseWhoLeftHaveNamesButNoBed() {
+        let onBeds = Set(Roster.PLAN.flatMap { $0.beds.flatMap(\.slots) })
+        for pid in ["p27", "p30"] {
+            XCTAssertNotNil(Roster.byId[pid], "\(pid) lost his name")
+            XCTAssertFalse(onBeds.contains(pid), "\(pid) is still on a bed")
+        }
     }
 
     func testEightRooms() {
@@ -16,8 +26,8 @@ final class RosterTests: XCTestCase {
 
     func testEveryPersonSleepsInExactlyOneBed() {
         let allSlots = Roster.PLAN.flatMap { $0.beds.flatMap(\.slots) }
-        XCTAssertEqual(allSlots.count, 30, "expected 30 bed slots total, got \(allSlots.count)")
-        XCTAssertEqual(Set(allSlots).count, 30, "a person appears in more than one bed")
+        XCTAssertEqual(allSlots.count, Roster.PEOPLE.count, "expected one bed slot per person, got \(allSlots.count)")
+        XCTAssertEqual(Set(allSlots).count, allSlots.count, "a person appears in more than one bed")
         XCTAssertEqual(Set(allSlots), Set(Roster.PEOPLE.map(\.id)), "roster and room plan disagree on who exists")
     }
 

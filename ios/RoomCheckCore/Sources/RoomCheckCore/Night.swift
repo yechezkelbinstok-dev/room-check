@@ -4,6 +4,14 @@ public enum Mark: String, Codable {
     case inRoom = "in"
     case out = "out"
     case exc = "exc"
+    /// Never written into a night: it comes from the person's standing "not in town" switch, the
+    /// way "excused indefinitely" gives `exc`, so it reads the same whichever night is open.
+    case away = "away"
+}
+
+public extension Optional where Wrapped == Mark {
+    /// Off the walk this round - excused or not in town - so the room is judged without him.
+    var offCheck: Bool { self == .exc || self == .away }
 }
 
 /// One night's marks and everything about it that a device can edit. Mirrors the exact JSON shape
@@ -134,13 +142,32 @@ extension Night {
     }
 }
 
-public struct PersonOverride: Codable {
+public struct PersonOverride: Codable, Equatable {
     public var first: String?
     public var last: String?
     public var always: Bool = false
     public var reason: String?
-    public init(first: String? = nil, last: String? = nil, always: Bool = false, reason: String? = nil) {
-        self.first = first; self.last = last; self.always = always; self.reason = reason
+    /// Not in town: off every round of every night until switched back off.
+    public var away: Bool = false
+    public init(first: String? = nil, last: String? = nil, always: Bool = false, reason: String? = nil, away: Bool = false) {
+        self.first = first; self.last = last; self.always = always; self.reason = reason; self.away = away
+    }
+
+    /// The shape state.json and backups keep it in, the same as the app and the site.
+    func jsonObject() -> [String: Any] {
+        var o: [String: Any] = ["always": always, "away": away]
+        if let v = first { o["first"] = v }
+        if let v = last { o["last"] = v }
+        if let v = reason { o["reason"] = v }
+        return o
+    }
+
+    static func from(_ o: [String: Any]) -> PersonOverride {
+        PersonOverride(
+            first: o["first"] as? String, last: o["last"] as? String,
+            always: (o["always"] as? Bool) ?? false, reason: o["reason"] as? String,
+            away: (o["away"] as? Bool) ?? false
+        )
     }
 }
 
@@ -153,15 +180,25 @@ public struct Settings: Codable {
     public var hebrewOnPlan: Bool = false
     /// Hebrew names in the sent picture. Separate on purpose: you may want one and not the other.
     public var hebrewInExport: Bool = false
+    /// The yeshiva calendar in English rather than Hebrew.
+    public var luachEnglish: Bool = false
+    /// The yeshiva calendar as the year's list rather than a month at a time.
+    public var luachList: Bool = false
+    /// The month calendar by Hebrew months ("heb") or regular ones ("greg"); blank follows the language.
+    public var luachMonths: String = ""
     /// Where the shared copy lives. Blank means this device keeps to itself, as it always did.
     public var syncUrl: String = ""
     public var syncToken: String = ""
 
     public init(bunkLabels: Bool = false, hebrewOnPlan: Bool = false, hebrewInExport: Bool = false,
+                luachEnglish: Bool = false, luachList: Bool = false, luachMonths: String = "",
                 syncUrl: String = "", syncToken: String = "") {
         self.bunkLabels = bunkLabels
         self.hebrewOnPlan = hebrewOnPlan
         self.hebrewInExport = hebrewInExport
+        self.luachEnglish = luachEnglish
+        self.luachList = luachList
+        self.luachMonths = luachMonths
         self.syncUrl = syncUrl
         self.syncToken = syncToken
     }

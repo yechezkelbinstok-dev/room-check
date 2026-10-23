@@ -1,11 +1,14 @@
 import Foundation
 
-public struct SlotStats {
-    public let out: Int, inCount: Int, exc: Int, left: Int, started: Bool
+public struct SlotStats: Equatable {
+    public let out: Int, inCount: Int, exc: Int, left: Int, started: Bool, away: Int
+    public init(out: Int, inCount: Int, exc: Int, left: Int, started: Bool, away: Int = 0) {
+        self.out = out; self.inCount = inCount; self.exc = exc; self.left = left; self.started = started; self.away = away
+    }
 }
 
-/// [slots] is the times this night is walked at - the standing three, or whatever this night named
-/// instead.
+/// [slots] is the times this night is walked at - its usual rounds, or its own, plus anything
+/// marked in.
 public final class NightLogic {
     private let night: Night
     private let extra: [String: PersonOverride]
@@ -18,6 +21,7 @@ public final class NightLogic {
     public var sids: [String] { slots.map(\.id) }
 
     public func isAlways(_ pid: String) -> Bool { extra[pid]?.always == true }
+    public func isAway(_ pid: String) -> Bool { extra[pid]?.away == true }
     public func first(_ pid: String) -> String { extra[pid]?.first ?? Roster.byId[pid]?.first ?? "" }
     public func last(_ pid: String) -> String { extra[pid]?.last ?? Roster.byId[pid]?.last ?? "" }
     public func nameOf(_ pid: String) -> String { "\(first(pid)) \(last(pid))" }
@@ -42,12 +46,13 @@ public final class NightLogic {
 
     public func statusOf(_ pid: String, _ sid: String) -> Mark? {
         if isAlways(pid) { return .exc }
+        if isAway(pid) { return .away }
         if night.excusedTonight.contains(pid) { return .exc }
         return night.marks[sid]?[pid]
     }
 
     private func livePids(_ room: Room, _ sid: String) -> [String] {
-        room.beds.flatMap(\.slots).filter { statusOf($0, sid) != .exc }
+        room.beds.flatMap(\.slots).filter { !statusOf($0, sid).offCheck }
     }
 
     public func roomChecked(_ room: Room, _ sid: String) -> Bool {
@@ -61,7 +66,7 @@ public final class NightLogic {
         for bed in room.beds {
             for pid in bed.slots {
                 let st = statusOf(pid, sid)
-                if st == .exc { continue }
+                if st.offCheck { continue }
                 if st != .inRoom { return false }
                 any = true
             }
@@ -69,27 +74,47 @@ public final class NightLogic {
         return any || roomChecked(room, sid)
     }
 
+    /// Share of the room still on the walk that is marked out at [sid] - 0 when nobody is.
+    public func missingShare(_ room: Room, _ sid: String) -> Double {
+        let live = livePids(room, sid)
+        if live.isEmpty { return 0 }
+        return Double(live.filter { statusOf($0, sid) == .out }.count) / Double(live.count)
+    }
+
+    /// Share of the room still on the walk that is marked in at [sid].
+    public func inShare(_ room: Room, _ sid: String) -> Double {
+        let live = livePids(room, sid)
+        if live.isEmpty { return 0 }
+        return Double(live.filter { statusOf($0, sid) == .inRoom }.count) / Double(live.count)
+    }
+
     public func outIn(_ room: Room, _ sid: String) -> [String] {
         room.beds.flatMap(\.slots).filter { statusOf($0, sid) == .out }
     }
 
     public func stats(_ sid: String) -> SlotStats {
-        var out = 0, inC = 0, exc = 0
+        var out = 0, inC = 0, exc = 0, away = 0
         for p in Roster.PEOPLE {
             switch statusOf(p.id, sid) {
             case .out: out += 1
             case .inRoom: inC += 1
             case .exc: exc += 1
+            case .away: away += 1
             case nil: break
             }
         }
         let left = Roster.PLAN.filter { !roomChecked($0, sid) }.count
-        return SlotStats(out: out, inCount: inC, exc: exc, left: left, started: left < Roster.PLAN.count)
+        return SlotStats(out: out, inCount: inC, exc: exc, left: left, started: left < Roster.PLAN.count, away: away)
     }
 
     /// Everyone marked out at [sid], in room order then bed order - the order you walked them.
     public func missingAt(_ sid: String) -> [String] {
         Roster.PLAN.flatMap { room in room.beds.flatMap(\.slots) }.filter { statusOf($0, sid) == .out }
+    }
+
+    /// Everyone switched to not in town, in walking order.
+    public func awayList() -> [String] {
+        Roster.PLAN.flatMap { room in room.beds.flatMap(\.slots) }.filter { isAway($0) }
     }
 
     public func uncheckedAt(_ sid: String) -> [Room] { Roster.PLAN.filter { !roomChecked($0, sid) } }
@@ -113,6 +138,12 @@ public final class NightLogic {
             if stats(sid).started && !unchecked.isEmpty {
                 lines.append("(still to mark: \(unchecked.map(\.label).joined(separator: ", ")))")
             }
+        }
+        let away = awayList()
+        if !away.isEmpty {
+            lines.append("")
+            lines.append("Not in town")
+            lines.append(away.map { nameOf($0) }.joined(separator: ", "))
         }
         return lines.joined(separator: "\n")
     }

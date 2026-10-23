@@ -9,3 +9,6 @@ ios/**/DerivedData/
 
 # Kotlin daemon scratch
 android/.kotlin/
+ios/RoomCheck.xcodeproj/
+ios/build/
+ios/out/

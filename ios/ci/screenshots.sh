@@ -1,0 +1,42 @@
+#!/bin/bash
+# Builds the app for the iPhone simulator, opens it on each demo night (App/Demo.swift) and saves
+# a screenshot of each - how the app gets looked at without a Mac of our own. Run from ios/.
+set -euo pipefail
+
+# the newest plain "iPhone NN" the runner has, on the newest iOS it has
+UDID=$(xcrun simctl list devices available --json | python3 -c '
+import json, re, sys
+best = None
+for runtime, devices in json.load(sys.stdin)["devices"].items():
+    m = re.search(r"iOS-(\d+)-(\d+)", runtime)
+    if not m:
+        continue
+    for d in devices:
+        n = re.fullmatch(r"iPhone (\d+)", d["name"])
+        if n:
+            key = (int(m.group(1)), int(m.group(2)), int(n.group(1)))
+            if best is None or key > best[0]:
+                best = (key, d["udid"], d["name"], runtime)
+if best is None:
+    sys.exit("no iPhone simulator found")
+print(best[2], "on", best[3], file=sys.stderr)
+print(best[1])
+')
+
+xcrun simctl boot "$UDID" 2>/dev/null || true
+xcrun simctl bootstatus "$UDID" -b
+
+xcodebuild -project RoomCheck.xcodeproj -scheme RoomCheck -configuration Debug \
+  -destination "id=$UDID" -derivedDataPath build/sim "$@" build -quiet
+xcrun simctl install "$UDID" build/sim/Build/Products/Debug-iphonesimulator/RoomCheck.app
+xcrun simctl status_bar "$UDID" override --time "22:30" --batteryState charged --batteryLevel 100 \
+  --wifiBars 3 --cellularMode active --cellularBars 4 || true
+
+mkdir -p out/shots
+for demo in check-empty check-in-progress check-rooms-split check-hebrew check-thursday check-past-night; do
+  xcrun simctl terminate "$UDID" com.roomcheck.app 2>/dev/null || true
+  xcrun simctl launch "$UDID" com.roomcheck.app -demo "$demo"
+  sleep 5
+  xcrun simctl io "$UDID" screenshot "out/shots/$demo.png"
+  echo "shot $demo"
+done

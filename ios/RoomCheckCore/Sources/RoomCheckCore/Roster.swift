@@ -107,6 +107,12 @@ public enum Roster {
     // inside the walls so the door box can sit outside them like the sketch draws it.
     /// Rooms 1 to 3 are downstairs; every other room is upstairs.
     public static let BOTTOM_FLOOR: Set<String> = ["r1", "r2", "r3"]
+    /// The room buttons' two rows: the bottom floor's rooms on top, then the rest - as indexes
+    /// into PLAN.
+    public static let FLOORS: [[Int]] = [
+        PLAN.indices.filter { BOTTOM_FLOOR.contains(PLAN[$0].id) },
+        PLAN.indices.filter { !BOTTOM_FLOOR.contains(PLAN[$0].id) }
+    ]
 
     public static let PLAN: [Room] = [
         // both bunks across the right side, one against the top wall and one against the bottom

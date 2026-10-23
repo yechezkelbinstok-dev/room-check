@@ -100,4 +100,22 @@ final class SyncClientTests: XCTestCase {
         _ = try await SyncClient(store: a, session: makeMockedSession(server)).sync()
         XCTAssertTrue(a.dirtyDates().isEmpty)
     }
+
+    /// A mark made in the second a push is in the air is still owed once the push lands - the
+    /// push carried the night as it was before that mark.
+    func testAnEditWhileAPushIsInTheAirIsStillOwed() {
+        let store = NightStore(home: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
+        let client = SyncClient(store: store)
+        let n = Night()
+        n.marks["1115"] = ["p1": .inRoom]
+        store.saveLocal("2026-10-21", n)
+        let push = client.pushRequest()!
+        n.marks["1115"]?["p2"] = .out
+        store.saveLocal("2026-10-21", n)
+        _ = client.adoptPush([:], sent: push.sent)
+        XCTAssertTrue(store.dirtyDates().contains("2026-10-21"))
+        let again = client.pushRequest()!
+        _ = client.adoptPush([:], sent: again.sent)
+        XCTAssertTrue(store.dirtyDates().isEmpty)
+    }
 }

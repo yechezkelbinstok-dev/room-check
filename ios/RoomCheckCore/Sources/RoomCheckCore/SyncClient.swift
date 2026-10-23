@@ -50,7 +50,17 @@ public final class SyncClient {
         self.session = session
     }
 
-    private func post(_ base: String, _ path: String, _ token: String, _ body: [String: Any]) async throws -> [String: Any] {
+    /// Where to sync to and with what password, or an error when there is nowhere set.
+    public func endpoint() throws -> (base: String, token: String) {
+        let base = store.settings.syncUrl.trimmingCharacters(in: .whitespaces)
+        guard !base.isEmpty else { throw SyncError.noAddress }
+        return (base, store.settings.syncToken)
+    }
+
+    /// The network half of a sync, and the only half: it touches nothing but the request it is
+    /// given, so an app can wait on it off the main thread while every read and write of the
+    /// store - the steps below - stays on the one thread the screen edits from.
+    public func post(_ base: String, _ path: String, _ token: String, _ body: [String: Any]) async throws -> [String: Any] {
         guard let url = URL(string: base.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + path) else {
             throw SyncError.unreachable("Bad address")
         }
@@ -73,33 +83,34 @@ public final class SyncClient {
         return (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
     }
 
-    /// One full exchange: push what changed here, then take everything that changed elsewhere.
-    /// Returns how many nights ended up different locally.
-    @discardableResult
-    public func sync() async throws -> Int {
-        let base = store.settings.syncUrl.trimmingCharacters(in: .whitespaces)
-        guard !base.isEmpty else { throw SyncError.noAddress }
-        let token = store.settings.syncToken
+    /// What this device owes the server - the nights edited here, and how far each had got - or
+    /// nil when it owes nothing.
+    public func pushRequest() -> (sent: [String: Int], body: [String: Any])? {
+        let owed = store.dirtySnapshot()
+        if owed.isEmpty { return nil }
+        var nights: [String: Any] = [:]
+        for date in owed.keys { nights[date] = store.load(date).toJSONObject() }
+        return (owed, ["nights": nights])
+    }
 
+    /// What the server sent back for a push - its merged copies of the nights - taken in.
+    public func adoptPush(_ res: [String: Any], sent: [String: Int]) -> Int {
         var changed = 0
-
-        // push first, so a night edited here is on the server before we ask what we are missing
-        let dirty = store.dirtyDates()
-        if !dirty.isEmpty {
-            var nights: [String: Any] = [:]
-            for date in dirty { nights[date] = store.load(date).toJSONObject() }
-            let res = try await post(base, "/push", token, ["nights": nights])
-            if let back = res["nights"] as? [String: Any] {
-                for (date, raw) in back {
-                    guard let obj = raw as? [String: Any] else { continue }
-                    if adopt(date, Night.fromJSONObject(obj)) { changed += 1 }
-                }
+        if let back = res["nights"] as? [String: Any] {
+            for (date, raw) in back {
+                guard let obj = raw as? [String: Any] else { continue }
+                if adopt(date, Night.fromJSONObject(obj)) { changed += 1 }
             }
-            store.clearDirty(dirty)
         }
+        store.clearDirty(sent: sent)
+        return changed
+    }
 
-        let since = store.lastPull
-        let res = try await post(base, "/pull", token, ["since": since])
+    public func pullRequest() -> [String: Any] { ["since": store.lastPull] }
+
+    /// Everything that changed elsewhere since the last pull, taken in.
+    public func adoptPull(_ res: [String: Any]) -> Int {
+        var changed = 0
         if let nights = res["nights"] as? [String: Any] {
             for (date, raw) in nights {
                 guard let obj = raw as? [String: Any] else { continue }
@@ -107,7 +118,22 @@ public final class SyncClient {
             }
         }
         if let now = res["now"] as? NSNumber { store.lastPull = now.int64Value }
-        store.saveState()
+        // someone switched to not in town on another device reads that way here too
+        store.rebuildExtra()
+        return changed
+    }
+
+    /// One full exchange: push what changed here, then take everything that changed elsewhere.
+    /// Returns how many nights ended up different locally.
+    @discardableResult
+    public func sync() async throws -> Int {
+        let (base, token) = try endpoint()
+        var changed = 0
+        // push first, so a night edited here is on the server before we ask what we are missing
+        if let push = pushRequest() {
+            changed += adoptPush(try await post(base, "/push", token, push.body), sent: push.sent)
+        }
+        changed += adoptPull(try await post(base, "/pull", token, pullRequest()))
         return changed
     }
 
