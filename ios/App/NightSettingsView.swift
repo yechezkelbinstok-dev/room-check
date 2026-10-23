@@ -83,6 +83,13 @@ struct NightSettingsView: View {
         .sheet(item: $editing) { e in
             TimeSheet(edit: e).environmentObject(model)
         }
+        .onAppear {
+            // the screenshot run's time wheel, once this page has finished sliding in
+            if let e = model.demoTimeEdit {
+                model.demoTimeEdit = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { editing = e }
+            }
+        }
     }
 }
 

@@ -17,7 +17,7 @@ final class AppModel: ObservableObject, @unchecked Sendable {
 
     /// For the screenshot run only: what to have open at launch - a person's sheet, the night
     /// calendar, a screen, search with a name typed, the review's grid, names picked as missing,
-    /// or the night's picture.
+    /// the night's picture, the time wheel, a name being changed, or the sync's address open.
     var demoPerson: String?
     var demoPicker = false
     var demoRoute: Route?
@@ -25,6 +25,9 @@ final class AppModel: ObservableObject, @unchecked Sendable {
     var demoEveryone = false
     var demoPicked: Set<String>?
     var demoPicture = false
+    var demoTimeEdit: TimeEdit?
+    var demoRename: String?
+    var demoEditingSync = false
 
     private var syncing = false
     private var pushLater: DispatchWorkItem?

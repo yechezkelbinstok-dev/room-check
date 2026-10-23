@@ -34,12 +34,32 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_VERSION: "5.0"
         ENABLE_PREVIEWS: NO
+  # only for the screenshots that need a finger on the screen (ci/screenshots.sh); never in the app
+  RoomCheckUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: RoomCheck
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.roomcheck.app.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: RoomCheck
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
 schemes:
   RoomCheck:
     build:
       targets:
         RoomCheck: all
+        RoomCheckUITests: [test]
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - RoomCheckUITests
     archive:
       config: Release

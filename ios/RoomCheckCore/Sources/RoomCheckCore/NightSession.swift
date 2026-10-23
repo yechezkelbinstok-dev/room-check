@@ -157,7 +157,14 @@ public final class NightSession {
         onChange?()
     }
     public func goRoom(_ delta: Int) { jumpRoom(room + delta) }
-    public func jumpRoom(_ i: Int) { room = max(0, min(Roster.PLAN.count - 1, i)); highlight = nil; onChange?() }
+    /// Another room drops the search ring. The room it is already in does not: the pages report
+    /// the page they settle on, which after a search is the ringed one's own.
+    public func jumpRoom(_ i: Int) {
+        let to = max(0, min(Roster.PLAN.count - 1, i))
+        if to != room { highlight = nil }
+        room = to
+        onChange?()
+    }
     public func setEditing(_ on: Bool) { editing = on; reviewing = false; onChange?() }
     public func setReviewing(_ on: Bool) { reviewing = on; onChange?() }
 

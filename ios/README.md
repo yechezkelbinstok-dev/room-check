@@ -28,7 +28,9 @@ own Apple ID on the way in:
   rules. Builds and tests anywhere Swift runs, Linux included: `cd RoomCheckCore && swift test`.
 - `App/` - the SwiftUI screens on top of it.
 - `project.yml` - the Xcode project, turned into `RoomCheck.xcodeproj` by XcodeGen on the build.
-- `ci/screenshots.sh` - the simulator run. The demo nights it opens are in `App/Demo.swift`.
+- `ci/screenshots.sh` - the simulator run. The demo nights it opens are in `App/Demo.swift`; the
+  shots that need a finger on the screen (a menu open, a row swiped, the share sheet) are
+  `UITests/`.
 
 ## So far
 

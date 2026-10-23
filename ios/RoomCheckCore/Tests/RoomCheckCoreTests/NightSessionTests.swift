@@ -290,6 +290,9 @@ final class NightSessionTests: XCTestCase {
         s.findPerson("p28")
         XCTAssertEqual(Roster.PLAN[s.room].id, "r8")
         XCTAssertEqual(s.highlight, "p28")
+        // the pages settling on the room search went to is not leaving it
+        s.jumpRoom(s.room)
+        XCTAssertEqual(s.highlight, "p28")
         s.jumpRoom(0)
         XCTAssertNil(s.highlight)
     }

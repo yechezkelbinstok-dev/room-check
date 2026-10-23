@@ -84,6 +84,14 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            if model.demoEditingSync {
+                model.demoEditingSync = false
+                url = settings.syncUrl
+                token = settings.syncToken
+                editingSync = true
+            }
+        }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.json, .plainText, .text]) { result in
             guard case .success(let file) = result else { return }
             let open = file.startAccessingSecurityScopedResource()
@@ -203,6 +211,17 @@ struct NamesView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("How the name is written everywhere - on the plan, the text and the picture, on every phone.")
+        }
+        .onAppear {
+            // the screenshot run's rename, once this page has finished sliding in
+            if let pid = model.demoRename {
+                model.demoRename = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    first = logic.first(pid)
+                    last = logic.last(pid)
+                    renaming = pid
+                }
+            }
         }
     }
 
