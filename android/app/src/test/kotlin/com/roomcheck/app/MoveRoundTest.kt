@@ -15,7 +15,7 @@ import org.junit.rules.TemporaryFolder
  */
 class MoveRoundTest {
     @get:Rule val folder = TemporaryFolder()
-    private fun vm() = AppViewModel(NightStore(folder.newFolder()))
+    private fun vm() = testVm(NightStore(folder.newFolder()))
 
     @Test
     fun marksMoveToTheNewTime() {
@@ -37,7 +37,7 @@ class MoveRoundTest {
         vm.setMark("p1", "1115", Mark.IN)
         vm.moveRoundTonight("1200", "1230")
 
-        assertEquals(listOf("1115", "1130", "1230"), Slots.all(vm.state.value.night).map { it.id })
+        assertEquals(listOf("1115", "1130", "1230"), vm.rounds().map { it.id })
         assertEquals(Mark.IN, vm.state.value.night.marks["1115"]?.get("p1"))
     }
 
@@ -59,7 +59,7 @@ class MoveRoundTest {
 
         val night = vm.state.value.night
         assertEquals(Mark.OUT, night.marks["1200"]?.get("p3"))
-        assertEquals(listOf("1115", "1130", "1200"), Slots.all(night).map { it.id })
+        assertEquals(listOf("1115", "1130", "1200"), vm.rounds().map { it.id })
     }
 
     /** Moving onto a time the night already has would silently swallow one round's marks. */
@@ -71,7 +71,7 @@ class MoveRoundTest {
 
         val night = vm.state.value.night
         assertEquals(Mark.OUT, night.marks["1200"]?.get("p3"))
-        assertEquals(listOf("1115", "1130", "1200"), Slots.all(night).map { it.id })
+        assertEquals(listOf("1115", "1130", "1200"), vm.rounds().map { it.id })
     }
 
     /** A narrowed picture should still name the round after it has moved. */
@@ -81,7 +81,7 @@ class MoveRoundTest {
         vm.toggleSheetSlot("1115")   // narrows the sheet to 11:30 and 12:00
         vm.moveRoundTonight("1200", "1230")
 
-        val sheet = Slots.forSheet(vm.state.value.night).map { it.id }
+        val sheet = Slots.forSheet(vm.state.value.night, vm.state.value.dateKey).map { it.id }
         assertTrue("1230" in sheet)
         assertFalse("1115" in sheet)
     }

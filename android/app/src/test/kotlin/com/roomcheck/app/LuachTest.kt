@@ -165,7 +165,7 @@ class LuachTest {
         assertTrue(Luach.hebrewMonthsFor("heb", en = true))
         assertFalse(Luach.hebrewMonthsFor("greg", en = false))
         val dir = folder.newFolder()
-        AppViewModel(NightStore(dir)).setSettings { it.copy(luachMonths = "heb") }
+        testVm(NightStore(dir)).setSettings { it.copy(luachMonths = "heb") }
         assertEquals("heb", NightStore(dir).settings.luachMonths)
     }
 
@@ -183,7 +183,7 @@ class LuachTest {
     @Test
     fun theSummerSwitchIsSharedLikeEverythingElse() {
         val dir = folder.newFolder()
-        val vm = AppViewModel(NightStore(dir))
+        val vm = testVm(NightStore(dir))
         assertTrue(vm.state.value.summerZman)
         vm.setSummerZman(false)
         assertFalse(vm.state.value.summerZman)

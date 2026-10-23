@@ -18,6 +18,26 @@ class SlotsTest {
 
     private fun night(vararg only: String) = Night().apply { rounds.addAll(only) }
 
+    /**
+     * Thursday night is 12:45 and 1:00, from the 29th of October 2026. Before it, and every other
+     * night of the week, it is the standing three.
+     */
+    @Test
+    fun thursdayHasTwoRoundsOfItsOwn() {
+        fun on(key: String) = Slots.all(Night(), key).map { it.label }
+        assertEquals(listOf("12:45", "1:00"), on("2026-10-29"))
+        assertEquals(listOf("12:45", "1:00"), on("2027-01-07"))
+        assertEquals(listOf("11:15", "11:30", "12:00"), on("2026-10-22"))   // the Thursday before
+        assertEquals(listOf("11:15", "11:30", "12:00"), on("2026-10-28"))   // Wednesday
+        assertEquals(listOf("11:15", "11:30", "12:00"), on("2026-10-30"))   // Friday
+        assertEquals(listOf("11:15", "11:30", "12:00"), on("not a date"))
+        // a Thursday that names its own rounds gets those, and one with marks elsewhere keeps them
+        assertEquals(listOf("12:30"), Slots.all(night("1230"), "2026-10-29").map { it.label })
+        val marked = Night().apply { marks["1200"] = mutableMapOf("p1" to Mark.IN) }
+        assertEquals(listOf("12:00", "12:45", "1:00"), Slots.all(marked, "2026-10-29").map { it.label })
+        assertEquals(listOf("12:45", "1:00"), Slots.forSheet(Night(), "2026-10-29").map { it.label })
+    }
+
     /** A night with nothing said about it is the usual three. */
     @Test
     fun theUsualNightIsTheStandingThree() {

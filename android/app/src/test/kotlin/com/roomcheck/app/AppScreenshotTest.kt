@@ -43,12 +43,23 @@ class AppScreenshotTest {
     @get:Rule
     val folder = TemporaryFolder()
 
-    private fun viewModel(): AppViewModel = AppViewModel(NightStore(folder.newFolder()))
+    private fun viewModel(): AppViewModel = testVm(NightStore(folder.newFolder()))
 
     @Test
     fun checkScreen() {
         val vm = viewModel()
         paparazzi.snapshot(name = "check-empty") {
+            RoomCheckTheme { CheckScreen(vm) }
+        }
+    }
+
+    /** Thursday night: its own two rounds, 12:45 and 1:00, in place of the three. */
+    @Test
+    fun thursdayNight() {
+        val vm = testVm(NightStore(folder.newFolder()), java.time.LocalDateTime.parse("2026-10-29T23:00"))
+        vm.setMark("p2", "1245", Mark.IN)
+        vm.setMark("p1", "1245", Mark.OUT)
+        paparazzi.snapshot(name = "check-thursday") {
             RoomCheckTheme { CheckScreen(vm) }
         }
     }

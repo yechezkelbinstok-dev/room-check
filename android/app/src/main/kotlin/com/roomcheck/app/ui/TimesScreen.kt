@@ -20,15 +20,15 @@ import com.roomcheck.app.data.Tab
  * The rounds walked on ONE night, and which of them the sent picture shows.
  *
  * A round added here belongs to that night alone - the zman moved, or you went round again at
- * 1:30 - and the next night opens on the standing three with nothing to put back. It is reached
+ * 1:30 - and the next night opens on its usual rounds with nothing to put back. It is reached
  * from the night it changes rather than from Settings, because a setting is a standing decision
  * and this is not one.
  */
 @Composable
 fun TimesScreen(vm: AppViewModel) {
     val state by vm.state.collectAsState()
-    val all = Slots.all(state.night)
-    val onSheet = Slots.forSheet(state.night).map { it.id }.toSet()
+    val all = vm.rounds(state)
+    val onSheet = Slots.forSheet(state.night, state.dateKey).map { it.id }.toSet()
     var adding by remember { mutableStateOf(false) }
     var changing by remember { mutableStateOf<String?>(null) }
 

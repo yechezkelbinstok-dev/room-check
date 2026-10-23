@@ -22,7 +22,7 @@ class AwayAndRoomTest {
     @Test
     fun notInTownCarriesToEveryRoundAndEveryNightUntilTurnedOff() {
         val dir = folder.newFolder()
-        val vm = AppViewModel(NightStore(dir))
+        val vm = testVm(NightStore(dir))
         vm.toggleAway("p31")
         vm.state.value.night.let { n -> assertTrue(n.marks.values.none { it.containsKey("p31") }) }
         Roster.SIDS.forEach { assertEquals(Mark.AWAY, vm.logic().statusOf("p31", it)) }
@@ -31,7 +31,7 @@ class AwayAndRoomTest {
         assertEquals(Mark.AWAY, vm.logic().statusOf("p31", vm.state.value.curSlot))
 
         // a fresh start off the same files still has him away
-        assertTrue(AppViewModel(NightStore(dir)).logic().isAway("p31"))
+        assertTrue(testVm(NightStore(dir)).logic().isAway("p31"))
 
         vm.backInTown("p31")
         assertEquals(null, vm.logic().statusOf("p31", vm.state.value.curSlot))
@@ -39,7 +39,7 @@ class AwayAndRoomTest {
 
     @Test
     fun notInTownAndExcusedIndefinitelyAreOneOrTheOther() {
-        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val vm = testVm(NightStore(folder.newFolder()))
         vm.toggleAway("p31")
         vm.toggleAlwaysExcused("p31")
         assertFalse(vm.logic().isAway("p31"))
@@ -50,7 +50,7 @@ class AwayAndRoomTest {
 
     @Test
     fun roomButtonsLeaveWhoeverIsNotInTownAlone() {
-        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val vm = testVm(NightStore(folder.newFolder()))
         val sid = vm.state.value.curSlot
         vm.toggleAway("p31")
 
@@ -69,7 +69,7 @@ class AwayAndRoomTest {
 
     @Test
     fun theShareMissingCountsOnlyWhoIsOnTheWalk() {
-        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val vm = testVm(NightStore(folder.newFolder()))
         val sid = vm.state.value.curSlot
         assertEquals(0f, vm.logic().missingShare(room8, sid))
         vm.setMark("p29", sid, Mark.OUT)
@@ -80,7 +80,7 @@ class AwayAndRoomTest {
 
     @Test
     fun onlyOneInTheRoomMarksTheRestOut() {
-        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val vm = testVm(NightStore(folder.newFolder()))
         val sid = vm.state.value.curSlot
         vm.setRoom(room8, sid, null, only = "p28")
         assertEquals(Mark.IN, vm.logic().statusOf("p28", sid))
@@ -90,7 +90,7 @@ class AwayAndRoomTest {
 
     @Test
     fun onlyOneMissingMarksTheRestIn() {
-        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val vm = testVm(NightStore(folder.newFolder()))
         val sid = vm.state.value.curSlot
         vm.setRoom(room8, sid, null, only = "p28", onlyMark = Mark.OUT)
         assertEquals(Mark.OUT, vm.logic().statusOf("p28", sid))
@@ -101,7 +101,7 @@ class AwayAndRoomTest {
     /** Whichever way round it is, a bed that is off the walk gets no mark at all. */
     @Test
     fun onlyOneMissingStillLeavesAnAwayBedAlone() {
-        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val vm = testVm(NightStore(folder.newFolder()))
         val sid = vm.state.value.curSlot
         vm.toggleAway("p31")
         vm.setRoom(room8, sid, null, only = "p28", onlyMark = Mark.OUT)
@@ -112,7 +112,7 @@ class AwayAndRoomTest {
 
     @Test
     fun reportNamesWhoIsNotInTownApartFromWhoIsMissing() {
-        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val vm = testVm(NightStore(folder.newFolder()))
         vm.toggleAway("p31")
         val report = vm.logic().report(vm.state.value.dateKey)
         assertTrue(report, report.endsWith("Not in town\nMordechai Shlomo Smith"))

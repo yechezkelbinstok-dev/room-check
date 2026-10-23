@@ -8,6 +8,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.time.LocalDateTime
 
 /**
  * Setting a night's own rounds, through the view model rather than the data class - this is where
@@ -20,14 +21,16 @@ class RoundsTest {
     val folder = TemporaryFolder()
 
     private lateinit var home: java.io.File
-    private fun vm(): AppViewModel {
+    private var now = PINNED_NOW
+    private fun vm(at: LocalDateTime = PINNED_NOW): AppViewModel {
         home = folder.newFolder()
-        return AppViewModel(NightStore(home))
+        now = at
+        return testVm(NightStore(home), now)
     }
     /** The same storage opened again, as a second launch of the app sees it. */
-    private fun reopen(): AppViewModel = AppViewModel(NightStore(home))
+    private fun reopen(): AppViewModel = testVm(NightStore(home), now)
 
-    private fun labels(vm: AppViewModel) = Slots.all(vm.state.value.night).map { it.label }
+    private fun labels(vm: AppViewModel) = vm.rounds().map { it.label }
 
     /** The case it exists for, in one step from the Add dialog. */
     @Test
@@ -108,7 +111,7 @@ class RoundsTest {
         vm.onlyRoundTonight("1230")
         vm.setMark("p1", "1230", Mark.OUT)
         val reopened = reopen()
-        assertEquals(listOf("12:30"), Slots.all(reopened.state.value.night).map { it.label })
+        assertEquals(listOf("12:30"), reopened.rounds().map { it.label })
         assertEquals(Mark.OUT, reopened.state.value.night.marks["1230"]?.get("p1"))
     }
 
@@ -123,15 +126,51 @@ class RoundsTest {
         assertEquals(listOf("12:30"), labels(vm))
     }
 
+    /** Thursday night - leil shishi - opens on its own two rounds, 12:45 and 1:00, on the first of them. */
+    @Test
+    fun thursdayNightIsTwoLateRounds() {
+        val vm = vm(LocalDateTime.parse("2026-10-29T23:00"))
+        assertEquals(listOf("12:45", "1:00"), labels(vm))
+        assertEquals("1245", vm.state.value.curSlot)
+        vm.setMark("p1", "0100", Mark.OUT)
+        assertEquals(Mark.OUT, reopen().state.value.night.marks["0100"]?.get("p1"))
+        // the night before and the night after are the standing three
+        vm.shiftDay(-1)
+        assertEquals(listOf("11:15", "11:30", "12:00"), labels(vm))
+        vm.shiftDay(2)
+        assertEquals(listOf("11:15", "11:30", "12:00"), labels(vm))
+        // and coming back to Thursday from a standing-three night lands on one of Thursday's
+        vm.goToday()
+        assertEquals("1245", vm.state.value.curSlot)
+    }
+
+    /** A Thursday can still be given other rounds, and put back on its usual two - not the three. */
+    @Test
+    fun aThursdaysRoundsCanStillBeChanged() {
+        val vm = vm(LocalDateTime.parse("2026-11-05T23:00"))
+        vm.onlyRoundTonight("1230")
+        assertEquals(listOf("12:30"), labels(vm))
+        vm.resetRoundsTonight()
+        assertEquals(listOf("12:45", "1:00"), labels(vm))
+        vm.removeRoundTonight("0100")
+        assertEquals(listOf("12:45"), labels(vm))
+    }
+
+    /** It starts on the 29th: the Thursdays before were marked other ways, and keep what they had. */
+    @Test
+    fun earlierThursdaysAreAsTheyWere() {
+        assertEquals(listOf("11:15", "11:30", "12:00"), labels(vm(LocalDateTime.parse("2026-10-22T23:00"))))
+    }
+
     /** The picture can be narrowed to one of the night's rounds, and that is the night's too. */
     @Test
     fun thePictureCanBeNarrowedToOneRound() {
         val vm = vm()
         vm.toggleSheetSlot("1115")
         vm.toggleSheetSlot("1130")
-        assertEquals(listOf("12:00"), Slots.forSheet(vm.state.value.night).map { it.label })
+        assertEquals(listOf("12:00"), Slots.forSheet(vm.state.value.night, vm.state.value.dateKey).map { it.label })
         vm.shiftDay(-1)
-        assertEquals(listOf("11:15", "11:30", "12:00"), Slots.forSheet(vm.state.value.night).map { it.label })
+        assertEquals(listOf("11:15", "11:30", "12:00"), Slots.forSheet(vm.state.value.night, vm.state.value.dateKey).map { it.label })
     }
 
     /** Ticking everything back on is the same as having said nothing, so a later round joins in. */
@@ -144,7 +183,7 @@ class RoundsTest {
         vm.addRoundTonight("0130")
         assertEquals(
             listOf("11:15", "11:30", "12:00", "1:30"),
-            Slots.forSheet(vm.state.value.night).map { it.label }
+            Slots.forSheet(vm.state.value.night, vm.state.value.dateKey).map { it.label }
         )
     }
 

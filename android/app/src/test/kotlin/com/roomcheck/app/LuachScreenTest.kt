@@ -32,7 +32,7 @@ class LuachScreenTest {
     private val listParts = listOf("top" to 0, "winter" to 4, "summer" to 6)
 
     private fun shot(name: String, now: String, parts: List<Pair<String, Int>>, english: Boolean = false, list: Boolean = false, summer: Boolean = true, months: String = "") {
-        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val vm = testVm(NightStore(folder.newFolder()))
         vm.setSettings { it.copy(luachEnglish = english, luachList = list, luachMonths = months) }
         if (!summer) vm.setSummerZman(false)
         parts.forEach { (part, item) ->

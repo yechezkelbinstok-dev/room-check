@@ -21,11 +21,11 @@ data class Night(
     var closed: Boolean = false,
     /**
      * The rounds walked on THIS night, when they are not the usual ones. Empty - the normal case -
-     * means the standing three.
+     * means its usual rounds: the standing three, or Thursday's two (Slots.defaultFor).
      *
      * A one-off: the zman moved and there is only one check at 12:30, or there are two instead of
      * three. It belongs to the night the way its marks do, not to the app, so tomorrow is back to
-     * the usual three with nothing to put back.
+     * its usual rounds with nothing to put back.
      */
     val rounds: MutableSet<String> = mutableSetOf(),
     /** Which rounds go on this night's picture. Empty means all of them, which is the usual case. */

@@ -36,7 +36,7 @@ fun QuickMarkScreen(vm: AppViewModel) {
     var query by remember { mutableStateOf("") }
     var picked by remember { mutableStateOf(setOf<String>()) }
 
-    val label = Slots.all(state.night).firstOrNull { it.id == state.curSlot }?.label ?: state.curSlot
+    val label = vm.rounds(state).firstOrNull { it.id == state.curSlot }?.label ?: state.curSlot
 
     // Excused people are not on the list at all: their status already overrides any mark, so
     // picking one could only ever be a tap that did nothing.

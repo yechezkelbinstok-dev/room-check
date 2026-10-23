@@ -116,7 +116,7 @@ private fun TopBar(vm: AppViewModel, state: UiState, locked: Boolean, onCalendar
                 Text(Dates.longDate(state.dateKey), fontSize = 11.5.sp, color = RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             IconBtn(Icons.Filled.ChevronRight, "Next night") { vm.shiftDay(1) }
-            if (state.dateKey != Dates.tonightKey()) {
+            if (state.dateKey != vm.tonight()) {
                 IconBtn(Icons.Filled.MyLocation, "Jump to tonight", small = true) { vm.goToday() }
             }
             if (!locked) IconBtn(Icons.Filled.Undo, "Undo") { vm.undo() }
@@ -457,7 +457,7 @@ private fun BottomBar(vm: AppViewModel, state: UiState, logic: NightLogic, revie
                 vm.toast("Copied")
             }
             BarButton(Modifier.weight(1f), "Send image", RC.text) {
-                NightImage.share(context, logic, state.dateKey, state.settings.hebrewInExport, Slots.forSheet(state.night))
+                NightImage.share(context, logic, state.dateKey, state.settings.hebrewInExport, Slots.forSheet(state.night, state.dateKey))
             }
         }
     }

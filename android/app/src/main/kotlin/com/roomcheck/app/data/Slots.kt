@@ -6,7 +6,8 @@ data class Slot(val id: String, val label: String)
 /**
  * The times a night can be marked at.
  *
- * Three of them stand every night. Anything else belongs to the one night it was added to.
+ * Three of them stand every night but Thursday's, which has two of its own (see [THURSDAY]).
+ * Anything else belongs to the one night it was added to.
  *
  * Ids are the time as a clock face reads it, not a 24-hour one: "1115" is quarter past eleven at
  * night and "1200" is midnight. That is how the three original ids were written and every night
@@ -25,6 +26,28 @@ object Slots {
         Slot("1130", "11:30"),
         Slot("1200", "12:00")
     )
+
+    /**
+     * Thursday night - leil shishi - is walked twice, and later: 12:45 and 1:00. That holds from
+     * [THURSDAY_FROM], the first Thursday after it was decided. The Thursdays before it were walked
+     * other ways, and are filed under whatever they were marked in; given these two as well, an old
+     * Thursday would open with two empty columns that night never had.
+     */
+    val THURSDAY = listOf(
+        Slot("1245", "12:45"),
+        Slot("0100", "1:00")
+    )
+    private const val THURSDAY_FROM = "2026-10-29"
+
+    /**
+     * The rounds a night has when it names none of its own: Thursday's two, or the standing three.
+     * A night not filed under a date - [dateKey] null - is the standing three.
+     */
+    fun defaultFor(dateKey: String?): List<Slot> {
+        if (dateKey == null || dateKey < THURSDAY_FROM) return DEFAULT
+        val day = runCatching { Dates.parseKey(dateKey) }.getOrNull() ?: return DEFAULT
+        return if (day.dayOfWeek == java.time.DayOfWeek.THURSDAY) THURSDAY else DEFAULT
+    }
 
     private fun hourOf(id: String) = id.take(2).toIntOrNull() ?: 0
     private fun minuteOf(id: String) = id.drop(2).toIntOrNull() ?: 0
@@ -67,17 +90,17 @@ object Slots {
     fun clockMinuteOf(id: String): Int = minuteOf(id)
 
     /**
-     * Every time this night can be marked at: the standing three, plus whatever was added for
-     * this night alone: a night that names its own rounds gets those INSTEAD of the standing
-     * three, so a night with one check at 12:30 has exactly one column.
+     * Every time the night filed under [dateKey] can be marked at: its usual rounds (see
+     * [defaultFor]), or - a night that names its own - those INSTEAD of them, so a night with one
+     * check at 12:30 has exactly one column.
      *
      * Any round the night already has marks in counts too, even if nobody declared it, so an
      * older night whose rounds were recorded some other way still opens with the columns it was
      * marked in rather than losing them.
      */
-    fun all(n: Night): List<Slot> {
+    fun all(n: Night, dateKey: String? = null): List<Slot> {
         val declared = n.rounds.filter(::isValidId)
-        val base = if (declared.isEmpty()) DEFAULT.map { it.id } else declared
+        val base = if (declared.isEmpty()) defaultFor(dateKey).map { it.id } else declared
         val marked = n.marks.filterValues { it.isNotEmpty() }.keys.filter(::isValidId)
         return (base + marked).distinct()
             .map { Slot(it, labelFor(it)) }
@@ -89,8 +112,8 @@ object Slots {
      * narrowing ends up naming nothing that still exists, all of them again, so removing a round
      * cannot leave you with a blank sheet.
      */
-    fun forSheet(n: Night): List<Slot> {
-        val every = all(n)
+    fun forSheet(n: Night, dateKey: String? = null): List<Slot> {
+        val every = all(n, dateKey)
         if (n.sheetSlots.isEmpty()) return every
         return every.filter { it.id in n.sheetSlots }.ifEmpty { every }
     }

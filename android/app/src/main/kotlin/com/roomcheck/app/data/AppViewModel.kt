@@ -36,7 +36,15 @@ data class UiState(
     val toast: String? = null
 )
 
-class AppViewModel(private val store: NightStore) : ViewModel() {
+/**
+ * [clock] is the time the app takes as now - which night is tonight, and which round to open on.
+ * The real one but in tests, which pin it, so a test of tonight's rounds does not turn into a test
+ * of whether it happens to be Thursday.
+ */
+class AppViewModel(
+    private val store: NightStore,
+    private val clock: () -> LocalDateTime = LocalDateTime::now
+) : ViewModel() {
     companion object {
         /** How often to pull while the app is actually on screen. Never runs in the background. */
         const val FOREGROUND_SYNC_MS = 30_000L
@@ -50,7 +58,10 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
 
     private fun deepCopy(n: Night): Night = Night.fromJson(n.toJson())
 
-    private val initialKey = Dates.tonightKey()
+    /** Tonight's key by [clock]: the evening's date, still the same night until 6 in the morning. */
+    fun tonight(): String = Dates.tonightKey(clock())
+
+    private val initialKey = tonight()
     private val initialNight = loadAndMaybeClose(initialKey)
     private val _state = MutableStateFlow(
         UiState(
@@ -59,24 +70,27 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
             extra = store.extra,
             settings = store.settings,
             summerZman = store.summerZman,
-            curSlot = defaultSlot(initialNight)
+            curSlot = defaultSlot(initialNight, initialKey)
         )
     )
     val state: StateFlow<UiState> = _state.asStateFlow()
 
-    fun logic(s: UiState = _state.value) = NightLogic(s.night, s.extra, Slots.all(s.night))
+    fun logic(s: UiState = _state.value) = NightLogic(s.night, s.extra, rounds(s))
+
+    /** The rounds of the night on screen - which depend on its date as well as on the night itself. */
+    fun rounds(s: UiState = _state.value): List<Slot> = Slots.all(s.night, s.dateKey)
 
     /** Whichever of tonight's rounds is nearest behind the clock right now, so opening lands on it. */
-    private fun defaultSlot(night: Night): String {
-        val slots = Slots.all(night)
-        val now = LocalDateTime.now()
+    private fun defaultSlot(night: Night, key: String): String {
+        val slots = Slots.all(night, key)
+        val now = clock()
         val mins = Slots.order(Slots.idForClock(now.hour, now.minute))
         return (slots.lastOrNull { Slots.order(it.id) <= mins } ?: slots.first()).id
     }
 
     private fun loadAndMaybeClose(key: String): Night {
         val n = store.load(key)
-        if (key != Dates.tonightKey() && !n.closed) {
+        if (key != tonight() && !n.closed) {
             n.closed = true
             n.touch(Merge.CLOSED_KEY)
             store.save(key, n)
@@ -117,8 +131,8 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
     fun isLocked(s: UiState = _state.value): Boolean {
         if (s.editing) return false
         if (s.night.closed) return true
-        if (s.dateKey == Dates.tonightKey()) return false
-        return Slots.all(s.night).any { s.night.marks[it.id]?.isNotEmpty() == true }
+        if (s.dateKey == tonight()) return false
+        return rounds(s).any { s.night.marks[it.id]?.isNotEmpty() == true }
     }
     fun showingReview(s: UiState = _state.value): Boolean = isLocked(s) || s.reviewing
 
@@ -223,7 +237,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
      * Sets the rounds walked on THIS night, replacing whatever it had.
      *
      * The list lives on the night beside its marks, so it syncs to the other devices and is still
-     * there when the night is opened again next week - and tomorrow starts from the standing three
+     * there when the night is opened again next week - and tomorrow starts from its usual rounds
      * with nothing to put back. Marks in a round that is being dropped go with it; they are marks
      * from a walk that, as far as this night is now concerned, did not happen. Undo puts them back.
      */
@@ -232,7 +246,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         if (want.isEmpty()) { toast("A night needs at least one round"); return }
         snap()
         update { s ->
-            val gone = Slots.all(s.night).map { it.id } - want.toSet()
+            val gone = rounds(s).map { it.id } - want.toSet()
             gone.forEach { sid ->
                 s.night.marks[sid]?.keys?.toList()?.forEach { pid ->
                     s.night.marks[sid]?.remove(pid); s.night.touch(Merge.markKey(sid, pid))
@@ -252,21 +266,21 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         }
     }
 
-    /** Puts the night back on the usual three. */
+    /** Puts the night back on its usual rounds - Thursday's two on a Thursday, the standing three otherwise. */
     fun resetRoundsTonight() {
         snap()
         update { s ->
             s.night.rounds.toList().forEach { s.night.rounds.remove(it); s.night.touch(Merge.slotKey(it)) }
             s.night.sheetSlots.toList().forEach { s.night.sheetSlots.remove(it); s.night.touch(Merge.sheetKey(it)) }
             persist(s)
-            val slots = Slots.all(s.night)
+            val slots = rounds(s)
             s.copy(curSlot = if (slots.any { it.id == s.curSlot }) s.curSlot else slots.first().id)
         }
     }
 
     fun addRoundTonight(id: String) {
         if (!Slots.isValidId(id)) { toast("Not a time"); return }
-        val now = Slots.all(_state.value.night).map { it.id }
+        val now = rounds().map { it.id }
         if (id in now) { toast("Already on this night"); return }
         setRoundsTonight(now + id)
         update { it.copy(curSlot = id) }
@@ -279,7 +293,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
     }
 
     fun removeRoundTonight(id: String) =
-        setRoundsTonight(Slots.all(_state.value.night).map { it.id } - id)
+        setRoundsTonight(rounds().map { it.id } - id)
 
     /**
      * The same walk, at a different time: everything already marked under [from] moves to [to].
@@ -291,7 +305,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
     fun moveRoundTonight(from: String, to: String) {
         if (from == to) return
         if (!Slots.isValidId(to)) { toast("Not a time"); return }
-        val every = Slots.all(_state.value.night).map { it.id }
+        val every = rounds().map { it.id }
         if (from !in every) return
         if (to in every) { toast("Already on this night"); return }
         snap()
@@ -324,7 +338,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
     /** Puts a round on this night's picture, or takes it off. All of them, unless you say otherwise. */
     fun toggleSheetSlot(id: String) {
         update { s ->
-            val every = Slots.all(s.night).map { it.id }
+            val every = rounds(s).map { it.id }
             // "all of them" is stored as nothing at all, so the first tap has to write out the
             // list it is turning one off from
             if (s.night.sheetSlots.isEmpty()) {
@@ -350,7 +364,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
         undoStack.clear()
         update { s ->
             val night = loadAndMaybeClose(key)
-            val slots = Slots.all(night)
+            val slots = Slots.all(night, key)
             s.copy(
                 dateKey = key, night = night, editing = false, reviewing = false,
                 // rounds belong to the night, so another night may not have the one you were on
@@ -358,7 +372,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
             )
         }
     }
-    fun goToday() = goToDate(Dates.tonightKey())
+    fun goToday() = goToDate(tonight())
     fun shiftDay(delta: Long) = goToDate(Dates.shiftKey(_state.value.dateKey, delta))
 
     fun toggleExcusedTonight(pid: String) {
@@ -367,7 +381,7 @@ class AppViewModel(private val store: NightStore) : ViewModel() {
             if (s.night.excusedTonight.contains(pid)) s.night.excusedTonight.remove(pid)
             else {
                 s.night.excusedTonight.add(pid)
-                Slots.all(s.night).forEach { s.night.marks[it.id]?.remove(pid); s.night.touch(Merge.markKey(it.id, pid)) }
+                rounds(s).forEach { s.night.marks[it.id]?.remove(pid); s.night.touch(Merge.markKey(it.id, pid)) }
             }
             s.night.touch(Merge.tonightKey(pid))
             persist(s); s

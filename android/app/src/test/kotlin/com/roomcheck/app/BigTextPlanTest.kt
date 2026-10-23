@@ -28,7 +28,7 @@ class BigTextPlanTest {
     val folder = TemporaryFolder()
 
     private fun everyRoom(tag: String, hebrew: Boolean) {
-        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val vm = testVm(NightStore(folder.newFolder()))
         vm.setSettings { it.copy(hebrewOnPlan = hebrew) }
         Roster.PLAN.indices.forEach { i ->
             vm.jumpRoom(i)

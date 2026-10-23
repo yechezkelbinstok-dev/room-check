@@ -27,7 +27,7 @@ import com.roomcheck.app.data.UiState
 fun CalendarSheet(vm: AppViewModel, state: UiState, onClose: () -> Unit) {
     var month by remember { mutableStateOf(Dates.hebMonthOf(state.dateKey)) }
     val hasData = remember { vm.calendarKeysWithData() }
-    val today = Dates.tonightKey()
+    val today = vm.tonight()
 
     ModalBottomSheet(onDismissRequest = onClose) {
         Column(Modifier.padding(bottom = 24.dp)) {

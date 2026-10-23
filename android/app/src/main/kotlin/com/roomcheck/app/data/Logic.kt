@@ -2,7 +2,7 @@ package com.roomcheck.app.data
 
 data class SlotStats(val out: Int, val inCount: Int, val exc: Int, val left: Int, val started: Boolean, val away: Int = 0)
 
-/** [slots] is the times this night is walked at - the standing three plus anything added. */
+/** [slots] is the times this night is walked at - its usual rounds, or its own, plus anything marked in. */
 class NightLogic(
     private val night: Night,
     private val extra: Map<String, PersonOverride>,

@@ -9,8 +9,9 @@ public struct Slot: Equatable {
 
 /// The times a night can be marked at.
 ///
-/// Three of them stand every night. A night that names its own `rounds` gets THOSE INSTEAD of the
-/// standing three - a night with one check at 12:30 has exactly one column, not four.
+/// Three of them stand every night but Thursday's, which has two of its own (see `THURSDAY`). A
+/// night that names its own `rounds` gets THOSE INSTEAD - a night with one check at 12:30 has
+/// exactly one column, not four.
 ///
 /// Ids are the time as a clock face reads it, not a 24-hour one: "1115" is quarter past eleven at
 /// night and "1200" is midnight. That is how the three original ids were written and every night
@@ -23,6 +24,29 @@ public enum Slots {
         Slot(id: "1130", label: "11:30"),
         Slot(id: "1200", label: "12:00")
     ]
+
+    /// Thursday night - leil shishi - is walked twice, and later: 12:45 and 1:00. That holds from
+    /// `THURSDAY_FROM`, the first Thursday after it was decided; the Thursdays before it were walked
+    /// other ways, and are filed under whatever they were marked in.
+    public static let THURSDAY = [
+        Slot(id: "1245", label: "12:45"),
+        Slot(id: "0100", label: "1:00")
+    ]
+    private static let THURSDAY_FROM = "2026-10-29"
+
+    /// The rounds a night has when it names none of its own: Thursday's two, or the standing three.
+    /// A night not filed under a date - `dateKey` nil - is the standing three.
+    public static func defaultFor(_ dateKey: String?) -> [Slot] {
+        guard let key = dateKey, key >= THURSDAY_FROM else { return DEFAULT }
+        let parts = key.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return DEFAULT }
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        guard let day = cal.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2])) else {
+            return DEFAULT
+        }
+        return cal.component(.weekday, from: day) == 5 ? THURSDAY : DEFAULT   // Sunday is 1
+    }
 
     private static func hourOf(_ id: String) -> Int { Int(id.prefix(2)) ?? 0 }
     private static func minuteOf(_ id: String) -> Int { Int(id.dropFirst(2)) ?? 0 }
@@ -54,13 +78,13 @@ public enum Slots {
         return String(format: "%02d%02d", h, minute)
     }
 
-    /// Every round this night can be marked at: a night that declares its own rounds gets those
-    /// INSTEAD of the standing three. Any round the night already has marks in counts too, even if
+    /// Every round the night filed under `dateKey` can be marked at: its usual rounds (see
+    /// `defaultFor`), or - a night that declares its own - those INSTEAD of them. Any round the night already has marks in counts too, even if
     /// nobody declared it, so an older night whose rounds were recorded some other way still opens
     /// with the columns it was marked in rather than losing them.
-    public static func all(_ n: Night) -> [Slot] {
+    public static func all(_ n: Night, dateKey: String? = nil) -> [Slot] {
         let declared = n.rounds.filter(isValidId)
-        let base = declared.isEmpty ? DEFAULT.map(\.id) : Array(declared)
+        let base = declared.isEmpty ? defaultFor(dateKey).map(\.id) : Array(declared)
         let marked = n.marks.filter { !$0.value.isEmpty }.keys.filter(isValidId)
         var seen = Set<String>()
         var ids: [String] = []
@@ -71,8 +95,8 @@ public enum Slots {
     /// The rounds that go on this night's picture. All of them unless this night narrowed it, and
     /// if the narrowing names nothing that still exists, all of them again, so removing a round
     /// cannot leave a blank sheet.
-    public static func forSheet(_ n: Night) -> [Slot] {
-        let every = all(n)
+    public static func forSheet(_ n: Night, dateKey: String? = nil) -> [Slot] {
+        let every = all(n, dateKey: dateKey)
         if n.sheetSlots.isEmpty { return every }
         let kept = every.filter { n.sheetSlots.contains($0.id) }
         return kept.isEmpty ? every : kept

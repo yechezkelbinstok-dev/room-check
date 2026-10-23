@@ -9,7 +9,7 @@ import org.junit.rules.TemporaryFolder
 /** Searching a name has to land on the bed, not just name the room. */
 class FindPersonTest {
     @get:Rule val folder = TemporaryFolder()
-    private fun vm() = AppViewModel(NightStore(folder.newFolder()))
+    private fun vm() = testVm(NightStore(folder.newFolder()))
 
     @Test
     fun jumpsToTheRoomThePersonSleepsIn() {

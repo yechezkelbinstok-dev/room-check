@@ -379,13 +379,23 @@ h2{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
 <script>
 "use strict";
 
-/* Three rounds stand every night. Anything else belongs to the ONE night it was added to - the
-   zman moved, or you went round again at 1:30 - so it lives on the night beside its marks and the
-   next night starts from the standing three with nothing to put back.
+/* Three rounds stand every night but Thursday's, which has two of its own (THURSDAY_SLOTS).
+   Anything else belongs to the ONE night it was added to - the zman moved, or you went round again
+   at 1:30 - so it lives on the night beside its marks and the next night starts from its usual
+   rounds with nothing to put back.
    Ids read like a clock face, not a 24-hour one: "1115" is quarter past eleven at night and
    "1200" is midnight. That is how every night ever marked is filed, so the scheme stays - and it
    means ids cannot be sorted as numbers, since 12 falls after 11 but before 1. */
 const BASE_SLOTS=[{id:"1115",label:"11:15"},{id:"1130",label:"11:30"},{id:"1200",label:"12:00"}];
+/* Thursday night - leil shishi - is walked twice, and later: 12:45 and 1:00. From THURSDAY_FROM,
+   the first Thursday after it was decided; the Thursdays before were walked other ways and are
+   filed under whatever they were marked in. The same rule as the app's Slots.defaultFor. */
+const THURSDAY_SLOTS=[{id:"1245",label:"12:45"},{id:"0100",label:"1:00"}], THURSDAY_FROM="2026-10-29";
+const defaultSlots=key=>{
+  if(!key||key<THURSDAY_FROM)return BASE_SLOTS;
+  const [y,m,d]=key.split("-").map(Number), day=new Date(y,(m||1)-1,d||1);
+  return !isNaN(day)&&day.getDay()===4?THURSDAY_SLOTS:BASE_SLOTS;
+};
 const slotHour=id=>parseInt(id.slice(0,2),10)||0, slotMin=id=>parseInt(id.slice(2),10)||0;
 /* 6pm…11pm, then midnight, then 1am…5am - the order the rounds are actually walked. */
 const nightHour=h=>h===12?12:(h<6?h+12:h);
@@ -393,15 +403,15 @@ const slotOrder=id=>nightHour(slotHour(id))*60+slotMin(id);
 const slotLabel=id=>slotHour(id)+":"+String(slotMin(id)).padStart(2,"0");
 const validSlot=id=>/^\d{4}$/.test(id)&&slotHour(id)>=1&&slotHour(id)<=12&&slotMin(id)<=59;
 const idForClock=(h24,m)=>String(h24%12===0?12:h24%12).padStart(2,"0")+String(m).padStart(2,"0");
-/* Every round this night can be marked at. A round the night already has marks in counts too,
-   even if nothing declared it, so a round removed by mistake does not take its marks off the
-   screen with it. */
-const allSlots=(n)=>{
-  n=n||state.night||{};
+/* Every round this night can be marked at - the night on screen, filed under state.dateKey, unless
+   told otherwise. A round the night already has marks in counts too, even if nothing declared it,
+   so a round removed by mistake does not take its marks off the screen with it. */
+const allSlots=(n,key)=>{
+  n=n||state.night||{}; key=key||state.dateKey;
   const declared=(n.slots||[]).filter(validSlot);
-  /* a night that names its own rounds gets those INSTEAD of the standing three, so a night with
-     one check at 12:30 has exactly one column */
-  const base=declared.length?declared:BASE_SLOTS.map(s=>s.id);
+  /* a night that names its own rounds gets those INSTEAD of its usual ones, so a night with one
+     check at 12:30 has exactly one column */
+  const base=declared.length?declared:defaultSlots(key).map(s=>s.id);
   /* a round with marks in it counts too, so an older night keeps the columns it was marked in */
   const marked=Object.keys(n.marks||{}).filter(s=>validSlot(s)&&Object.keys(n.marks[s]||{}).length);
   return [...new Set([...base,...marked])]
@@ -410,9 +420,9 @@ const allSlots=(n)=>{
 };
 /* All of them unless this night narrowed it - and if the narrowing names nothing that still
    exists, all of them again, so removing a round cannot leave a blank sheet. */
-const sheetSlots=(n)=>{
+const sheetSlots=(n,key)=>{
   n=n||state.night||{};
-  const every=allSlots(n), pick=n.sheet||[];
+  const every=allSlots(n,key), pick=n.sheet||[];
   if(!pick.length)return every;
   const kept=every.filter(s=>pick.includes(s.id));
   return kept.length?kept:every;
@@ -808,6 +818,10 @@ async function loadNight(k){
   if(raw){try{p=JSON.parse(raw);}catch(e){}}
   state.dateKey=k; state.night=norm(p); undoStack=[]; state.editing=false; state.review=false;
   if(k!==tonightKey()&&!state.night.closed){state.night.closed=true;touch(CLOSED_KEY);save();}
+  /* rounds belong to the night, so another night may not have the one you were on - and marking
+     into a round the night does not show would file marks nobody can see */
+  const every=allSlots();
+  if(!every.some(s=>s.id===state.cur))state.cur=every[0].id;
 }
 /* Not in town and excused both take a bed off the walk; only the report tells them apart. */
 const offCheck=st=>st==="exc"||st==="away";
@@ -1055,7 +1069,7 @@ function isLocked(){
   if(state.editing)return false;
   if(state.night.closed)return true;
   if(state.dateKey===tonightKey())return false;
-  return allSlots().map(s=>s.id).some(s=>Object.keys(state.night.marks[s]).length>0);
+  return allSlots().map(s=>s.id).some(s=>Object.keys(state.night.marks[s]||{}).length>0);
 }
 const showingReview=()=>isLocked()||state.review;
 function headHTML(){
@@ -1917,7 +1931,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.15.0";
+const APP_VERSION="1.16.2";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

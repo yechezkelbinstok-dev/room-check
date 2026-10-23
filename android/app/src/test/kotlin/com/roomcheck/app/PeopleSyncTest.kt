@@ -22,7 +22,7 @@ class PeopleSyncTest {
     @Test
     fun settingsAreWrittenIntoThePeopleRecordAndOweAPush() {
         val dir = folder.newFolder()
-        val vm = AppViewModel(NightStore(dir))
+        val vm = testVm(NightStore(dir))
         vm.toggleAway("p31")
         vm.toggleAlwaysExcused("p11")
         vm.setReason("p11", "Home sick")

@@ -13,7 +13,7 @@ import org.junit.rules.TemporaryFolder
 class MarkMissingTest {
 
     @get:Rule val folder = TemporaryFolder()
-    private fun vm() = AppViewModel(NightStore(folder.newFolder()))
+    private fun vm() = testVm(NightStore(folder.newFolder()))
 
     @Test
     fun namedPeopleAreOutAndEveryoneElseIsIn() {

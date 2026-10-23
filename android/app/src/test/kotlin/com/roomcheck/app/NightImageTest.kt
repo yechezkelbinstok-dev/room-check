@@ -31,7 +31,7 @@ class NightImageTest {
 
     /** Two rounds walked in full, 12:00 not started - the state you copy from most nights. */
     private fun halfCheckedNight(): AppViewModel {
-        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val vm = testVm(NightStore(folder.newFolder()))
         listOf("1115", "1130").forEach { sid ->
             Roster.PEOPLE.forEach { vm.setMark(it.id, sid, Mark.IN) }
         }
@@ -60,7 +60,7 @@ class NightImageTest {
     }
 
     private fun everybodyMissing(): AppViewModel {
-        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val vm = testVm(NightStore(folder.newFolder()))
         Roster.SIDS.forEach { sid -> Roster.PEOPLE.forEach { vm.setMark(it.id, sid, Mark.OUT) } }
         return vm
     }
@@ -87,7 +87,7 @@ class NightImageTest {
         listOf("p5", "p22").forEach { vm.setMark(it, slot, Mark.OUT) }
         val state = vm.state.value
         paparazzi.snapshot(name = "sheet-custom-time") {
-            val bmp = NightImage.render(vm.logic(state), state.dateKey, false, com.roomcheck.app.data.Slots.all(state.night))
+            val bmp = NightImage.render(vm.logic(state), state.dateKey, false, vm.rounds(state))
             dump(bmp, "night-image-custom.png")
             Image(bmp.asImageBitmap(), null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
         }
@@ -95,7 +95,7 @@ class NightImageTest {
         listOf("1115", "1130", "1200").forEach { vm.toggleSheetSlot(it) }
         val only = vm.state.value
         paparazzi.snapshot(name = "sheet-one-time-only") {
-            val bmp = NightImage.render(vm.logic(only), only.dateKey, false, com.roomcheck.app.data.Slots.forSheet(only.night))
+            val bmp = NightImage.render(vm.logic(only), only.dateKey, false, com.roomcheck.app.data.Slots.forSheet(only.night, only.dateKey))
             dump(bmp, "night-image-one-time.png")
             Image(bmp.asImageBitmap(), null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
         }
@@ -104,14 +104,14 @@ class NightImageTest {
     /** One round, a long list of missing - the case that left most of the card an empty slab. */
     @Test
     fun oneTimeManyMissing() {
-        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val vm = testVm(NightStore(folder.newFolder()))
         vm.onlyRoundTonight("1130")
         Roster.PEOPLE.forEach { vm.setMark(it.id, "1130", Mark.IN) }
         listOf("p3", "p6", "p9", "p11", "p14", "p17", "p19", "p24", "p29")
             .forEach { vm.setMark(it, "1130", Mark.OUT) }
         val state = vm.state.value
         paparazzi.snapshot(name = "sheet-one-time-many") {
-            val bmp = NightImage.render(vm.logic(state), state.dateKey, true, com.roomcheck.app.data.Slots.all(state.night))
+            val bmp = NightImage.render(vm.logic(state), state.dateKey, true, vm.rounds(state))
             dump(bmp, "night-image-one-many.png")
             Image(bmp.asImageBitmap(), null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
         }
@@ -131,7 +131,7 @@ class NightImageTest {
     /** A round left half-walked still says so, rather than reading as an all-clear. */
     @Test
     fun unwalkedRoomsAreCalledOut() {
-        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val vm = testVm(NightStore(folder.newFolder()))
         vm.setMark("p1", "1115", Mark.IN)
         val state = vm.state.value
         val text = vm.logic(state).report(state.dateKey)
@@ -161,7 +161,7 @@ class NightImageTest {
     /** An untouched night, so the empty state of the picture is seen too. */
     @Test
     fun sendableSheetBlank() {
-        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val vm = testVm(NightStore(folder.newFolder()))
         val state = vm.state.value
         paparazzi.snapshot(name = "sheet-blank") {
             val bmp = NightImage.render(vm.logic(state), state.dateKey)

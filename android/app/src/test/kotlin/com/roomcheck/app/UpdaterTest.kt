@@ -120,7 +120,7 @@ class UpdaterTest {
 
     @Test
     fun anUpdateOnOfferShowsUntilItIsTaken() {
-        val vm = AppViewModel(NightStore(folder.newFolder()))
+        val vm = testVm(NightStore(folder.newFolder()))
         assertEquals(UpdateState.Unknown, vm.state.value.update)
         val r = Updater.parse(json(44))!!
         vm.offerUpdate(r)
