@@ -302,7 +302,8 @@ struct RoomCard: View {
                     onMark: { s.setMark(pid, sid, $0) }
                 )
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // right under the room's name, not floating in the middle of the card
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .padding(14)
         .background(RC.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
