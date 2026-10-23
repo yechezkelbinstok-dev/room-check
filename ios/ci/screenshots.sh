@@ -45,6 +45,9 @@ shoot() {   # demo name, file name
 
 mkdir -p out/shots
 xcrun simctl ui "$UDID" appearance light
+# the first launch after installing can take longer than a shot waits; get it over with first
+xcrun simctl launch "$UDID" com.roomcheck.app -demo check-empty
+sleep 10
 for demo in check-empty check-in-progress check-rooms-split check-hebrew check-thursday check-past-night \
             check-past-night-editing search-ring person-sheet night-picker review-everyone night-settings add-time \
             change-time settings sync-edit names rename search whos-missing picture picture-hebrew \
