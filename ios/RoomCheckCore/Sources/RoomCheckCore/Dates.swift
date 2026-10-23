@@ -65,6 +65,9 @@ public enum Dates {
         let p = parts(ofKey: key)
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "UTC")!
+        // named in English whatever the phone is set to - a calendar with no locale names the
+        // months "M10" on an iPhone, whatever Linux does
+        cal.locale = Locale(identifier: "en_US_POSIX")
         var c = DateComponents()
         c.year = p.y; c.month = p.m; c.day = p.d; c.hour = 12
         let d = cal.date(from: c)!

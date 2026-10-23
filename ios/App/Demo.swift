@@ -5,7 +5,8 @@ import RoomCheckCore
 /// app with "-demo <name>". Each starts from an empty store in a scratch folder, on a pinned
 /// evening, and never syncs - a screenshot run must not touch the yeshiva's real nights.
 enum Demo {
-    static let names = ["check-empty", "check-in-progress", "check-rooms-split", "check-hebrew", "check-thursday", "check-past-night"]
+    static let names = ["check-empty", "check-in-progress", "check-rooms-split", "check-hebrew", "check-thursday",
+                        "check-past-night", "person-sheet", "night-picker"]
 
     static func model(_ name: String) -> AppModel {
         let home = FileManager.default.temporaryDirectory.appendingPathComponent("demo-\(UUID().uuidString)", isDirectory: true)
@@ -14,7 +15,7 @@ enum Demo {
         let session = NightSession(store: store, clock: { now })
         let sid = session.curSlot
         switch name {
-        case "check-in-progress":
+        case "check-in-progress", "person-sheet":
             session.setMark("p2", sid, .inRoom)
             session.setMark("p1", sid, .out)
             session.toggleExcusedTonight("p3")
@@ -40,7 +41,10 @@ enum Demo {
         default:
             break
         }
-        return AppModel(session: session, client: nil)
+        let model = AppModel(session: session, client: nil)
+        if name == "person-sheet" { model.demoPerson = "p1" }
+        if name == "night-picker" { model.demoPicker = true }
+        return model
     }
 
     private static func date(_ y: Int, _ m: Int, _ d: Int, _ h: Int, _ min: Int) -> Date {

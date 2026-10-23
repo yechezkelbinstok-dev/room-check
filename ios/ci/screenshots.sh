@@ -32,11 +32,21 @@ xcrun simctl install "$UDID" build/sim/Build/Products/Debug-iphonesimulator/Room
 xcrun simctl status_bar "$UDID" override --time "22:30" --batteryState charged --batteryLevel 100 \
   --wifiBars 3 --cellularMode active --cellularBars 4 || true
 
-mkdir -p out/shots
-for demo in check-empty check-in-progress check-rooms-split check-hebrew check-thursday check-past-night; do
+shoot() {   # demo name, file name
   xcrun simctl terminate "$UDID" com.roomcheck.app 2>/dev/null || true
-  xcrun simctl launch "$UDID" com.roomcheck.app -demo "$demo"
+  xcrun simctl launch "$UDID" com.roomcheck.app -demo "$1"
   sleep 5
-  xcrun simctl io "$UDID" screenshot "out/shots/$demo.png"
-  echo "shot $demo"
+  xcrun simctl io "$UDID" screenshot "out/shots/$2.png"
+  echo "shot $2"
+}
+
+mkdir -p out/shots
+xcrun simctl ui "$UDID" appearance light
+for demo in check-empty check-in-progress check-rooms-split check-hebrew check-thursday check-past-night person-sheet night-picker; do
+  shoot "$demo" "$demo"
+done
+# the same app in dark mode, which it follows because every colour in it is the system's own
+xcrun simctl ui "$UDID" appearance dark
+for demo in check-in-progress check-past-night person-sheet; do
+  shoot "$demo" "$demo-dark"
 done

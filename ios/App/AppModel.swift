@@ -15,6 +15,10 @@ final class AppModel: ObservableObject, @unchecked Sendable {
     @Published private(set) var toast: String?
     @Published private(set) var syncState: SyncState = .off
 
+    /// For the screenshot run only: a person's sheet, or the night calendar, open at launch.
+    var demoPerson: String?
+    var demoPicker = false
+
     private var syncing = false
     private var pushLater: DispatchWorkItem?
     private var toastLater: DispatchWorkItem?

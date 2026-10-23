@@ -28,3 +28,11 @@ final class HebrewDateFixturesTests: XCTestCase {
         XCTAssertTrue(mismatches.isEmpty, "\(mismatches.count)+ mismatches, first ones:\n" + mismatches.joined(separator: "\n"))
     }
 }
+
+final class LongDateTests: XCTestCase {
+    /// The English line under the Hebrew date, in full - the iPhone once showed "Wed, M10 21".
+    func testTheEnglishDateIsWrittenOutInFull() {
+        XCTAssertEqual(Dates.longDate("2026-10-21"), "Wednesday, October 21")
+        XCTAssertEqual(Dates.longDate("2026-10-29"), "Thursday, October 29")
+    }
+}

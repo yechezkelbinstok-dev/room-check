@@ -1,14 +1,16 @@
 import SwiftUI
+import UIKit
 import RoomCheckCore
 
 private let MARGIN = 5.0   // space outside the walls, so a door box can sit outside them
 private let GAP = 7.0      // half the doorway's width, in room units
 private let DOOR_D = 4.0   // how far the three-sided door box juts out past the wall
 
-/// One room's floor plan, the way the Android app draws it: walls with a doorway - a gap with a
-/// small three-sided box outside it - and every bed where the sketch puts it. Room and bed
-/// coordinates are room units; one unit across is one unit down, so a bed turned 90 degrees
-/// measures as long as it did upright.
+/// One room's floor plan, drawn from the same sketch as the Android app's: walls with a doorway -
+/// a gap with a small three-sided box outside it - and every bed where the sketch puts it. Room
+/// and bed coordinates are room units; one unit across is one unit down, so a bed turned 90
+/// degrees measures as long as it did upright. The one thing on the screen Apple has no control
+/// for, so it is drawn - in the system's own colours, so it follows dark mode like the rest.
 struct FloorPlanView<Slot: View>: View {
     let room: Room
     let allIn: Bool
@@ -19,7 +21,7 @@ struct FloorPlanView<Slot: View>: View {
     var body: some View {
         let totalW = room.w + 2 * MARGIN, totalH = room.h + 2 * MARGIN
         GeometryReader { g in
-            let u = g.size.width / totalW
+            let u = Double(g.size.width) / totalW
             ZStack(alignment: .topLeading) {
                 Canvas { ctx, _ in walls(ctx, u) }
                 ForEach(Array(room.beds.enumerated()), id: \.offset) { _, bed in
@@ -30,8 +32,8 @@ struct FloorPlanView<Slot: View>: View {
             }
         }
         .aspectRatio(totalW / totalH, contentMode: .fit)
-        .background(allIn ? Color(hex: 0xF7FCFA) : RC.floor)
-        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .background(allIn ? RC.green.opacity(0.07) : RC.floor)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func bedView(_ bed: Bed, _ u: Double) -> some View {
@@ -40,16 +42,17 @@ struct FloorPlanView<Slot: View>: View {
         // a bunk stacks its two people top and bottom; whether a slot puts the name beside the
         // buttons or above them follows the slot's own shape, so neither gets squeezed
         let wide = bed.w > (bed.h / Double(n)) * 1.4
+        let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
         return ZStack {
-            RoundedRectangle(cornerRadius: 5).fill(Color.white)
+            shape.fill(RC.bed)
             VStack(spacing: 0) {
                 ForEach(Array(bed.slots.enumerated()), id: \.offset) { i, pid in
                     slot(pid, n > 1 ? (i == 0 ? "top" : "bottom") : nil, wide, size)
                         .frame(width: size.width, height: size.height)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 5))
-            RoundedRectangle(cornerRadius: 5).stroke(Color(hex: 0xC9CBD2), lineWidth: 1.5)
+            .clipShape(shape)
+            shape.stroke(RC.bedEdge, lineWidth: 1)
         }
     }
 
@@ -100,9 +103,9 @@ struct PersonSlot: View {
 
     private var background: Color {
         switch status {
-        case .inRoom: return RC.greenL
-        case .out: return RC.redL
-        case .exc, .away: return RC.greyL
+        case .inRoom: return RC.greenSoft
+        case .out: return RC.redSoft
+        case .exc, .away: return RC.offWalk
         case nil: return .clear
         }
     }
@@ -110,8 +113,8 @@ struct PersonSlot: View {
     private var nameColor: Color {
         switch status {
         case .out: return RC.red
-        case .exc, .away: return RC.grey
-        default: return RC.text
+        case .exc, .away: return .secondary
+        default: return .primary
         }
     }
 
@@ -128,7 +131,7 @@ struct PersonSlot: View {
         var button: CGFloat
         var nameRoom: CGFloat
         if wide {
-            button = min(26, h - 2 * padV)
+            button = min(28, h - 2 * padV)
             nameRoom = h - 2 * padV
         } else {
             let byWidth: CGFloat = (w - 2 * padH - 3) / 2
@@ -168,16 +171,16 @@ struct PersonSlot: View {
         .padding(.vertical, 5)
         .frame(width: size.width, height: size.height)
         .background(background)
-        .overlay { if highlighted { RoundedRectangle(cornerRadius: 4).stroke(RC.blue, lineWidth: 2.5) } }
+        .overlay { if highlighted { RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(Color.accentColor, lineWidth: 2.5) } }
     }
 
     private func name(_ showFirst: Bool, alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: 1) {
             // the surname is always one line: a long one in a narrow bed shrinks rather than breaks
-            Text(last).font(.system(size: 13, weight: .bold)).foregroundColor(nameColor)
+            Text(last).font(.system(size: 13, weight: .semibold)).foregroundColor(nameColor)
                 .lineLimit(1).minimumScaleFactor(0.5)
             if showFirst {
-                Text(first).font(.system(size: wide ? 9 : 9.5)).foregroundColor(RC.sub)
+                Text(first).font(.system(size: wide ? 9 : 9.5)).foregroundColor(.secondary)
                     .lineLimit(1).minimumScaleFactor(0.7)
             }
         }
@@ -187,8 +190,8 @@ struct PersonSlot: View {
 
     @ViewBuilder private func marks(_ size: CGFloat) -> some View {
         switch status {
-        case .away: offTag("Not in town", RC.blue)
-        case .exc: offTag("Excused", RC.grey)
+        case .away: offTag("Not in town", .accentColor)
+        case .exc: offTag("Excused", .secondary)
         default:
             HStack(spacing: 3) {
                 markButton(size, "checkmark", on: status == .inRoom, color: RC.green) { onMark(.inRoom) }
@@ -203,13 +206,17 @@ struct PersonSlot: View {
     }
 
     private func markButton(_ size: CGFloat, _ symbol: String, on: Bool, color: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            // the light tap the phone gives a switch, so a mark can be felt without looking
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        } label: {
             Image(systemName: symbol)
                 .font(.system(size: size * 0.45, weight: .bold))
-                .foregroundColor(on ? .white : RC.glyphOff)
+                .foregroundColor(on ? .white : RC.offGlyph)
                 .frame(width: size, height: size)
-                .background(on ? color : RC.buttonOff)
-                .clipShape(RoundedRectangle(cornerRadius: 7))
+                .background(on ? color : RC.off)
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
         .buttonStyle(.plain)
     }
