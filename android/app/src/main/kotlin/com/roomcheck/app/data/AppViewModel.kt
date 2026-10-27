@@ -593,9 +593,12 @@ class AppViewModel(
     fun showSichosRound(round: Int) = update { it.copy(sichosRound = maxOf(0, round), sichosWeek = null) }
     fun pickSichosWeek(week: Int) = update { it.copy(sichosWeek = week.coerceIn(0, Sichos.WEEKS - 1)) }
 
-    /** The day the first round starts; every round after it starts four weeks after the one before. */
+    /**
+     * The day the first round starts; every round after it starts four weeks after the one
+     * before. Changed later, every round moves with it, each sikkum staying in its week.
+     */
     fun setSichosStart(day: LocalDate) {
-        setSichos(Sichos.START to Dates.keyOf(day))
+        setSichos(*sichos().restartedOn(day).toList().toTypedArray())
         update { it.copy(sichosRound = null, sichosWeek = null) }
     }
 

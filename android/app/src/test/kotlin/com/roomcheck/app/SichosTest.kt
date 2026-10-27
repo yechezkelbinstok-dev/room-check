@@ -126,15 +126,36 @@ class SichosTest {
     }
 
     @Test
-    fun movingTheStartKeepsASikkumInTheWeekItWasFor() {
+    fun movingTheStartTakesEverySikkumWithItsWeek() {
         val vm = testVm(NightStore(folder.newFolder()))
-        vm.setSichosStart(day("2026-10-18"))
-        vm.toggleSikkum("p4", 0, 0)
-        // two days earlier, the old week's cell still falls in the new first week
-        vm.setSichosStart(day("2026-10-16"))
-        assertEquals(Sichos.IN, vm.sichos().valueAt("p4", 0, 0))
-        vm.toggleSikkum("p4", 0, 0)
-        assertNull(vm.sichos().valueAt("p4", 0, 0))
+        vm.setSichosStart(day("2026-09-20"))
+        (0..3).forEach { vm.toggleSikkum("p4", 0, it) }
+        vm.setReviewed("p4", 0, 2, true)
+        vm.toggleSikkum("p5", 1, 0)
+        vm.drawRaffle(0, random = Ticket(0))
+        // the first round really started three days later
+        vm.setSichosStart(day("2026-09-23"))
+        val book = vm.sichos()
+        assertEquals(day("2026-09-23"), book.start)
+        assertEquals(4, book.count("p4", 0))
+        assertEquals(Sichos.REVIEWED, book.valueAt("p4", 0, 2))
+        assertEquals(Sichos.IN, book.valueAt("p5", 1, 0))
+        assertEquals("p4", book.winner(0))
+        // the old cells are gone rather than left to count again: the start, four, one, the winner
+        assertEquals(7, vm.state.value.sichos.size)
+        vm.toggleSikkum("p5", 1, 0)
+        assertNull(vm.sichos().valueAt("p5", 1, 0))
+    }
+
+    @Test
+    fun aStartMovedByWholeWeeksDoesNotLoseTheCellsItLandsOn() {
+        val vm = testVm(NightStore(folder.newFolder()))
+        vm.setSichosStart(day("2026-09-20"))
+        (0..3).forEach { vm.toggleSikkum("p7", 0, it) }
+        // a week earlier: each week's new day is the day the week before it had
+        vm.setSichosStart(day("2026-09-13"))
+        assertEquals(4, vm.sichos().count("p7", 0))
+        assertEquals(5, vm.state.value.sichos.size)
     }
 
     @Test

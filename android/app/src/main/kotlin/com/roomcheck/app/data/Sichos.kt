@@ -106,4 +106,29 @@ class Sichos(notes: Map<String, String>) {
         Roster.PEOPLE.map { it.id to entries(it.id, round) }.filter { it.second > 0 && it.first !in without }
 
     fun winner(round: Int): String? = start?.let { winners[roundStart(round)] }?.takeIf { Roster.byId[it] != null }
+
+    /**
+     * The cells to write for the first round to start on [day] instead: every sikkum and every
+     * winner moves with its round and week, so a start fixed after the fact leaves each week's
+     * sikumim the week they were marked for. Fields to clear are null; one both cleared and
+     * written again keeps what is written.
+     */
+    fun restartedOn(day: LocalDate): Map<String, String?> {
+        val out = linkedMapOf<String, String?>(START to Dates.keyOf(day))
+        if (start == null || start == day) return out
+        val moved = mutableMapOf<String, String>()
+        cells.forEach { (pid, weeks) ->
+            weeks.forEach { (index, fields) ->
+                fields.forEach { out[it] = null }
+                val value = if (fields.any { values[it] == REVIEWED }) REVIEWED else IN
+                moved[weekField(pid, day.plusDays(7L * index))] = value
+            }
+        }
+        winners.forEach { (roundStart, pid) ->
+            out[winField(roundStart)] = null
+            moved[winField(day.plusDays(7L * WEEKS * roundOf(roundStart)))] = pid
+        }
+        out.putAll(moved)
+        return out
+    }
 }

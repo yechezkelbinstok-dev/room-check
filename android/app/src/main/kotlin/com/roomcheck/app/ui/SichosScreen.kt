@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,10 +26,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.roomcheck.app.data.*
@@ -63,10 +67,14 @@ fun SichosScreen(vm: AppViewModel) {
     val logic = vm.logic(state)
     var openPid by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
+    var movingStart by remember { mutableStateOf(false) }
     BackTo(vm, Tab.CHECK)
 
     Column(Modifier.fillMaxSize().background(RC.bg)) {
-        Header("Seder Sichos", "3 weeks of a round = 1 entry · all 4 = 2", "Done") { vm.setTab(Tab.CHECK) }
+        Header(
+            "Seder Sichos", "3 weeks of a round = 1 entry · all 4 = 2", "Done",
+            onChangeStart = if (book.start != null) ({ movingStart = true }) else null
+        ) { vm.setTab(Tab.CHECK) }
         if (book.start == null) {
             StartCard(vm.today()) { vm.setSichosStart(it) }
             return@Column
@@ -88,7 +96,7 @@ fun SichosScreen(vm: AppViewModel) {
                     pids.forEachIndexed { i, pid ->
                         if (i > 0) HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
                         BochurRow(
-                            name = logic.nameOf(pid), weeks = (0 until Sichos.WEEKS).map { book.valueAt(pid, round, it) },
+                            first = logic.first(pid), last = logic.last(pid), weeks = (0 until Sichos.WEEKS).map { book.valueAt(pid, round, it) },
                             week = week, entries = book.entries(pid, round),
                             onTap = { vm.toggleSikkum(pid, round, week) }, onOpen = { openPid = pid }
                         )
@@ -104,13 +112,20 @@ fun SichosScreen(vm: AppViewModel) {
     openPid?.let { pid ->
         BochurSheet(vm, book, logic, pid, vm.sichosRound(state), onClose = { openPid = null })
     }
+    book.start?.let { start ->
+        // every round moves with it, each sikkum staying in the week it was marked for
+        if (movingStart) DayPicker(start, onPick = {
+            vm.setSichosStart(it)
+            vm.toast("Round 1 now starts ${dayText(it)}")
+        }, onClose = { movingStart = false })
+    }
     Toast(vm, state.toast)
 }
 
 @Composable
-private fun Header(title: String, subtitle: String, button: String, onButton: () -> Unit) {
+private fun Header(title: String, subtitle: String, button: String, onChangeStart: (() -> Unit)? = null, onButton: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(16.dp, 13.dp, 16.dp, 8.dp),
+        Modifier.fillMaxWidth().padding(16.dp, 13.dp, if (onChangeStart != null) 4.dp else 16.dp, 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top
     ) {
         Column(Modifier.weight(1f)) {
@@ -118,6 +133,15 @@ private fun Header(title: String, subtitle: String, button: String, onButton: ()
             Text(subtitle, fontSize = 12.5.sp, color = RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         OutlinedButton(onClick = onButton) { Text(button) }
+        if (onChangeStart != null) {
+            var menu by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "More", tint = RC.sub2) }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text("Change the start day") }, onClick = { menu = false; onChangeStart() })
+                }
+            }
+        }
     }
 }
 
@@ -131,7 +155,6 @@ private fun BackTo(vm: AppViewModel, tab: Tab) {
  * The one question before anything else: the day the first round started. Any day will do - an
  * earlier one too, so sikumim already handed in on paper can go in as well.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StartCard(today: LocalDate, onStart: (LocalDate) -> Unit) {
     var day by remember { mutableStateOf(today) }
@@ -150,19 +173,24 @@ private fun StartCard(today: LocalDate, onStart: (LocalDate) -> Unit) {
             Button(onClick = { onStart(day) }) { Text("Start") }
         }
     }
-    if (picking) {
-        val st = rememberDatePickerState(initialSelectedDateMillis = day.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
-        DatePickerDialog(
-            onDismissRequest = { picking = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    st.selectedDateMillis?.let { day = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
-                    picking = false
-                }) { Text("OK") }
-            },
-            dismissButton = { TextButton(onClick = { picking = false }) { Text("Cancel") } }
-        ) { DatePicker(state = st) }
-    }
+    if (picking) DayPicker(day, onPick = { day = it }, onClose = { picking = false })
+}
+
+/** The phone's own calendar, for picking a day. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DayPicker(initial: LocalDate, onPick: (LocalDate) -> Unit, onClose: () -> Unit) {
+    val st = rememberDatePickerState(initialSelectedDateMillis = initial.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
+    DatePickerDialog(
+        onDismissRequest = onClose,
+        confirmButton = {
+            TextButton(onClick = {
+                st.selectedDateMillis?.let { onPick(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) }
+                onClose()
+            }) { Text("OK") }
+        },
+        dismissButton = { TextButton(onClick = onClose) { Text("Cancel") } }
+    ) { DatePicker(state = st) }
 }
 
 /** Which round is on screen, with its dates - back through the ones before, up to the one running now. */
@@ -231,18 +259,26 @@ private fun FindField(query: String, onChange: (String) -> Unit) {
     )
 }
 
-/** A name, his round so far, and the round's four weeks as dots - the one a tap marks ringed. */
+/**
+ * A name, his round so far, and the round's four weeks as dots - the one a tap marks ringed. The
+ * surname leads, as the list is sorted by it, so a long first name is what gets cut, not it.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun BochurRow(name: String, weeks: List<String?>, week: Int, entries: Int, onTap: () -> Unit, onOpen: () -> Unit) {
+private fun BochurRow(first: String, last: String, weeks: List<String?>, week: Int, entries: Int, onTap: () -> Unit, onOpen: () -> Unit) {
     val count = weeks.count { it != null }
     Row(
         Modifier.fillMaxWidth().combinedClickable(onClick = onTap, onLongClick = onOpen).padding(14.dp, 9.dp, 4.dp, 9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text(name, fontSize = 15.sp, fontWeight = if (weeks[week] != null) FontWeight.SemiBold else FontWeight.Normal,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(last) }
+                    append(", $first")
+                },
+                fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
             Text(
                 "$count of ${Sichos.WEEKS}" + if (entries > 0) " · ${entriesText(entries)}" else "",
                 fontSize = 12.sp, fontWeight = if (entries > 0) FontWeight.SemiBold else FontWeight.Normal,
