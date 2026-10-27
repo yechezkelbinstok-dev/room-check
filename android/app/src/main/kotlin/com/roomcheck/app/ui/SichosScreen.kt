@@ -72,7 +72,7 @@ fun SichosScreen(vm: AppViewModel) {
 
     Column(Modifier.fillMaxSize().background(RC.bg)) {
         Header(
-            "Seder Sichos", "3 weeks of a round = 1 entry · all 4 = 2", "Done",
+            "Seder Sichos", "", "Done",
             onChangeStart = if (book.start != null) ({ movingStart = true }) else null
         ) { vm.setTab(Tab.CHECK) }
         if (book.start == null) {
@@ -101,7 +101,7 @@ fun SichosScreen(vm: AppViewModel) {
                             onTap = { vm.toggleSikkum(pid, round, week) }, onOpen = { openPid = pid }
                         )
                     }
-                    if (pids.isEmpty()) Text("Nobody by that name", fontSize = 14.sp, color = RC.sub, modifier = Modifier.padding(14.dp))
+                    if (pids.isEmpty()) Text("No match", fontSize = 14.sp, color = RC.sub, modifier = Modifier.padding(14.dp))
                 }
             }
             item { Spacer(Modifier.height(12.dp)) }
@@ -130,7 +130,7 @@ private fun Header(title: String, subtitle: String, button: String, onChangeStar
     ) {
         Column(Modifier.weight(1f)) {
             Text(title, fontSize = 23.sp, fontWeight = FontWeight.Bold)
-            Text(subtitle, fontSize = 12.5.sp, color = RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (subtitle.isNotEmpty()) Text(subtitle, fontSize = 12.5.sp, color = RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         OutlinedButton(onClick = onButton) { Text(button) }
         if (onChangeStart != null) {
@@ -160,13 +160,8 @@ private fun StartCard(today: LocalDate, onStart: (LocalDate) -> Unit) {
     var day by remember { mutableStateOf(today) }
     var picking by remember { mutableStateOf(false) }
     Column(Modifier.padding(12.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(RC.card).padding(16.dp)) {
-        Text("When does the first round start?", fontSize = 17.sp, fontWeight = FontWeight.Bold)
-        Text(
-            "Rounds are 4 weeks each, a sicha a week, the next starting where the last ended. " +
-                "Pick the day the first began - an earlier day is fine, so sikumim already handed in can go in too.",
-            fontSize = 13.sp, color = RC.sub2, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp)
-        )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("First round starts", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedButton(onClick = { picking = true }, modifier = Modifier.weight(1f)) {
                 Text("${day.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault()))} · ${hebDay(day)}", maxLines = 1)
             }
@@ -322,13 +317,12 @@ private fun RaffleBar(book: Sichos, round: Int, logic: NightLogic, onOpen: () ->
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                if (pool.isEmpty()) "Nobody has 3 weeks yet" else "${entriesText(pool.sumOf { it.second })} · ${pool.size} bochurim",
+                "${entriesText(pool.sumOf { it.second })} · ${pool.size} bochurim",
                 fontSize = 14.sp, fontWeight = FontWeight.SemiBold
             )
-            Text(
-                winner?.let { "Won by ${logic.nameOf(it)}" } ?: "The raffle is drawn when the round is over",
-                fontSize = 12.sp, color = if (winner != null) RC.green else RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis
-            )
+            if (winner != null) {
+                Text("Winner: ${logic.nameOf(winner)}", fontSize = 12.sp, color = RC.green, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
         Button(onClick = onOpen) { Text("Raffle") }
     }
@@ -420,32 +414,20 @@ fun RaffleScreen(vm: AppViewModel) {
         }
 
         LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            if (book.roundOf(vm.today()) <= round) {
-                item {
-                    Text(
-                        "This round runs until ${book.roundEnd(round).format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault()))} - " +
-                            "sikumim can still come in before you draw.",
-                        fontSize = 13.sp, color = RC.sub2, modifier = Modifier.padding(4.dp, 2.dp, 4.dp, 10.dp)
-                    )
-                }
-            }
             item {
                 Column(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(RC.card).padding(18.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     val shown = rolling ?: winner
-                    when {
-                        rolling != null -> Text("Drawing…", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = RC.sub)
-                        winner != null -> Text("WINNER", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = RC.green)
-                        else -> Text("Not drawn yet", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = RC.sub)
-                    }
                     if (shown != null) {
+                        if (rolling != null) Text("Drawing…", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = RC.sub)
+                        else Text("WINNER", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = RC.green)
                         Text(logic.nameOf(shown), fontSize = 27.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                             modifier = Modifier.padding(top = 6.dp))
                         Text(logic.nameOf(shown, hebrew = true), fontSize = 15.sp, color = RC.sub2, textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(14.dp))
                     }
-                    Spacer(Modifier.height(14.dp))
                     if (winner == null || rolling != null) {
                         Button(
                             onClick = { draw(aside) }, enabled = rolling == null && book.pool(round, aside).isNotEmpty(),
@@ -464,7 +446,7 @@ fun RaffleScreen(vm: AppViewModel) {
             item {
                 Card {
                     if (pool.isEmpty()) {
-                        Text("Nobody has handed in 3 weeks of this round yet.", fontSize = 14.sp, color = RC.sub, modifier = Modifier.padding(14.dp))
+                        Text("No entries", fontSize = 14.sp, color = RC.sub, modifier = Modifier.padding(14.dp))
                     }
                     pool.sortedWith(compareBy({ -it.second }, { logic.last(it.first) })).forEachIndexed { i, (pid, n) ->
                         if (i > 0) HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
