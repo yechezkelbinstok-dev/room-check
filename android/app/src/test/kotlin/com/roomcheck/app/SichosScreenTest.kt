@@ -11,11 +11,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.roomcheck.app.data.AppViewModel
 import com.roomcheck.app.data.NightStore
-import com.roomcheck.app.data.Roster
 import com.roomcheck.app.ui.BochurRound
 import com.roomcheck.app.ui.RaffleScreen
 import com.roomcheck.app.ui.RoomCheckTheme
 import com.roomcheck.app.ui.SichosScreen
+import com.roomcheck.app.ui.byName
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -34,11 +34,10 @@ class SichosScreenTest {
     @get:Rule
     val folder = TemporaryFolder()
 
-    /** The list's order, so the names marked are the ones at the top of the screen. */
-    private val byName = Roster.PEOPLE.sortedWith(compareBy({ it.last }, { it.first })).map { it.id }
-
     private fun vm(start: String, weeks: List<IntRange>): AppViewModel {
         val vm = testVm(NightStore(folder.newFolder()))
+        // the list's own order, so the names marked are the ones at the top of the screen
+        val byName = byName(vm.logic())
         vm.setSichosStart(LocalDate.parse(start))
         val round = vm.sichosRound()
         weeks.forEachIndexed { i, range -> range.forEach { vm.toggleSikkum(byName[i], round, it) } }
@@ -46,9 +45,9 @@ class SichosScreenTest {
         return vm
     }
 
-    /** Wednesday 21 October, in the third week of a round that started on Sunday the 4th. */
-    private fun underWay() = vm("2026-10-04", listOf(0..2, 0..1, 0..2, IntRange.EMPTY, 2..2, 1..2, 0..2, 0..0)).also {
-        it.setReviewed(byName[0], 0, 0, true)
+    /** Wednesday 21 October, the third week of a round that started on Wednesday night the 7th. */
+    private fun underWay() = vm("2026-10-07", listOf(0..2, 0..1, 0..2, IntRange.EMPTY, 2..2, 1..2, 0..2, 0..0)).also {
+        it.setReviewed(byName(it.logic())[0], 0, 0, true)
     }
 
     @Test
@@ -69,14 +68,15 @@ class SichosScreenTest {
         paparazzi.snapshot(name = "sichos-bochur") {
             RoomCheckTheme {
                 Box(Modifier.fillMaxWidth().background(Color.White).padding(top = 20.dp)) {
-                    BochurRound(vm, vm.sichos(), vm.logic(), byName[0], 0)
+                    BochurRound(vm, vm.sichos(), vm.logic(), byName(vm.logic())[0], 0)
                 }
             }
         }
     }
 
-    /** A round that is over - 20 September to 17 October - with five bochurim in the hat. */
-    private fun roundOver() = vm("2026-09-20", emptyList()).also { vm ->
+    /** A round that is over - the four Wednesday nights from 16 September - with five bochurim in the hat. */
+    private fun roundOver() = vm("2026-09-16", emptyList()).also { vm ->
+        val byName = byName(vm.logic())
         listOf(0..3, 0..2, 0..3, 1..3, 0..1, 0..2).forEachIndexed { i, range -> range.forEach { vm.toggleSikkum(byName[i], 0, it) } }
         vm.showSichosRound(0)
         vm.clearToast()

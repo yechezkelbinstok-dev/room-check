@@ -2,6 +2,21 @@ package com.roomcheck.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,7 +30,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -25,7 +42,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -38,27 +62,42 @@ import androidx.compose.ui.unit.sp
 import com.roomcheck.app.data.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.text.Collator
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
 import java.util.Locale
+import kotlin.math.sin
+import kotlin.random.Random
 
-private val DAY = DateTimeFormatter.ofPattern("MMM d", Locale.getDefault())
-private fun dayText(d: LocalDate): String = d.format(DAY)
-private fun hebDay(d: LocalDate): String = Dates.hebrewOf(d).let { Dates.hebrewDayMonthOf(it.year, it.month, it.day) }
-private fun roundDays(book: Sichos, round: Int) = "${dayText(book.roundStart(round))} – ${dayText(book.roundEnd(round))}"
+private val gold = Color(0xFFF5B400)
+private val goldL = Color(0xFFFFE07A)
+private val stage = Brush.linearGradient(listOf(Color(0xFF1C2A7A), Color(0xFF4E2385)))
+
+/** The Hebrew date of the Wednesday night a week's sicha is learned. */
+private fun nightOf(d: LocalDate): String = Dates.hebrewDayMonth(Dates.keyOf(d))
+/** A round as the nights of its first sicha and its last. */
+private fun roundNights(book: Sichos, round: Int) =
+    "${nightOf(book.weekStart(round, 0))} – ${nightOf(book.weekStart(round, Sichos.WEEKS - 1))}"
 private fun entriesText(n: Int) = if (n == 1) "1 entry" else "$n entries"
+/** Seder Sichos is on Wednesday nights: the first round's start is offered as the next one. */
+private fun nextWednesday(d: LocalDate): LocalDate = d.with(TemporalAdjusters.nextOrSame(DayOfWeek.WEDNESDAY))
 
-/** Everyone in the roster, the way a list of names is read: by surname. */
-private fun byName(logic: NightLogic): List<String> =
-    Roster.PEOPLE.map { it.id }.sortedWith(compareBy({ logic.last(it) }, { logic.first(it) }))
+private val hebrewOrder: Collator = Collator.getInstance(Locale.forLanguageTag("he"))
+
+/** Everyone in the roster as a list of names is read: by surname, in Hebrew. */
+internal fun byName(logic: NightLogic): List<String> = Roster.PEOPLE.map { it.id }.sortedWith(
+    compareBy<String, String>(hebrewOrder) { logic.last(it, hebrew = true) }.thenBy(hebrewOrder) { logic.first(it, hebrew = true) }
+)
 
 /**
- * Seder Sichos: who handed in a sikkum on each week's sicha, a round of four weeks at a time, and
- * the round's raffle. A tap on a name marks the week picked above for him - the bochur standing
- * there with one in his hand is what this is for - and tapping again takes it off. Holding a name,
- * or its ⋯, opens his round: every week of it, and which ones you have reviewed.
+ * Seder Sichos: who handed in a sikkum on each Wednesday night's sicha, a round of four weeks at a
+ * time, and the round's raffle. A tap on a name marks the week picked above for him - the bochur
+ * standing there with one in his hand is what this is for - and tapping again takes it off.
+ * Holding a name, or its ⋯, opens his round: every week of it, and which you have reviewed.
  */
 @Composable
 fun SichosScreen(vm: AppViewModel) {
@@ -73,10 +112,10 @@ fun SichosScreen(vm: AppViewModel) {
     Column(Modifier.fillMaxSize().background(RC.bg)) {
         Header(
             "Seder Sichos", "", "Done",
-            onChangeStart = if (book.start != null) ({ movingStart = true }) else null
+            menu = if (book.start != null) listOf("Change the start day" to { movingStart = true }) else emptyList()
         ) { vm.setTab(Tab.CHECK) }
         if (book.start == null) {
-            StartCard(vm.today()) { vm.setSichosStart(it) }
+            StartCard(nextWednesday(vm.today())) { vm.setSichosStart(it) }
             return@Column
         }
         val round = vm.sichosRound(state)
@@ -88,7 +127,7 @@ fun SichosScreen(vm: AppViewModel) {
 
         val q = query.trim()
         val pids = byName(logic).filter {
-            q.isEmpty() || logic.nameOf(it).contains(q, ignoreCase = true) || logic.nameOf(it, hebrew = true).contains(q)
+            q.isEmpty() || logic.nameOf(it, hebrew = true).contains(q) || logic.nameOf(it).contains(q, ignoreCase = true)
         }
         LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             item {
@@ -96,7 +135,8 @@ fun SichosScreen(vm: AppViewModel) {
                     pids.forEachIndexed { i, pid ->
                         if (i > 0) HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
                         BochurRow(
-                            first = logic.first(pid), last = logic.last(pid), weeks = (0 until Sichos.WEEKS).map { book.valueAt(pid, round, it) },
+                            first = logic.first(pid, hebrew = true), last = logic.last(pid, hebrew = true),
+                            weeks = (0 until Sichos.WEEKS).map { book.valueAt(pid, round, it) },
                             week = week, entries = book.entries(pid, round),
                             onTap = { vm.toggleSikkum(pid, round, week) }, onOpen = { openPid = pid }
                         )
@@ -116,16 +156,16 @@ fun SichosScreen(vm: AppViewModel) {
         // every round moves with it, each sikkum staying in the week it was marked for
         if (movingStart) DayPicker(start, onPick = {
             vm.setSichosStart(it)
-            vm.toast("Round 1 now starts ${dayText(it)}")
+            vm.toast("Round 1 · ${nightOf(it)}")
         }, onClose = { movingStart = false })
     }
     Toast(vm, state.toast)
 }
 
 @Composable
-private fun Header(title: String, subtitle: String, button: String, onChangeStart: (() -> Unit)? = null, onButton: () -> Unit) {
+private fun Header(title: String, subtitle: String, button: String, menu: List<Pair<String, () -> Unit>> = emptyList(), onButton: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(16.dp, 13.dp, if (onChangeStart != null) 4.dp else 16.dp, 8.dp),
+        Modifier.fillMaxWidth().padding(16.dp, 13.dp, if (menu.isNotEmpty()) 4.dp else 16.dp, 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top
     ) {
         Column(Modifier.weight(1f)) {
@@ -133,12 +173,14 @@ private fun Header(title: String, subtitle: String, button: String, onChangeStar
             if (subtitle.isNotEmpty()) Text(subtitle, fontSize = 12.5.sp, color = RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         OutlinedButton(onClick = onButton) { Text(button) }
-        if (onChangeStart != null) {
-            var menu by remember { mutableStateOf(false) }
+        if (menu.isNotEmpty()) {
+            var open by remember { mutableStateOf(false) }
             Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "More", tint = RC.sub2) }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(text = { Text("Change the start day") }, onClick = { menu = false; onChangeStart() })
+                IconButton(onClick = { open = true }) { Icon(Icons.Filled.MoreVert, "More", tint = RC.sub2) }
+                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                    menu.forEach { (label, action) ->
+                        DropdownMenuItem(text = { Text(label) }, onClick = { open = false; action() })
+                    }
                 }
             }
         }
@@ -151,19 +193,16 @@ private fun BackTo(vm: AppViewModel, tab: Tab) {
     if (LocalOnBackPressedDispatcherOwner.current != null) BackHandler { vm.setTab(tab) }
 }
 
-/**
- * The one question before anything else: the day the first round started. Any day will do - an
- * earlier one too, so sikumim already handed in on paper can go in as well.
- */
+/** The one thing to set before anything else: the Wednesday the first round starts. */
 @Composable
-private fun StartCard(today: LocalDate, onStart: (LocalDate) -> Unit) {
-    var day by remember { mutableStateOf(today) }
+private fun StartCard(first: LocalDate, onStart: (LocalDate) -> Unit) {
+    var day by remember { mutableStateOf(first) }
     var picking by remember { mutableStateOf(false) }
     Column(Modifier.padding(12.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(RC.card).padding(16.dp)) {
         Text("First round starts", fontSize = 17.sp, fontWeight = FontWeight.Bold)
         Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedButton(onClick = { picking = true }, modifier = Modifier.weight(1f)) {
-                Text("${day.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault()))} · ${hebDay(day)}", maxLines = 1)
+                Text("${day.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault()))} · ${nightOf(day)}", maxLines = 1)
             }
             Button(onClick = { onStart(day) }) { Text("Start") }
         }
@@ -188,7 +227,7 @@ private fun DayPicker(initial: LocalDate, onPick: (LocalDate) -> Unit, onClose: 
     ) { DatePicker(state = st) }
 }
 
-/** Which round is on screen, with its dates - back through the ones before, up to the one running now. */
+/** Which round is on screen, as the nights of its sichos - back through the ones before, up to now. */
 @Composable
 private fun RoundBar(book: Sichos, round: Int, current: Int, onRound: (Int) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(12.dp, 0.dp, 12.dp, 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -202,10 +241,7 @@ private fun RoundBar(book: Sichos, round: Int, current: Int, onRound: (Int) -> U
                 },
                 fontSize = 17.sp, fontWeight = FontWeight.Bold
             )
-            Text(
-                "${roundDays(book, round)} · ${hebDay(book.roundStart(round))} – ${hebDay(book.roundEnd(round))}",
-                fontSize = 11.5.sp, color = RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis
-            )
+            Text(roundNights(book, round), fontSize = 12.5.sp, color = RC.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         NavBtn(Icons.Filled.ChevronRight, "Round after", enabled = round < maxOf(current, 0)) { onRound(round + 1) }
     }
@@ -220,7 +256,7 @@ private fun NavBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: 
     ) { Icon(icon, desc, tint = RC.blue) }
 }
 
-/** The round's four weeks: the one picked is what a tap on a name marks, this week ringed. */
+/** The round's four Wednesday nights: the one picked is what a tap on a name marks, this week ringed. */
 @Composable
 private fun WeekPicker(book: Sichos, round: Int, week: Int, thisWeek: Int?, onPick: (Int) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -234,7 +270,7 @@ private fun WeekPicker(book: Sichos, round: Int, week: Int, thisWeek: Int?, onPi
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text("Week ${w + 1}", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = if (on) Color.White else RC.text)
-                Text(dayText(book.weekStart(round, w)), fontSize = 11.sp, color = if (on) Color.White.copy(alpha = 0.8f) else RC.sub)
+                Text(nightOf(book.weekStart(round, w)), fontSize = 12.sp, color = if (on) Color.White.copy(alpha = 0.85f) else RC.sub2)
                 Text("${book.handedIn(round, w)} in", fontSize = 11.sp, fontWeight = FontWeight.Medium,
                     color = if (on) Color.White.copy(alpha = 0.9f) else RC.green)
             }
@@ -272,7 +308,7 @@ private fun BochurRow(first: String, last: String, weeks: List<String?>, week: I
                     withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(last) }
                     append(", $first")
                 },
-                fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
+                fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
             )
             Text(
                 "$count of ${Sichos.WEEKS}" + if (entries > 0) " · ${entriesText(entries)}" else "",
@@ -316,15 +352,16 @@ private fun RaffleBar(book: Sichos, round: Int, logic: NightLogic, onOpen: () ->
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text(
-                "${entriesText(pool.sumOf { it.second })} · ${pool.size} bochurim",
-                fontSize = 14.sp, fontWeight = FontWeight.SemiBold
-            )
+            Text("${entriesText(pool.sumOf { it.second })} · ${pool.size} bochurim", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             if (winner != null) {
-                Text("Winner: ${logic.nameOf(winner)}", fontSize = 12.sp, color = RC.green, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("Winner: ${logic.nameOf(winner, hebrew = true)}", fontSize = 12.5.sp, color = RC.green, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        Button(onClick = onOpen) { Text("Raffle") }
+        Button(onClick = onOpen) {
+            Icon(Icons.Filled.ConfirmationNumber, null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Raffle")
+        }
     }
 }
 
@@ -338,10 +375,10 @@ private fun BochurSheet(vm: AppViewModel, book: Sichos, logic: NightLogic, pid: 
 @Composable
 internal fun BochurRound(vm: AppViewModel, book: Sichos, logic: NightLogic, pid: String, round: Int) {
     Column(Modifier.padding(16.dp, 0.dp, 16.dp, 28.dp)) {
-        Text(logic.nameOf(pid), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(logic.nameOf(pid, hebrew = true), fontSize = 21.sp, fontWeight = FontWeight.Bold)
         val count = book.count(pid, round)
         Text(
-            "Round ${round + 1} · ${roundDays(book, round)} · $count of ${Sichos.WEEKS}" +
+            "Round ${round + 1} · ${roundNights(book, round)} · $count of ${Sichos.WEEKS}" +
                 book.entries(pid, round).let { if (it > 0) " · ${entriesText(it)}" else "" },
             fontSize = 12.5.sp, color = RC.sub, modifier = Modifier.padding(bottom = 12.dp)
         )
@@ -352,7 +389,7 @@ internal fun BochurRound(vm: AppViewModel, book: Sichos, logic: NightLogic, pid:
                 Row(Modifier.fillMaxWidth().padding(14.dp, 6.dp, 10.dp, 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("Week ${w + 1}", fontSize = 15.sp)
-                        Text("${dayText(book.weekStart(round, w))} · ${hebDay(book.weekStart(round, w))}", fontSize = 12.sp, color = RC.sub)
+                        Text(nightOf(book.weekStart(round, w)), fontSize = 12.5.sp, color = RC.sub)
                     }
                     if (v != null) {
                         Row(
@@ -372,9 +409,11 @@ internal fun BochurRound(vm: AppViewModel, book: Sichos, logic: NightLogic, pid:
 }
 
 /**
- * The round's raffle: everyone in the hat, as many times as he has entries, and the draw. The
- * winner is kept, on every device, so the draw is made once - "Draw again" puts the one who won to
- * one side and draws from the rest, for a winner who cannot take it.
+ * The round's raffle: a stage with the hat on it - everyone in it as many times as he has
+ * entries - and the draw, the names going round faster than you can read and slowing down to the
+ * one it landed on, confetti and all. The winner is kept on every device, so the draw is made once;
+ * "Draw again" puts the one who won to one side for a winner who cannot take it, and the menu
+ * clears a draw that was only a try.
  */
 @Composable
 fun RaffleScreen(vm: AppViewModel) {
@@ -385,6 +424,7 @@ fun RaffleScreen(vm: AppViewModel) {
     var aside by remember(round) { mutableStateOf(setOf<String>()) }
     var rolling by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
     BackTo(vm, Tab.SICHOS)
 
     Column(Modifier.fillMaxSize().background(RC.bg)) {
@@ -392,79 +432,167 @@ fun RaffleScreen(vm: AppViewModel) {
             Header("Raffle", "", "Back") { vm.setTab(Tab.SICHOS) }
             return@Column
         }
-        Header("Raffle", "Round ${round + 1} · ${roundDays(book, round)}", "Back") { vm.setTab(Tab.SICHOS) }
         val pool = book.pool(round)
         val winner = book.winner(round)
+        Header(
+            "Raffle", "Round ${round + 1} · ${roundNights(book, round)}", "Back",
+            menu = if (winner != null && rolling == null) listOf("Clear the winner" to { aside = emptySet(); vm.clearRaffle(round) }) else emptyList()
+        ) { vm.setTab(Tab.SICHOS) }
 
         fun draw(without: Set<String>) {
             if (rolling != null) return
             val names = book.pool(round, without).map { it.first }
             if (vm.drawRaffle(round, without) == null) return
-            // the winner is already drawn and kept; this is only the names going round before it shows
+            // the winner is already drawn and kept; this is the names going round before it shows
             scope.launch {
-                var wait = 40L
+                var wait = 35L
                 var i = 0
-                while (wait < 280) {
+                while (wait < 330) {
                     rolling = names[i++ % names.size]
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     delay(wait)
-                    wait = wait * 113 / 100
+                    wait = wait * 112 / 100
                 }
                 rolling = null
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             }
         }
 
         LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             item {
-                Column(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(RC.card).padding(18.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    val shown = rolling ?: winner
-                    if (shown != null) {
-                        if (rolling != null) Text("Drawing…", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = RC.sub)
-                        else Text("WINNER", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = RC.green)
-                        Text(logic.nameOf(shown), fontSize = 27.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(top = 6.dp))
-                        Text(logic.nameOf(shown, hebrew = true), fontSize = 15.sp, color = RC.sub2, textAlign = TextAlign.Center)
-                        Spacer(Modifier.height(14.dp))
-                    }
-                    if (winner == null || rolling != null) {
-                        Button(
-                            onClick = { draw(aside) }, enabled = rolling == null && book.pool(round, aside).isNotEmpty(),
-                            modifier = Modifier.fillMaxWidth().height(52.dp)
-                        ) { Text("Draw", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
-                    } else {
-                        val rest = aside + winner
-                        OutlinedButton(
-                            onClick = { aside = rest; draw(rest) }, enabled = book.pool(round, rest).isNotEmpty(),
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("Draw again without ${logic.first(winner)}") }
-                    }
-                }
+                Stage(
+                    entries = pool.sumOf { it.second },
+                    rolling = rolling?.let { logic.nameOf(it, hebrew = true) },
+                    winner = winner?.let { logic.nameOf(it, hebrew = true) },
+                    canDraw = rolling == null && book.pool(round, aside).isNotEmpty(),
+                    again = winner?.let { w -> "Draw again without ${logic.first(w, hebrew = true)}" to book.pool(round, aside + w).isNotEmpty() },
+                    onDraw = { draw(aside) },
+                    onDrawAgain = { winner?.let { w -> val rest = aside + w; aside = rest; draw(rest) } }
+                )
             }
-            item { SectionHeader("In the hat · ${entriesText(pool.sumOf { it.second })}") }
+            item { SectionHeader("In the hat") }
             item {
                 Card {
-                    if (pool.isEmpty()) {
-                        Text("No entries", fontSize = 14.sp, color = RC.sub, modifier = Modifier.padding(14.dp))
-                    }
-                    pool.sortedWith(compareBy({ -it.second }, { logic.last(it.first) })).forEachIndexed { i, (pid, n) ->
+                    if (pool.isEmpty()) Text("No entries", fontSize = 14.sp, color = RC.sub, modifier = Modifier.padding(14.dp))
+                    pool.sortedWith(
+                        compareByDescending<Pair<String, Int>> { it.second }.thenBy(hebrewOrder) { logic.last(it.first, hebrew = true) }
+                    ).forEachIndexed { i, (pid, n) ->
                         if (i > 0) HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
                         val out = pid in aside
                         Row(Modifier.fillMaxWidth().padding(14.dp, 11.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                logic.nameOf(pid), fontSize = 15.sp, modifier = Modifier.weight(1f),
+                                logic.nameOf(pid, hebrew = true), fontSize = 16.sp, modifier = Modifier.weight(1f),
                                 color = if (out) RC.sub else RC.text, textDecoration = if (out) TextDecoration.LineThrough else null
                             )
-                            Text(
-                                if (out) "set aside" else "${entriesText(n)} · ${book.count(pid, round)} of ${Sichos.WEEKS}",
-                                fontSize = 13.sp, color = if (out) RC.sub else RC.green, fontWeight = FontWeight.Medium
-                            )
+                            repeat(n) {
+                                Icon(Icons.Filled.ConfirmationNumber, null, tint = if (out) RC.greyL else gold,
+                                    modifier = Modifier.padding(start = 4.dp).size(24.dp))
+                            }
                         }
                     }
                 }
             }
             item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+}
+
+/** The draw's stage: the hat and its count, then the names going round, then the winner. */
+@Composable
+private fun Stage(
+    entries: Int, rolling: String?, winner: String?, canDraw: Boolean, again: Pair<String, Boolean>?,
+    onDraw: () -> Unit, onDrawAgain: () -> Unit
+) {
+    val shape = RoundedCornerShape(22.dp)
+    val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(
+        0.35f, 1f, infiniteRepeatable(tween(650), RepeatMode.Reverse), label = "pulse"
+    )
+    Box(
+        Modifier.fillMaxWidth().padding(top = 4.dp).clip(shape).background(stage)
+            .border(2.dp, gold.copy(alpha = if (rolling != null) pulse else 0.5f), shape)
+    ) {
+        if (winner != null && rolling == null) Confetti(Modifier.matchParentSize(), key = winner)
+        Column(Modifier.fillMaxWidth().padding(22.dp, 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            when {
+                rolling != null -> {
+                    Icon(Icons.Filled.ConfirmationNumber, null, tint = gold, modifier = Modifier.size(46.dp).scale(0.85f + 0.25f * pulse))
+                    Spacer(Modifier.height(14.dp))
+                    AnimatedContent(
+                        targetState = rolling,
+                        transitionSpec = {
+                            (slideInVertically(tween(80)) { it } + fadeIn(tween(80))) togetherWith
+                                (slideOutVertically(tween(80)) { -it } + fadeOut(tween(80)))
+                        },
+                        label = "name"
+                    ) { name ->
+                        Text(name, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center, maxLines = 1)
+                    }
+                    Spacer(Modifier.height(78.dp))
+                }
+                winner != null -> {
+                    Icon(Icons.Filled.EmojiEvents, null, tint = gold, modifier = Modifier.size(64.dp))
+                    Text("WINNER", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = goldL, letterSpacing = 4.sp,
+                        modifier = Modifier.padding(top = 6.dp))
+                    Text(winner, fontSize = 36.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 4.dp))
+                    if (again != null) {
+                        Spacer(Modifier.height(22.dp))
+                        OutlinedButton(
+                            onClick = onDrawAgain, enabled = again.second,
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.45f)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White, disabledContentColor = Color.White.copy(alpha = 0.4f))
+                        ) { Text(again.first) }
+                    }
+                }
+                else -> {
+                    Icon(Icons.Filled.ConfirmationNumber, null, tint = gold, modifier = Modifier.size(46.dp))
+                    Text("$entries", fontSize = 56.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    Text(if (entries == 1) "entry" else "entries", fontSize = 15.sp, color = Color.White.copy(alpha = 0.75f))
+                    Spacer(Modifier.height(22.dp))
+                    GoldButton("Draw", enabled = canDraw, onClick = onDraw)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GoldButton(text: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.fillMaxWidth().height(58.dp).alpha(if (enabled) 1f else 0.45f).clip(RoundedCornerShape(29.dp))
+            .background(Brush.horizontalGradient(listOf(goldL, gold))).clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) { Text(text, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF3A2600)) }
+}
+
+private class Bit(val x: Float, val y: Float, val fall: Float, val sway: Float, val spin: Float, val size: Float, val color: Color)
+
+private val CONFETTI = listOf(gold, goldL, Color(0xFFFF5C8A), Color(0xFF4FD1C5), Color(0xFF7AA7FF), Color.White)
+
+/** Confetti over the stage when the winner shows: scattered to start with, falling off the bottom. */
+@Composable
+private fun Confetti(modifier: Modifier, key: Any) {
+    val bits = remember(key) {
+        val r = Random(key.hashCode())
+        List(90) {
+            Bit(
+                x = r.nextFloat(), y = r.nextFloat() * 1.5f - 0.6f, fall = 1.6f + r.nextFloat() * 0.8f,
+                sway = 0.02f + r.nextFloat() * 0.04f, spin = 1f + r.nextFloat() * 3f, size = 9f + r.nextFloat() * 10f,
+                color = CONFETTI[r.nextInt(CONFETTI.size)]
+            )
+        }
+    }
+    val t = remember(key) { Animatable(0f) }
+    LaunchedEffect(key) { t.animateTo(1f, tween(3400, easing = LinearEasing)) }
+    Canvas(modifier) {
+        val p = t.value
+        bits.forEach { b ->
+            val y = (b.y + b.fall * p) * size.height
+            if (y < -30f || y > size.height + 30f) return@forEach
+            val x = (b.x + sin(p * 9f + b.x * 12f) * b.sway) * size.width
+            rotate(b.x * 360f + b.spin * 360f * p, Offset(x, y)) {
+                drawRect(b.color, topLeft = Offset(x - b.size / 2, y - b.size / 4), size = Size(b.size, b.size / 2))
+            }
         }
     }
 }

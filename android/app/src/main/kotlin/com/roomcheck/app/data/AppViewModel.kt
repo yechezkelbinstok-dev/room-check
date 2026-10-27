@@ -609,7 +609,8 @@ class AppViewModel(
         val have = book.fieldsAt(pid, round, week)
         if (have.isNotEmpty()) setSichos(*have.map { it to null }.toTypedArray())
         else setSichos(Sichos.weekField(pid, book.weekStart(round, week)) to Sichos.IN)
-        toast("${logic().nameOf(pid)} · week ${week + 1}" + if (have.isEmpty()) " ✓" else " removed")
+        // the week leads, so the Hebrew name after it does not turn the line around
+        toast("Week ${week + 1} ${if (have.isEmpty()) "✓" else "removed"} · ${logic().nameOf(pid, hebrew = true)}")
     }
 
     fun setReviewed(pid: String, round: Int, week: Int, reviewed: Boolean) {
@@ -628,6 +629,13 @@ class AppViewModel(
         val pid = Sichos.draw(book.pool(round, without), random) ?: return null
         setSichos(Sichos.winField(book.roundStart(round)) to pid)
         return pid
+    }
+
+    /** Takes [round]'s winner away again, on every device - for a draw that was only a try. */
+    fun clearRaffle(round: Int) {
+        val book = sichos()
+        if (book.start == null || book.winner(round) == null) return
+        setSichos(Sichos.winField(book.roundStart(round)) to null)
     }
 
     /** Cells of the shared record under "sichos." - saved, shown, and sent on like a mark. */

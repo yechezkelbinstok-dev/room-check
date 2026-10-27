@@ -110,6 +110,18 @@ class SichosTest {
     }
 
     @Test
+    fun aWinnerCanBeClearedForADrawThatWasOnlyATry() {
+        val vm = testVm(NightStore(folder.newFolder()))
+        vm.setSichosStart(day("2026-09-16"))
+        (0..3).forEach { vm.toggleSikkum("p1", 0, it) }
+        assertEquals("p1", vm.drawRaffle(0, random = Ticket(0)))
+        vm.clearRaffle(0)
+        assertNull(vm.sichos().winner(0))
+        assertFalse(vm.state.value.sichos.keys.any { it.startsWith("sichos.win.") })
+        assertEquals("p1", vm.drawRaffle(0, random = Ticket(1)))
+    }
+
+    @Test
     fun theWeekOpensOnTodayAndALateOneOnARoundThatIsOver() {
         val vm = testVm(NightStore(folder.newFolder()))
         // a round that started on 4 October is in its third week on 21 October
