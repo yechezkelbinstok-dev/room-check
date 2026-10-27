@@ -9,10 +9,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
+import java.security.SecureRandom
+import java.time.LocalDate
 import java.time.LocalDateTime
+import kotlin.random.Random
+import kotlin.random.asKotlinRandom
 
 enum class RoomMode { ONE, SCROLL }
-enum class Tab { CHECK, NAMES, SETTINGS, TIMES, QUICK, LUACH }
+enum class Tab { CHECK, NAMES, SETTINGS, TIMES, QUICK, LUACH, SICHOS, RAFFLE }
 
 data class UiState(
     val dateKey: String,
@@ -33,7 +37,12 @@ data class UiState(
     val highlight: String? = null,
     val sync: SyncState = SyncState.Off,
     val update: UpdateState = UpdateState.Unknown,
-    val toast: String? = null
+    val toast: String? = null,
+    /** Seder Sichos's cells of the shared record - read through [Sichos]. */
+    val sichos: Map<String, String> = emptyMap(),
+    /** The Seder Sichos round and week picked on screen; null follows today. */
+    val sichosRound: Int? = null,
+    val sichosWeek: Int? = null
 )
 
 /**
@@ -70,7 +79,8 @@ class AppViewModel(
             extra = store.extra,
             settings = store.settings,
             summerZman = store.summerZman,
-            curSlot = defaultSlot(initialNight, initialKey)
+            curSlot = defaultSlot(initialNight, initialKey),
+            sichos = store.sichos
         )
     )
     val state: StateFlow<UiState> = _state.asStateFlow()
@@ -453,6 +463,7 @@ class AppViewModel(
                         // someone switched to not in town on another device shows here too
                         extra = store.extra.toMap(),
                         summerZman = store.summerZman,
+                        sichos = store.sichos,
                         // a night that changed under us has to be re-read, or the screen keeps
                         // showing what it had before the other device's marks arrived
                         night = if (changed > 0) store.load(s.dateKey) else s.night
@@ -542,8 +553,85 @@ class AppViewModel(
     fun exportBackup(): String = store.exportBackup()
     fun importBackup(text: String): Boolean {
         val ok = store.importBackup(text)
-        if (ok) update { s -> s.copy(extra = store.extra.toMap(), summerZman = store.summerZman, night = loadAndMaybeClose(s.dateKey)) }
+        if (ok) update { s ->
+            s.copy(extra = store.extra.toMap(), summerZman = store.summerZman, sichos = store.sichos, night = loadAndMaybeClose(s.dateKey))
+        }
         return ok
+    }
+
+    // Seder Sichos
+
+    /** Today by [clock]: a sikkum belongs to the day it was handed in, not to a night. */
+    fun today(): LocalDate = clock().toLocalDate()
+
+    fun sichos(s: UiState = _state.value) = Sichos(s.sichos)
+
+    /** The round on screen: the one picked, or else the one running today. */
+    fun sichosRound(s: UiState = _state.value): Int {
+        s.sichosRound?.let { return it }
+        val book = sichos(s)
+        return if (book.start == null) 0 else maxOf(0, book.roundOf(today()))
+    }
+
+    /**
+     * The week a tap on a name marks: the one picked, or else this week - and on a round that is
+     * over, its last week, which is when a late one is most likely to be for.
+     */
+    fun sichosWeek(s: UiState = _state.value): Int {
+        s.sichosWeek?.let { return it }
+        val book = sichos(s)
+        if (book.start == null) return 0
+        val now = book.roundOf(today())
+        val round = sichosRound(s)
+        return when {
+            now == round -> book.weekOf(today())
+            now > round -> Sichos.WEEKS - 1
+            else -> 0
+        }
+    }
+
+    fun showSichosRound(round: Int) = update { it.copy(sichosRound = maxOf(0, round), sichosWeek = null) }
+    fun pickSichosWeek(week: Int) = update { it.copy(sichosWeek = week.coerceIn(0, Sichos.WEEKS - 1)) }
+
+    /** The day the first round starts; every round after it starts four weeks after the one before. */
+    fun setSichosStart(day: LocalDate) {
+        setSichos(Sichos.START to Dates.keyOf(day))
+        update { it.copy(sichosRound = null, sichosWeek = null) }
+    }
+
+    /** He handed one in for that week - or, tapped again, he did not after all. */
+    fun toggleSikkum(pid: String, round: Int, week: Int) {
+        val book = sichos()
+        if (book.start == null) return
+        val have = book.fieldsAt(pid, round, week)
+        if (have.isNotEmpty()) setSichos(*have.map { it to null }.toTypedArray())
+        else setSichos(Sichos.weekField(pid, book.weekStart(round, week)) to Sichos.IN)
+        toast("${logic().nameOf(pid)} · week ${week + 1}" + if (have.isEmpty()) " ✓" else " removed")
+    }
+
+    fun setReviewed(pid: String, round: Int, week: Int, reviewed: Boolean) {
+        val have = sichos().fieldsAt(pid, round, week)
+        if (have.isEmpty()) return
+        setSichos(*have.map { it to (if (reviewed) Sichos.REVIEWED else Sichos.IN) }.toTypedArray())
+    }
+
+    /**
+     * Draws [round]'s raffle among everyone in it but [without], and keeps who won - in the shared
+     * record, so every device shows the same winner rather than each drawing its own.
+     */
+    fun drawRaffle(round: Int, without: Set<String> = emptySet(), random: Random = SecureRandom().asKotlinRandom()): String? {
+        val book = sichos()
+        if (book.start == null) return null
+        val pid = Sichos.draw(book.pool(round, without), random) ?: return null
+        setSichos(Sichos.winField(book.roundStart(round)) to pid)
+        return pid
+    }
+
+    /** Cells of the shared record under "sichos." - saved, shown, and sent on like a mark. */
+    private fun setSichos(vararg cells: Pair<String, String?>) {
+        cells.forEach { (field, value) -> store.setPerson("sichos", field, value) }
+        update { it.copy(sichos = store.sichos) }
+        schedulePush()
     }
 
     fun toast(msg: String) { update { it.copy(toast = msg) } }

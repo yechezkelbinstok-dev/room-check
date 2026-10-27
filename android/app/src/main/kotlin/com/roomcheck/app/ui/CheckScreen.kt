@@ -70,13 +70,18 @@ fun CheckScreen(vm: AppViewModel) {
     state.highlight?.let { pid ->
         LaunchedEffect(pid) { kotlinx.coroutines.delay(3500); vm.clearHighlight() }
     }
-    state.toast?.let { msg ->
-        LaunchedEffect(msg) { kotlinx.coroutines.delay(1700); vm.clearToast() }
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-            Box(
-                Modifier.padding(bottom = 90.dp).background(Color(0xF0121218).copy(alpha = 0.94f), RoundedCornerShape(10.dp)).padding(17.dp, 9.dp)
-            ) { Text(msg, color = Color.White, fontSize = 13.5.sp) }
-        }
+    Toast(vm, state.toast)
+}
+
+/** What a change came to, over the bottom of the screen for a moment. */
+@Composable
+internal fun Toast(vm: AppViewModel, msg: String?) {
+    msg ?: return
+    LaunchedEffect(msg) { kotlinx.coroutines.delay(1700); vm.clearToast() }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        Box(
+            Modifier.padding(bottom = 90.dp).background(Color(0xF0121218).copy(alpha = 0.94f), RoundedCornerShape(10.dp)).padding(17.dp, 9.dp)
+        ) { Text(msg, color = Color.White, fontSize = 13.5.sp) }
     }
 }
 
@@ -139,6 +144,10 @@ private fun TopBar(vm: AppViewModel, state: UiState, locked: Boolean, onCalendar
                     DropdownMenuItem(
                         text = { Text("Yeshiva calendar") },
                         onClick = { menu = false; vm.setTab(Tab.LUACH) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Seder Sichos") },
+                        onClick = { menu = false; vm.setTab(Tab.SICHOS) }
                     )
                     DropdownMenuItem(
                         text = { Text("Settings") },

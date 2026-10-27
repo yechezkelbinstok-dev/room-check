@@ -162,6 +162,10 @@ class NightStore(home: File, private val builtInSync: Boolean = false) {
     var summerZman: Boolean = true
         private set
 
+    /** Seder Sichos's cells of the shared record - its sikumim, rounds and raffles (see [Sichos]). */
+    var sichos: Map<String, String> = emptyMap()
+        private set
+
     var settings: Settings = Settings()
 
     /** How far through the server's changes this device has read. */
@@ -250,6 +254,7 @@ class NightStore(home: File, private val builtInSync: Boolean = false) {
         val people = load(PEOPLE_KEY)
         extra = extraFrom(people)
         summerZman = people.notes[NO_SUMMER] != "1"
+        sichos = people.notes.filterKeys { it.startsWith(Sichos.PREFIX) }
         saveState()
     }
 
