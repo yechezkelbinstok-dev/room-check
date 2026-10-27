@@ -28,6 +28,7 @@ import com.roomcheck.app.ui.RaffleScreen
 import com.roomcheck.app.ui.RoomCheckTheme
 import com.roomcheck.app.ui.SettingsScreen
 import com.roomcheck.app.ui.SichosScreen
+import com.roomcheck.app.ui.SichosWeeksScreen
 import com.roomcheck.app.ui.TimesScreen
 
 class AppViewModelFactory(private val store: NightStore) : ViewModelProvider.Factory {
@@ -78,6 +79,7 @@ class MainActivity : ComponentActivity() {
                     Tab.QUICK -> QuickMarkScreen(vm)
                     Tab.LUACH -> LuachScreen(vm)
                     Tab.SICHOS -> SichosScreen(vm)
+                    Tab.SICHOS_WEEKS -> SichosWeeksScreen(vm)
                     Tab.RAFFLE -> RaffleScreen(vm)
                 }
             }

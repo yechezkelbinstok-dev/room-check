@@ -76,6 +76,14 @@ class Sichos(notes: Map<String, String>) {
     private fun weekIndex(day: LocalDate): Int =
         Math.floorDiv(ChronoUnit.DAYS.between(requireNotNull(start), day), 7L).toInt()
 
+    /**
+     * The week, counted from the start, whose sikumim are coming in on [today]. Its sicha is
+     * learned on the Wednesday night and the sikumim follow from the Thursday up to and including
+     * the next Wednesday - one handed in at that night's seder is on the week before's.
+     */
+    fun collecting(today: LocalDate): Int =
+        maxOf(0, Math.floorDiv(ChronoUnit.DAYS.between(requireNotNull(start), today) - 1, 7L).toInt())
+
     fun roundOf(day: LocalDate): Int = Math.floorDiv(weekIndex(day), WEEKS)
     fun weekOf(day: LocalDate): Int = Math.floorMod(weekIndex(day), WEEKS)
     fun roundStart(round: Int): LocalDate = requireNotNull(start).plusDays(7L * WEEKS * round)

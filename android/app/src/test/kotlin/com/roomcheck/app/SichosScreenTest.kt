@@ -15,6 +15,7 @@ import com.roomcheck.app.ui.BochurRound
 import com.roomcheck.app.ui.RaffleScreen
 import com.roomcheck.app.ui.RoomCheckTheme
 import com.roomcheck.app.ui.SichosScreen
+import com.roomcheck.app.ui.SichosWeeksScreen
 import com.roomcheck.app.ui.byName
 import org.junit.Rule
 import org.junit.Test
@@ -22,7 +23,7 @@ import org.junit.rules.TemporaryFolder
 import java.time.LocalDate
 import kotlin.random.Random
 
-/** Seder Sichos as the phone draws it: the first question, a round under way, his round, the raffle. */
+/** Seder Sichos as the phone draws it: the start, this week, all weeks, his round, the raffle. */
 class SichosScreenTest {
 
     @get:Rule
@@ -45,8 +46,11 @@ class SichosScreenTest {
         return vm
     }
 
-    /** Wednesday 21 October, the third week of a round that started on Wednesday night the 7th. */
-    private fun underWay() = vm("2026-10-07", listOf(0..2, 0..1, 0..2, IntRange.EMPTY, 2..2, 1..2, 0..2, 0..0)).also {
+    /**
+     * Wednesday 21 October: a round that started on Wednesday night 30 September, collecting its
+     * third week's - the sicha of the 14th.
+     */
+    private fun underWay() = vm("2026-09-30", listOf(0..2, 0..1, 0..2, IntRange.EMPTY, 2..2, 1..2, 0..2, 0..0)).also {
         it.setReviewed(byName(it.logic())[0], 0, 0, true)
     }
 
@@ -57,9 +61,15 @@ class SichosScreenTest {
     }
 
     @Test
-    fun roundUnderWay() {
+    fun thisWeek() {
         val vm = underWay()
-        paparazzi.snapshot(name = "sichos-round") { RoomCheckTheme { SichosScreen(vm) } }
+        paparazzi.snapshot(name = "sichos-week") { RoomCheckTheme { SichosScreen(vm) } }
+    }
+
+    @Test
+    fun allWeeks() {
+        val vm = underWay()
+        paparazzi.snapshot(name = "sichos-weeks") { RoomCheckTheme { SichosWeeksScreen(vm) } }
     }
 
     @Test

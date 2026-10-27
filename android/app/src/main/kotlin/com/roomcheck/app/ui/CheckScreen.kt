@@ -147,7 +147,7 @@ private fun TopBar(vm: AppViewModel, state: UiState, locked: Boolean, onCalendar
                     )
                     DropdownMenuItem(
                         text = { Text("Seder Sichos") },
-                        onClick = { menu = false; vm.setTab(Tab.SICHOS) }
+                        onClick = { menu = false; vm.openSichos(Tab.SICHOS) }
                     )
                     DropdownMenuItem(
                         text = { Text("Settings") },

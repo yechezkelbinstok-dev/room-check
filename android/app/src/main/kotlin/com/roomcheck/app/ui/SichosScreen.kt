@@ -93,11 +93,38 @@ internal fun byName(logic: NightLogic): List<String> = Roster.PEOPLE.map { it.id
     compareBy<String, String>(hebrewOrder) { logic.last(it, hebrew = true) }.thenBy(hebrewOrder) { logic.first(it, hebrew = true) }
 )
 
+/** A bochur's name as the list reads it: the surname first, bold. */
+private fun nameLine(logic: NightLogic, pid: String) = buildAnnotatedString {
+    withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(logic.last(pid, hebrew = true)) }
+    append(", ${logic.first(pid, hebrew = true)}")
+}
+
+/** Everyone, or whoever the search finds - in Hebrew or in English. */
+private fun found(logic: NightLogic, query: String): List<String> {
+    val q = query.trim()
+    return byName(logic).filter {
+        q.isEmpty() || logic.nameOf(it, hebrew = true).contains(q) || logic.nameOf(it).contains(q, ignoreCase = true)
+    }
+}
+
+/** A question before something that cannot be taken back. */
+private class Ask(val title: String, val action: String, val run: () -> Unit)
+
+@Composable
+private fun Confirm(ask: Ask, onClose: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(ask.title) },
+        confirmButton = { TextButton(onClick = { ask.run(); onClose() }) { Text(ask.action, color = RC.red) } },
+        dismissButton = { TextButton(onClick = onClose) { Text("Cancel") } }
+    )
+}
+
 /**
- * Seder Sichos: who handed in a sikkum on each Wednesday night's sicha, a round of four weeks at a
- * time, and the round's raffle. A tap on a name marks the week picked above for him - the bochur
- * standing there with one in his hand is what this is for - and tapping again takes it off.
- * Holding a name, or its ⋯, opens his round: every week of it, and which you have reviewed.
+ * Seder Sichos as it is used: this week's sikumim, nothing else. A tap on a name marks his - the
+ * bochur standing there with one in his hand is what this is for - and tapping again takes it off.
+ * Holding a name opens his round. Every week of the round is on its own screen, and the menu has
+ * what is only for now and then: clearing, a random fill for trying the raffle, the start day.
  */
 @Composable
 fun SichosScreen(vm: AppViewModel) {
@@ -107,36 +134,141 @@ fun SichosScreen(vm: AppViewModel) {
     var openPid by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
     var movingStart by remember { mutableStateOf(false) }
+    var asking by remember { mutableStateOf<Ask?>(null) }
+    val (round, week) = vm.sichosNow(state)
     BackTo(vm, Tab.CHECK)
 
     Column(Modifier.fillMaxSize().background(RC.bg)) {
         Header(
             "Seder Sichos", "", "Done",
-            menu = if (book.start != null) listOf("Change the start day" to { movingStart = true }) else emptyList()
+            menu = if (book.start == null) emptyList() else listOf(
+                "Clear this week" to { asking = Ask("Clear week ${week + 1}?", "Clear") { vm.clearSichos(round, week) } },
+                "Clear the whole round" to { asking = Ask("Clear round ${round + 1}?", "Clear") { vm.clearSichos(round) } },
+                "Fill at random" to { asking = Ask("Fill round ${round + 1} at random?", "Fill") { vm.fillSichosAtRandom(round) } },
+                "Change the start day" to { movingStart = true }
+            )
         ) { vm.setTab(Tab.CHECK) }
         if (book.start == null) {
             StartCard(nextWednesday(vm.today())) { vm.setSichosStart(it) }
             return@Column
         }
+        ThisWeek(book, round, week)
+        FindField(query) { query = it }
+        val pids = found(logic, query)
+        LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            item {
+                Card {
+                    pids.forEachIndexed { i, pid ->
+                        if (i > 0) HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
+                        WeekRow(nameLine(logic, pid), book.valueAt(pid, round, week),
+                            onTap = { vm.toggleSikkum(pid, round, week) }, onOpen = { openPid = pid })
+                    }
+                    if (pids.isEmpty()) Text("No match", fontSize = 14.sp, color = RC.sub, modifier = Modifier.padding(14.dp))
+                }
+            }
+            item { Spacer(Modifier.height(12.dp)) }
+        }
+        Row(
+            Modifier.fillMaxWidth().background(RC.card).padding(12.dp, 10.dp, 12.dp, 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            OutlinedButton(onClick = { vm.openSichos(Tab.SICHOS_WEEKS) }, modifier = Modifier.weight(1f)) { Text("All weeks") }
+            Button(onClick = { vm.openSichos(Tab.RAFFLE) }, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Filled.ConfirmationNumber, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Raffle")
+            }
+        }
+    }
+
+    openPid?.let { pid -> BochurSheet(vm, book, logic, pid, round, onClose = { openPid = null }) }
+    book.start?.let { start ->
+        // every round moves with it, each sikkum staying in the week it was marked for
+        if (movingStart) DayPicker(start, onPick = {
+            vm.setSichosStart(it)
+            vm.toast("Round 1 · ${nightOf(it)}")
+        }, onClose = { movingStart = false })
+    }
+    asking?.let { Confirm(it) { asking = null } }
+    Toast(vm, state.toast)
+}
+
+/** This week: its sicha's night, which week of the round it is, and how many have handed in. */
+@Composable
+private fun ThisWeek(book: Sichos, round: Int, week: Int) {
+    Row(Modifier.fillMaxWidth().padding(16.dp, 0.dp, 16.dp, 0.dp), verticalAlignment = Alignment.Bottom) {
+        Column(Modifier.weight(1f)) {
+            Text(nightOf(book.weekStart(round, week)), fontSize = 21.sp, fontWeight = FontWeight.Bold)
+            Text("Week ${week + 1} of ${Sichos.WEEKS} · Round ${round + 1}", fontSize = 12.5.sp, color = RC.sub)
+        }
+        Text("${book.handedIn(round, week)}", fontSize = 27.sp, fontWeight = FontWeight.Bold, color = RC.green)
+        Text(" in", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = RC.green, modifier = Modifier.padding(bottom = 4.dp))
+    }
+}
+
+/** A name and this week's one mark: empty, a tick once it is in, two once reviewed. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun WeekRow(name: androidx.compose.ui.text.AnnotatedString, value: String?, onTap: () -> Unit, onOpen: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().combinedClickable(onClick = onTap, onLongClick = onOpen).padding(14.dp, 11.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(name, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Box(
+            Modifier.size(32.dp).clip(CircleShape).background(if (value != null) RC.green else Color.Transparent)
+                .border(if (value != null) 0.dp else 2.dp, if (value != null) Color.Transparent else RC.sep, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            when (value) {
+                null -> {}
+                Sichos.REVIEWED -> Icon(Icons.Filled.DoneAll, "Reviewed", tint = Color.White, modifier = Modifier.size(19.dp))
+                else -> Icon(Icons.Filled.Check, "Handed in", tint = Color.White, modifier = Modifier.size(19.dp))
+            }
+        }
+    }
+}
+
+/**
+ * Every week of a round: the round and week picked at the top, each name with its four dots, and
+ * a tap marking the week picked - for a late one, or a week that needs putting right.
+ */
+@Composable
+fun SichosWeeksScreen(vm: AppViewModel) {
+    val state by vm.state.collectAsState()
+    val book = vm.sichos(state)
+    val logic = vm.logic(state)
+    var openPid by remember { mutableStateOf<String?>(null) }
+    var query by remember { mutableStateOf("") }
+    var asking by remember { mutableStateOf<Ask?>(null) }
+    BackTo(vm, Tab.SICHOS)
+
+    Column(Modifier.fillMaxSize().background(RC.bg)) {
+        if (book.start == null) {
+            Header("All weeks", "", "Back") { vm.setTab(Tab.SICHOS) }
+            return@Column
+        }
         val round = vm.sichosRound(state)
         val week = vm.sichosWeek(state)
-        val current = book.roundOf(vm.today())
-        RoundBar(book, round, current, onRound = vm::showSichosRound)
-        WeekPicker(book, round, week, thisWeek = if (round == current) book.weekOf(vm.today()) else null, onPick = vm::pickSichosWeek)
+        val (nowRound, nowWeek) = vm.sichosNow(state)
+        Header(
+            "All weeks", "", "Back",
+            menu = listOf(
+                "Clear week ${week + 1}" to { asking = Ask("Clear week ${week + 1}?", "Clear") { vm.clearSichos(round, week) } },
+                "Clear the whole round" to { asking = Ask("Clear round ${round + 1}?", "Clear") { vm.clearSichos(round) } }
+            )
+        ) { vm.setTab(Tab.SICHOS) }
+        RoundBar(book, round, nowRound, onRound = vm::showSichosRound)
+        WeekPicker(book, round, week, thisWeek = if (round == nowRound) nowWeek else null, onPick = vm::pickSichosWeek)
         FindField(query) { query = it }
-
-        val q = query.trim()
-        val pids = byName(logic).filter {
-            q.isEmpty() || logic.nameOf(it, hebrew = true).contains(q) || logic.nameOf(it).contains(q, ignoreCase = true)
-        }
+        val pids = found(logic, query)
         LazyColumn(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             item {
                 Card {
                     pids.forEachIndexed { i, pid ->
                         if (i > 0) HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
                         BochurRow(
-                            first = logic.first(pid, hebrew = true), last = logic.last(pid, hebrew = true),
-                            weeks = (0 until Sichos.WEEKS).map { book.valueAt(pid, round, it) },
+                            nameLine(logic, pid), weeks = (0 until Sichos.WEEKS).map { book.valueAt(pid, round, it) },
                             week = week, entries = book.entries(pid, round),
                             onTap = { vm.toggleSikkum(pid, round, week) }, onOpen = { openPid = pid }
                         )
@@ -146,19 +278,10 @@ fun SichosScreen(vm: AppViewModel) {
             }
             item { Spacer(Modifier.height(12.dp)) }
         }
-        RaffleBar(book, round, logic) { vm.setTab(Tab.RAFFLE) }
     }
 
-    openPid?.let { pid ->
-        BochurSheet(vm, book, logic, pid, vm.sichosRound(state), onClose = { openPid = null })
-    }
-    book.start?.let { start ->
-        // every round moves with it, each sikkum staying in the week it was marked for
-        if (movingStart) DayPicker(start, onPick = {
-            vm.setSichosStart(it)
-            vm.toast("Round 1 · ${nightOf(it)}")
-        }, onClose = { movingStart = false })
-    }
+    openPid?.let { pid -> BochurSheet(vm, book, logic, pid, vm.sichosRound(state), onClose = { openPid = null }) }
+    asking?.let { Confirm(it) { asking = null } }
     Toast(vm, state.toast)
 }
 
@@ -296,20 +419,14 @@ private fun FindField(query: String, onChange: (String) -> Unit) {
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun BochurRow(first: String, last: String, weeks: List<String?>, week: Int, entries: Int, onTap: () -> Unit, onOpen: () -> Unit) {
+private fun BochurRow(name: androidx.compose.ui.text.AnnotatedString, weeks: List<String?>, week: Int, entries: Int, onTap: () -> Unit, onOpen: () -> Unit) {
     val count = weeks.count { it != null }
     Row(
         Modifier.fillMaxWidth().combinedClickable(onClick = onTap, onLongClick = onOpen).padding(14.dp, 9.dp, 4.dp, 9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text(
-                buildAnnotatedString {
-                    withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(last) }
-                    append(", $first")
-                },
-                fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
-            )
+            Text(name, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 "$count of ${Sichos.WEEKS}" + if (entries > 0) " · ${entriesText(entries)}" else "",
                 fontSize = 12.sp, fontWeight = if (entries > 0) FontWeight.SemiBold else FontWeight.Normal,
@@ -338,29 +455,6 @@ private fun WeekDot(w: Int, value: String?, ringed: Boolean) {
                 Sichos.REVIEWED -> Icon(Icons.Filled.DoneAll, "Reviewed", tint = Color.White, modifier = Modifier.size(15.dp))
                 else -> Icon(Icons.Filled.Check, "Handed in", tint = Color.White, modifier = Modifier.size(15.dp))
             }
-        }
-    }
-}
-
-/** The round's raffle at a glance, and the way into it. */
-@Composable
-private fun RaffleBar(book: Sichos, round: Int, logic: NightLogic, onOpen: () -> Unit) {
-    val pool = book.pool(round)
-    val winner = book.winner(round)
-    Row(
-        Modifier.fillMaxWidth().background(RC.card).padding(16.dp, 10.dp, 12.dp, 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text("${entriesText(pool.sumOf { it.second })} · ${pool.size} bochurim", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            if (winner != null) {
-                Text("Winner: ${logic.nameOf(winner, hebrew = true)}", fontSize = 12.5.sp, color = RC.green, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-        Button(onClick = onOpen) {
-            Icon(Icons.Filled.ConfirmationNumber, null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("Raffle")
         }
     }
 }
@@ -421,7 +515,7 @@ fun RaffleScreen(vm: AppViewModel) {
     val state by vm.state.collectAsState()
     val book = vm.sichos(state)
     val logic = vm.logic(state)
-    val round = vm.sichosRound(state)
+    val round = vm.raffleRound(state)
     var aside by remember(round) { mutableStateOf(setOf<String>()) }
     var rolling by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -436,9 +530,10 @@ fun RaffleScreen(vm: AppViewModel) {
         val pool = book.pool(round)
         val winner = book.winner(round)
         Header(
-            "Raffle", "Round ${round + 1} · ${roundNights(book, round)}", "Back",
+            "Raffle", "", "Back",
             menu = if (winner != null && rolling == null) listOf("Clear the winner" to { aside = emptySet(); vm.clearRaffle(round) }) else emptyList()
         ) { vm.setTab(Tab.SICHOS) }
+        RoundBar(book, round, vm.sichosNow(state).first) { if (rolling == null) vm.showSichosRound(it) }
 
         fun draw(without: Set<String>) {
             if (rolling != null) return

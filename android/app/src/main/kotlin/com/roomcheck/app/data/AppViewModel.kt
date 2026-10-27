@@ -16,7 +16,7 @@ import kotlin.random.Random
 import kotlin.random.asKotlinRandom
 
 enum class RoomMode { ONE, SCROLL }
-enum class Tab { CHECK, NAMES, SETTINGS, TIMES, QUICK, LUACH, SICHOS, RAFFLE }
+enum class Tab { CHECK, NAMES, SETTINGS, TIMES, QUICK, LUACH, SICHOS, SICHOS_WEEKS, RAFFLE }
 
 data class UiState(
     val dateKey: String,
@@ -566,29 +566,45 @@ class AppViewModel(
 
     fun sichos(s: UiState = _state.value) = Sichos(s.sichos)
 
-    /** The round on screen: the one picked, or else the one running today. */
-    fun sichosRound(s: UiState = _state.value): Int {
-        s.sichosRound?.let { return it }
+    /** The round and week whose sikumim are coming in today - see [Sichos.collecting]. */
+    fun sichosNow(s: UiState = _state.value): Pair<Int, Int> {
         val book = sichos(s)
-        return if (book.start == null) 0 else maxOf(0, book.roundOf(today()))
+        if (book.start == null) return 0 to 0
+        val i = book.collecting(today())
+        return i / Sichos.WEEKS to i % Sichos.WEEKS
     }
 
+    /** The round on the all-weeks screen: the one picked, or else this one. */
+    fun sichosRound(s: UiState = _state.value): Int = s.sichosRound ?: sichosNow(s).first
+
     /**
-     * The week a tap on a name marks: the one picked, or else this week - and on a round that is
-     * over, its last week, which is when a late one is most likely to be for.
+     * The week a tap marks on the all-weeks screen: the one picked, or else this week - and on a
+     * round that is over, its last week, which is when a late one is most likely to be for.
      */
     fun sichosWeek(s: UiState = _state.value): Int {
         s.sichosWeek?.let { return it }
-        val book = sichos(s)
-        if (book.start == null) return 0
-        val now = book.roundOf(today())
-        val round = sichosRound(s)
+        val (round, week) = sichosNow(s)
+        val shown = sichosRound(s)
         return when {
-            now == round -> book.weekOf(today())
-            now > round -> Sichos.WEEKS - 1
+            shown == round -> week
+            shown < round -> Sichos.WEEKS - 1
             else -> 0
         }
     }
+
+    /**
+     * The round the raffle opens on: the one that has just ended while its raffle is still to be
+     * drawn, which is when it is drawn - or else this one.
+     */
+    fun raffleRound(s: UiState = _state.value): Int {
+        s.sichosRound?.let { return it }
+        val book = sichos(s)
+        val (round, week) = sichosNow(s)
+        return if (week == 0 && round > 0 && book.winner(round - 1) == null && book.pool(round - 1).isNotEmpty()) round - 1 else round
+    }
+
+    /** One of the Seder Sichos screens, on today's round and week. */
+    fun openSichos(tab: Tab) = update { it.copy(tab = tab, sichosRound = null, sichosWeek = null) }
 
     fun showSichosRound(round: Int) = update { it.copy(sichosRound = maxOf(0, round), sichosWeek = null) }
     fun pickSichosWeek(week: Int) = update { it.copy(sichosWeek = week.coerceIn(0, Sichos.WEEKS - 1)) }
@@ -631,6 +647,44 @@ class AppViewModel(
         return pid
     }
 
+    /** Takes every sikkum of one week of [round] off, or of the whole round - its winner with it. */
+    fun clearSichos(round: Int, week: Int? = null) {
+        val book = sichos()
+        if (book.start == null) return
+        val cells = mutableMapOf<String, String?>()
+        (week?.let { listOf(it) } ?: (0 until Sichos.WEEKS).toList()).forEach { w ->
+            Roster.byId.keys.forEach { pid -> book.fieldsAt(pid, round, w).forEach { cells[it] = null } }
+        }
+        if (week == null) cells[Sichos.winField(book.roundStart(round))] = null
+        setSichos(*cells.toList().toTypedArray())
+        toast(if (week == null) "Round ${round + 1} cleared" else "Week ${week + 1} cleared")
+    }
+
+    /**
+     * For trying the raffle out: [round] filled in at random, in place of whatever it had - a
+     * couple of bochurim on two weeks with no entry, the rest about half on three and half on four.
+     */
+    fun fillSichosAtRandom(round: Int, random: Random = Random.Default) {
+        val book = sichos()
+        if (book.start == null) return
+        val cells = mutableMapOf<String, String?>()
+        Roster.PEOPLE.map { it.id }.shuffled(random).forEachIndexed { i, pid ->
+            val weeks = when {
+                i < 2 -> 2
+                random.nextBoolean() -> 3
+                else -> 4
+            }
+            val picked = (0 until Sichos.WEEKS).shuffled(random).take(weeks).toSet()
+            (0 until Sichos.WEEKS).forEach { w ->
+                book.fieldsAt(pid, round, w).forEach { cells[it] = null }
+                if (w in picked) cells[Sichos.weekField(pid, book.weekStart(round, w))] = Sichos.IN
+            }
+        }
+        cells[Sichos.winField(book.roundStart(round))] = null
+        setSichos(*cells.toList().toTypedArray())
+        toast("Round ${round + 1} filled at random")
+    }
+
     /** Takes [round]'s winner away again, on every device - for a draw that was only a try. */
     fun clearRaffle(round: Int) {
         val book = sichos()
@@ -640,7 +694,8 @@ class AppViewModel(
 
     /** Cells of the shared record under "sichos." - saved, shown, and sent on like a mark. */
     private fun setSichos(vararg cells: Pair<String, String?>) {
-        cells.forEach { (field, value) -> store.setPerson("sichos", field, value) }
+        if (cells.isEmpty()) return
+        store.setShared(cells.associate { (field, value) -> Sichos.PREFIX + field to value })
         update { it.copy(sichos = store.sichos) }
         schedulePush()
     }

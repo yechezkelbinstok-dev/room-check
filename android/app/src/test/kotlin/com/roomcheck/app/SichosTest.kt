@@ -110,6 +110,68 @@ class SichosTest {
     }
 
     @Test
+    fun aSikkumHandedInOnTheWednesdayIsOnTheWeekBefore() {
+        val start = day("2026-10-28")
+        fun at(now: String) = testVm(NightStore(folder.newFolder()), java.time.LocalDateTime.parse(now)).also { it.setSichosStart(start) }
+        // the first night, before there is a sicha to write on
+        assertEquals(0 to 0, at("2026-10-28T20:00").sichosNow())
+        assertEquals(0 to 0, at("2026-10-29T10:00").sichosNow())
+        // a week on, at seder, the ones handed in are on last week's sicha
+        assertEquals(0 to 0, at("2026-11-04T21:00").sichosNow())
+        assertEquals(0 to 1, at("2026-11-05T08:00").sichosNow())
+        // the fourth sicha's are coming in until the Wednesday after it; then the next round's first
+        assertEquals(0 to 3, at("2026-11-25T21:00").sichosNow())
+        assertEquals(1 to 0, at("2026-11-26T08:00").sichosNow())
+    }
+
+    @Test
+    fun aWeekOrAWholeRoundCanBeCleared() {
+        val vm = testVm(NightStore(folder.newFolder()))
+        vm.setSichosStart(day("2026-09-16"))
+        (0..3).forEach { vm.toggleSikkum("p1", 0, it) }
+        (0..3).forEach { vm.toggleSikkum("p2", 0, it) }
+        vm.toggleSikkum("p3", 1, 0)
+        vm.drawRaffle(0, random = Ticket(0))
+        vm.clearSichos(0, 1)
+        assertEquals(3, vm.sichos().count("p1", 0))
+        assertNull(vm.sichos().valueAt("p2", 0, 1))
+        assertEquals("p1", vm.sichos().winner(0))
+        vm.clearSichos(0)
+        assertEquals(0, vm.sichos().count("p1", 0))
+        assertEquals(0, vm.sichos().count("p2", 0))
+        assertNull(vm.sichos().winner(0))
+        // another round is left as it was
+        assertEquals(Sichos.IN, vm.sichos().valueAt("p3", 1, 0))
+    }
+
+    @Test
+    fun aRandomFillGivesAMixAndACoupleWithNothing() {
+        val vm = testVm(NightStore(folder.newFolder()))
+        vm.setSichosStart(day("2026-09-16"))
+        vm.toggleSikkum("p1", 0, 0)
+        vm.fillSichosAtRandom(0, Random(7))
+        val book = vm.sichos()
+        val counts = com.roomcheck.app.data.Roster.PEOPLE.map { book.count(it.id, 0) }
+        assertEquals(2, counts.count { it == 2 })
+        assertTrue(counts.all { it in 2..4 })
+        assertTrue(3 in counts && 4 in counts)
+        assertEquals(counts.size - 2, book.pool(0).size)
+    }
+
+    @Test
+    fun theRaffleOpensOnTheRoundJustEndedUntilItIsDrawn() {
+        val vm = testVm(NightStore(folder.newFolder()))
+        // 21 October collects the first week of the second round
+        vm.setSichosStart(day("2026-09-16"))
+        assertEquals(1 to 0, vm.sichosNow())
+        assertEquals(1, vm.raffleRound())
+        (0..3).forEach { vm.toggleSikkum("p1", 0, it) }
+        assertEquals(0, vm.raffleRound())
+        vm.drawRaffle(0, random = Ticket(0))
+        assertEquals(1, vm.raffleRound())
+    }
+
+    @Test
     fun aWinnerCanBeClearedForADrawThatWasOnlyATry() {
         val vm = testVm(NightStore(folder.newFolder()))
         vm.setSichosStart(day("2026-09-16"))

@@ -240,11 +240,15 @@ class NightStore(home: File, private val builtInSync: Boolean = false) {
     }
 
     /** One person's one setting, changed here: saved, owed to the server, and read back. */
-    fun setPerson(pid: String, field: String, value: String?) {
+    fun setPerson(pid: String, field: String, value: String?) = setShared(mapOf("$pid.$field" to value))
+
+    /** Cells of the shared record by their whole key, any number in one read and one write. */
+    fun setShared(cells: Map<String, String?>) {
         val n = load(PEOPLE_KEY)
-        val key = "$pid.$field"
-        if (value.isNullOrEmpty()) n.notes.remove(key) else n.notes[key] = value
-        n.touch(Merge.noteKey(key))
+        cells.forEach { (key, value) ->
+            if (value.isNullOrEmpty()) n.notes.remove(key) else n.notes[key] = value
+            n.touch(Merge.noteKey(key))
+        }
         saveLocal(PEOPLE_KEY, n)
         rebuildExtra()
     }
