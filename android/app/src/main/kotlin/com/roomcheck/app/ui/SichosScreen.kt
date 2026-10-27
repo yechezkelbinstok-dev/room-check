@@ -377,11 +377,12 @@ internal fun BochurRound(vm: AppViewModel, book: Sichos, logic: NightLogic, pid:
     Column(Modifier.padding(16.dp, 0.dp, 16.dp, 28.dp)) {
         Text(logic.nameOf(pid, hebrew = true), fontSize = 21.sp, fontWeight = FontWeight.Bold)
         val count = book.count(pid, round)
+        // the Hebrew dates on a line of their own: run into the English they turn it around
         Text(
-            "Round ${round + 1} · ${roundNights(book, round)} · $count of ${Sichos.WEEKS}" +
-                book.entries(pid, round).let { if (it > 0) " · ${entriesText(it)}" else "" },
-            fontSize = 12.5.sp, color = RC.sub, modifier = Modifier.padding(bottom = 12.dp)
+            "Round ${round + 1} · $count of ${Sichos.WEEKS}" + book.entries(pid, round).let { if (it > 0) " · ${entriesText(it)}" else "" },
+            fontSize = 12.5.sp, color = RC.sub
         )
+        Text(roundNights(book, round), fontSize = 12.5.sp, color = RC.sub, modifier = Modifier.padding(bottom = 12.dp))
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(RC.bg)) {
             (0 until Sichos.WEEKS).forEach { w ->
                 if (w > 0) HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
