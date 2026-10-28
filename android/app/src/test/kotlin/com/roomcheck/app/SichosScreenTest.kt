@@ -47,11 +47,14 @@ class SichosScreenTest {
     }
 
     /**
-     * Wednesday 21 October: a round that started on Wednesday night 30 September, collecting its
-     * third week's - the sicha of the 14th.
+     * Wednesday 21 October: a round that started on Sunday night 4 October, collecting its fifth
+     * sicha's - the Sunday of the 18th.
      */
-    private fun underWay() = vm("2026-09-30", listOf(0..2, 0..1, 0..2, IntRange.EMPTY, 2..2, 1..2, 0..2, 0..0)).also {
-        it.setReviewed(byName(it.logic())[0], 0, 0, true)
+    private fun underWay() = vm("2026-10-04", listOf(0..4, 0..3, 0..4, IntRange.EMPTY, 2..4, 1..3, 0..4, 0..0, 4..4)).also {
+        val byName = byName(it.logic())
+        it.setReviewed(byName[0], 0, 0, true)
+        it.setReviewed(byName[0], 0, 4, true)
+        it.setReviewed(byName[2], 0, 4, true)
     }
 
     @Test
@@ -84,10 +87,10 @@ class SichosScreenTest {
         }
     }
 
-    /** A round that is over - the four Wednesday nights from 16 September - with five bochurim in the hat. */
-    private fun roundOver() = vm("2026-09-16", emptyList()).also { vm ->
+    /** A round that is over - the eight nights from Sunday 13 September - with five bochurim in the hat. */
+    private fun roundOver() = vm("2026-09-13", emptyList()).also { vm ->
         val byName = byName(vm.logic())
-        listOf(0..3, 0..2, 0..3, 1..3, 0..1, 0..2).forEachIndexed { i, range -> range.forEach { vm.toggleSikkum(byName[i], 0, it) } }
+        listOf(0..7, 0..5, 0..7, 1..7, 0..3, 0..6).forEachIndexed { i, range -> range.forEach { vm.toggleSikkum(byName[i], 0, it) } }
         vm.showSichosRound(0)
         vm.clearToast()
     }

@@ -77,14 +77,14 @@ private val gold = Color(0xFFF5B400)
 private val goldL = Color(0xFFFFE07A)
 private val stage = Brush.linearGradient(listOf(Color(0xFF1C2A7A), Color(0xFF4E2385)))
 
-/** The Hebrew date of the Wednesday night a week's sicha is learned. */
+/** The Hebrew date of the night a sicha is learned. */
 private fun nightOf(d: LocalDate): String = Dates.hebrewDayMonth(Dates.keyOf(d))
 /** A round as the nights of its first sicha and its last. */
 private fun roundNights(book: Sichos, round: Int) =
-    "${nightOf(book.weekStart(round, 0))} – ${nightOf(book.weekStart(round, Sichos.WEEKS - 1))}"
+    "${nightOf(book.weekStart(round, 0))} – ${nightOf(book.weekStart(round, Sichos.PER_ROUND - 1))}"
 private fun entriesText(n: Int) = if (n == 1) "1 entry" else "$n entries"
-/** Seder Sichos is on Wednesday nights: the first round's start is offered as the next one. */
-private fun nextWednesday(d: LocalDate): LocalDate = d.with(TemporalAdjusters.nextOrSame(DayOfWeek.WEDNESDAY))
+/** Seder Sichos is on Sunday and Wednesday nights: the first round's start is offered as the next Sunday. */
+private fun nextSunday(d: LocalDate): LocalDate = d.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
 
 private val hebrewOrder: Collator = Collator.getInstance(Locale.forLanguageTag("he"))
 
@@ -121,10 +121,11 @@ private fun Confirm(ask: Ask, onClose: () -> Unit) {
 }
 
 /**
- * Seder Sichos as it is used: this week's sikumim, nothing else. A tap on a name marks his - the
- * bochur standing there with one in his hand is what this is for - and tapping again takes it off.
- * Holding a name opens his round. Every week of the round is on its own screen, and the menu has
- * what is only for now and then: clearing, a random fill for trying the raffle, the start day.
+ * Seder Sichos as it is used: the sikumim on this sicha, nothing else. A tap on a name marks his -
+ * the bochur standing there with one in his hand is what this is for - and tapping again takes it
+ * off; once it is in, "Reviewed" beside it ticks it as gone over. Holding a name opens his round.
+ * Every sicha of the round is on its own screen, and the menu has what is only for now and then:
+ * clearing, a random fill for trying the raffle, the start day.
  */
 @Composable
 fun SichosScreen(vm: AppViewModel) {
@@ -142,14 +143,14 @@ fun SichosScreen(vm: AppViewModel) {
         Header(
             "Seder Sichos", "", "Done",
             menu = if (book.start == null) emptyList() else listOf(
-                "Clear this week" to { asking = Ask("Clear week ${week + 1}?", "Clear") { vm.clearSichos(round, week) } },
+                "Clear this sicha" to { asking = Ask("Clear ${Sichos.dayOf(book.weekStart(round, week), long = true)}?", "Clear") { vm.clearSichos(round, week) } },
                 "Clear the whole round" to { asking = Ask("Clear round ${round + 1}?", "Clear") { vm.clearSichos(round) } },
                 "Fill at random" to { asking = Ask("Fill round ${round + 1} at random?", "Fill") { vm.fillSichosAtRandom(round) } },
                 "Change the start day" to { movingStart = true }
             )
         ) { vm.setTab(Tab.CHECK) }
         if (book.start == null) {
-            StartCard(nextWednesday(vm.today())) { vm.setSichosStart(it) }
+            StartCard(nextSunday(vm.today())) { vm.setSichosStart(it) }
             return@Column
         }
         ThisWeek(book, round, week)
@@ -160,8 +161,10 @@ fun SichosScreen(vm: AppViewModel) {
                 Card {
                     pids.forEachIndexed { i, pid ->
                         if (i > 0) HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
-                        WeekRow(nameLine(logic, pid), book.valueAt(pid, round, week),
-                            onTap = { vm.toggleSikkum(pid, round, week) }, onOpen = { openPid = pid })
+                        val v = book.valueAt(pid, round, week)
+                        WeekRow(nameLine(logic, pid), v,
+                            onTap = { vm.toggleSikkum(pid, round, week) }, onOpen = { openPid = pid },
+                            onReview = { vm.setReviewed(pid, round, week, v != Sichos.REVIEWED) })
                     }
                     if (pids.isEmpty()) Text("No match", fontSize = 14.sp, color = RC.sub, modifier = Modifier.padding(14.dp))
                 }
@@ -193,30 +196,48 @@ fun SichosScreen(vm: AppViewModel) {
     Toast(vm, state.toast)
 }
 
-/** This week: its sicha's night, which week of the round it is, and how many have handed in. */
+/** This sicha: its night, which of the round's it is, and how many have handed in. */
 @Composable
 private fun ThisWeek(book: Sichos, round: Int, week: Int) {
     Row(Modifier.fillMaxWidth().padding(16.dp, 0.dp, 16.dp, 0.dp), verticalAlignment = Alignment.Bottom) {
         Column(Modifier.weight(1f)) {
             Text(nightOf(book.weekStart(round, week)), fontSize = 21.sp, fontWeight = FontWeight.Bold)
-            Text("Week ${week + 1} of ${Sichos.WEEKS} · Round ${round + 1}", fontSize = 12.5.sp, color = RC.sub)
+            Text("${Sichos.dayOf(book.weekStart(round, week), long = true)} · ${week + 1} of ${Sichos.PER_ROUND} · Round ${round + 1}",
+                fontSize = 12.5.sp, color = RC.sub)
         }
         Text("${book.handedIn(round, week)}", fontSize = 27.sp, fontWeight = FontWeight.Bold, color = RC.green)
         Text(" in", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = RC.green, modifier = Modifier.padding(bottom = 4.dp))
     }
 }
 
-/** A name and this week's one mark: empty, a tick once it is in, two once reviewed. */
+/** A name and this sicha's one mark: empty, a tick once it is in, two once reviewed - and once in, "Reviewed". */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun WeekRow(name: androidx.compose.ui.text.AnnotatedString, value: String?, onTap: () -> Unit, onOpen: () -> Unit) {
+private fun WeekRow(
+    name: androidx.compose.ui.text.AnnotatedString, value: String?, onTap: () -> Unit, onOpen: () -> Unit, onReview: () -> Unit
+) {
     Row(
-        Modifier.fillMaxWidth().combinedClickable(onClick = onTap, onLongClick = onOpen).padding(14.dp, 11.dp),
+        Modifier.fillMaxWidth().combinedClickable(onClick = onTap, onLongClick = onOpen).padding(14.dp, 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(name, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        if (value != null) {
+            val on = value == Sichos.REVIEWED
+            val shape = RoundedCornerShape(16.dp)
+            Row(
+                Modifier.padding(end = 10.dp).clip(shape).background(if (on) RC.blue else Color.Transparent)
+                    .border(1.dp, if (on) RC.blue else RC.sep, shape).clickable(onClick = onReview).padding(10.dp, 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (on) {
+                    Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text("Reviewed", fontSize = 13.5.sp, fontWeight = FontWeight.Medium, color = if (on) Color.White else RC.sub2)
+            }
+        }
         Box(
-            Modifier.size(32.dp).clip(CircleShape).background(if (value != null) RC.green else Color.Transparent)
+            Modifier.padding(vertical = 4.dp).size(32.dp).clip(CircleShape).background(if (value != null) RC.green else Color.Transparent)
                 .border(if (value != null) 0.dp else 2.dp, if (value != null) Color.Transparent else RC.sep, CircleShape),
             contentAlignment = Alignment.Center
         ) {
@@ -230,8 +251,8 @@ private fun WeekRow(name: androidx.compose.ui.text.AnnotatedString, value: Strin
 }
 
 /**
- * Every week of a round: the round and week picked at the top, each name with its four dots, and
- * a tap marking the week picked - for a late one, or a week that needs putting right.
+ * Every sicha of a round: the round and sicha picked at the top, each name with its eight dots, and
+ * a tap marking the sicha picked - for a late one, or one that needs putting right.
  */
 @Composable
 fun SichosWeeksScreen(vm: AppViewModel) {
@@ -254,7 +275,7 @@ fun SichosWeeksScreen(vm: AppViewModel) {
         Header(
             "All weeks", "", "Back",
             menu = listOf(
-                "Clear week ${week + 1}" to { asking = Ask("Clear week ${week + 1}?", "Clear") { vm.clearSichos(round, week) } },
+                "Clear this sicha" to { asking = Ask("Clear ${Sichos.dayOf(book.weekStart(round, week), long = true)}?", "Clear") { vm.clearSichos(round, week) } },
                 "Clear the whole round" to { asking = Ask("Clear round ${round + 1}?", "Clear") { vm.clearSichos(round) } }
             )
         ) { vm.setTab(Tab.SICHOS) }
@@ -268,7 +289,7 @@ fun SichosWeeksScreen(vm: AppViewModel) {
                     pids.forEachIndexed { i, pid ->
                         if (i > 0) HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
                         BochurRow(
-                            nameLine(logic, pid), weeks = (0 until Sichos.WEEKS).map { book.valueAt(pid, round, it) },
+                            nameLine(logic, pid), weeks = (0 until Sichos.PER_ROUND).map { book.valueAt(pid, round, it) },
                             week = week, entries = book.entries(pid, round),
                             onTap = { vm.toggleSikkum(pid, round, week) }, onOpen = { openPid = pid }
                         )
@@ -316,7 +337,7 @@ private fun BackTo(vm: AppViewModel, tab: Tab) {
     if (LocalOnBackPressedDispatcherOwner.current != null) BackHandler { vm.setTab(tab) }
 }
 
-/** The one thing to set before anything else: the Wednesday the first round starts. */
+/** The one thing to set before anything else: the Sunday the first round starts. */
 @Composable
 private fun StartCard(first: LocalDate, onStart: (LocalDate) -> Unit) {
     var day by remember { mutableStateOf(first) }
@@ -379,23 +400,28 @@ private fun NavBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: 
     ) { Icon(icon, desc, tint = RC.blue) }
 }
 
-/** The round's four Wednesday nights: the one picked is what a tap on a name marks, this week ringed. */
+/** The round's eight nights, a week to a column: the one picked is what a tap on a name marks, this one ringed. */
 @Composable
 private fun WeekPicker(book: Sichos, round: Int, week: Int, thisWeek: Int?, onPick: (Int) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        (0 until Sichos.WEEKS).forEach { w ->
-            val on = w == week
-            val shape = RoundedCornerShape(11.dp)
-            Column(
-                Modifier.weight(1f).clip(shape).background(if (on) RC.blue else RC.card)
-                    .border(if (w == thisWeek && !on) 1.5.dp else 0.dp, if (w == thisWeek && !on) RC.blue else Color.Transparent, shape)
-                    .clickable { onPick(w) }.padding(vertical = 7.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("Week ${w + 1}", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = if (on) Color.White else RC.text)
-                Text(nightOf(book.weekStart(round, w)), fontSize = 12.sp, color = if (on) Color.White.copy(alpha = 0.85f) else RC.sub2)
-                Text("${book.handedIn(round, w)} in", fontSize = 11.sp, fontWeight = FontWeight.Medium,
-                    color = if (on) Color.White.copy(alpha = 0.9f) else RC.green)
+    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        (0 until Sichos.PER_ROUND).chunked(Sichos.PER_ROUND / 2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                row.forEach { w ->
+                    val on = w == week
+                    val night = book.weekStart(round, w)
+                    val shape = RoundedCornerShape(11.dp)
+                    Column(
+                        Modifier.weight(1f).clip(shape).background(if (on) RC.blue else RC.card)
+                            .border(if (w == thisWeek && !on) 1.5.dp else 0.dp, if (w == thisWeek && !on) RC.blue else Color.Transparent, shape)
+                            .clickable { onPick(w) }.padding(vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(Sichos.dayOf(night), fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = if (on) Color.White else RC.text)
+                        Text(nightOf(night), fontSize = 12.sp, color = if (on) Color.White.copy(alpha = 0.85f) else RC.sub2)
+                        Text("${book.handedIn(round, w)} in", fontSize = 11.sp, fontWeight = FontWeight.Medium,
+                            color = if (on) Color.White.copy(alpha = 0.9f) else RC.green)
+                    }
+                }
             }
         }
     }
@@ -414,7 +440,7 @@ private fun FindField(query: String, onChange: (String) -> Unit) {
 }
 
 /**
- * A name, his round so far, and the round's four weeks as dots - the one a tap marks ringed. The
+ * A name, his round so far, and the round's eight sichos as dots, two to a week - the one a tap marks ringed. The
  * surname leads, as the list is sorted by it, so a long first name is what gets cut, not it.
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -428,32 +454,34 @@ private fun BochurRow(name: androidx.compose.ui.text.AnnotatedString, weeks: Lis
         Column(Modifier.weight(1f)) {
             Text(name, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "$count of ${Sichos.WEEKS}" + if (entries > 0) " · ${entriesText(entries)}" else "",
+                "$count of ${Sichos.PER_ROUND}" + if (entries > 0) " · ${entriesText(entries)}" else "",
                 fontSize = 12.sp, fontWeight = if (entries > 0) FontWeight.SemiBold else FontWeight.Normal,
                 color = if (entries > 0) RC.green else RC.sub
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.padding(4.dp)) {
-            weeks.forEachIndexed { w, v -> WeekDot(w, v, ringed = w == week) }
+            weeks.chunked(2).forEachIndexed { pair, vs ->
+                Row { vs.forEachIndexed { i, v -> WeekDot(v, ringed = pair * 2 + i == week) } }
+            }
         }
         Icon(Icons.Filled.MoreHoriz, "His round", tint = RC.sub, modifier = Modifier.clip(CircleShape).clickable(onClick = onOpen).padding(8.dp).size(20.dp))
     }
 }
 
-/** One week of a bochur's round: its number when nothing is in yet, a tick once it is, two once reviewed. */
+/** One sicha of a bochur's round: grey when nothing is in yet, a tick once it is, two once reviewed. */
 @Composable
-private fun WeekDot(w: Int, value: String?, ringed: Boolean) {
-    val ring = if (ringed) Modifier.border(2.dp, RC.blue, CircleShape).padding(3.dp) else Modifier.padding(3.dp)
+private fun WeekDot(value: String?, ringed: Boolean) {
+    val ring = if (ringed) Modifier.border(1.5.dp, RC.blue, CircleShape).padding(2.dp) else Modifier.padding(2.dp)
     Box(ring) {
         Box(
-            Modifier.size(22.dp).clip(CircleShape)
+            Modifier.size(15.dp).clip(CircleShape)
                 .background(if (value != null) RC.green else RC.greyL),
             contentAlignment = Alignment.Center
         ) {
             when (value) {
-                null -> Text("${w + 1}", fontSize = 11.sp, color = RC.sub, fontWeight = FontWeight.Medium)
-                Sichos.REVIEWED -> Icon(Icons.Filled.DoneAll, "Reviewed", tint = Color.White, modifier = Modifier.size(15.dp))
-                else -> Icon(Icons.Filled.Check, "Handed in", tint = Color.White, modifier = Modifier.size(15.dp))
+                null -> {}
+                Sichos.REVIEWED -> Icon(Icons.Filled.DoneAll, "Reviewed", tint = Color.White, modifier = Modifier.size(11.dp))
+                else -> Icon(Icons.Filled.Check, "Handed in", tint = Color.White, modifier = Modifier.size(11.dp))
             }
         }
     }
@@ -465,7 +493,7 @@ private fun BochurSheet(vm: AppViewModel, book: Sichos, logic: NightLogic, pid: 
     ModalBottomSheet(onDismissRequest = onClose) { BochurRound(vm, book, logic, pid, round) }
 }
 
-/** His round: every week of it, in or not, and which you have reviewed. */
+/** His round: every sicha of it, in or not, and which you have reviewed. */
 @Composable
 internal fun BochurRound(vm: AppViewModel, book: Sichos, logic: NightLogic, pid: String, round: Int) {
     Column(Modifier.padding(16.dp, 0.dp, 16.dp, 28.dp)) {
@@ -473,17 +501,17 @@ internal fun BochurRound(vm: AppViewModel, book: Sichos, logic: NightLogic, pid:
         val count = book.count(pid, round)
         // the Hebrew dates on a line of their own: run into the English they turn it around
         Text(
-            "Round ${round + 1} · $count of ${Sichos.WEEKS}" + book.entries(pid, round).let { if (it > 0) " · ${entriesText(it)}" else "" },
+            "Round ${round + 1} · $count of ${Sichos.PER_ROUND}" + book.entries(pid, round).let { if (it > 0) " · ${entriesText(it)}" else "" },
             fontSize = 12.5.sp, color = RC.sub
         )
         Text(roundNights(book, round), fontSize = 12.5.sp, color = RC.sub, modifier = Modifier.padding(bottom = 12.dp))
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(RC.bg)) {
-            (0 until Sichos.WEEKS).forEach { w ->
+            (0 until Sichos.PER_ROUND).forEach { w ->
                 if (w > 0) HorizontalDivider(color = RC.sep, thickness = 0.5.dp)
                 val v = book.valueAt(pid, round, w)
                 Row(Modifier.fillMaxWidth().padding(14.dp, 6.dp, 10.dp, 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Week ${w + 1}", fontSize = 15.sp)
+                        Text(Sichos.dayOf(book.weekStart(round, w), long = true), fontSize = 15.sp)
                         Text(nightOf(book.weekStart(round, w)), fontSize = 12.5.sp, color = RC.sub)
                     }
                     if (v != null) {

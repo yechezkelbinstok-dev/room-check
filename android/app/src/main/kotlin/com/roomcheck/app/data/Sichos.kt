@@ -1,39 +1,48 @@
 package com.roomcheck.app.data
 
 import java.security.SecureRandom
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
+import java.util.Locale
 import kotlin.random.Random
 import kotlin.random.asKotlinRandom
 
 /**
- * Seder Sichos: a sikkum on each week's sicha, counted in rounds of four weeks from the day the
- * first round started. Three of a round's four weeks is one entry in that round's raffle for a set
- * of sefarim, all four is two. Marking one reviewed is only a tick for going over a few - it counts
- * either way.
+ * Seder Sichos: a sicha every Sunday and Wednesday night and a sikkum on each, counted in rounds
+ * of four weeks - eight sichos - from the first night. Six of a round's eight is one entry in its
+ * raffle for a set of sefarim, all eight is two. Marking one reviewed is only a tick for going over
+ * a few - it counts either way.
  *
  * It all lives in the shared people record, beside the yeshiva's other standing settings, as note
  * cells under "sichos." - so it syncs and is in every backup with nothing new on the server, and the
  * site and the iPhone app, which do not show it, carry it along untouched:
  *  - sichos.start          the first day of the first round
- *  - sichos.<pid>.<day>    a sikkum for the week starting that day: "1", or "r" once reviewed
+ *  - sichos.<pid>.<day>    a sikkum on that night's sicha: "1", or "r" once reviewed
  *  - sichos.win.<day>      whom the raffle of the round starting that day was drawn for
  */
 class Sichos(notes: Map<String, String>) {
     companion object {
         const val PREFIX = "sichos."
-        const val WEEKS = 4
+        /** Sichos in a round: four weeks of two. */
+        const val PER_ROUND = 8
+        val NIGHTS = setOf(DayOfWeek.SUNDAY, DayOfWeek.WEDNESDAY)
         const val IN = "1"
         const val REVIEWED = "r"
         /** The fields under "sichos." the cells are written as - NightStore.setPerson("sichos", field, ...). */
         const val START = "start"
-        fun weekField(pid: String, weekStart: LocalDate) = "$pid.${Dates.keyOf(weekStart)}"
+        fun weekField(pid: String, night: LocalDate) = "$pid.${Dates.keyOf(night)}"
         fun winField(roundStart: LocalDate) = "win.${Dates.keyOf(roundStart)}"
 
-        /** A round's raffle entries for sikumim in [weeks] of its four weeks. */
-        fun entriesFor(weeks: Int): Int = when {
-            weeks >= WEEKS -> 2
-            weeks >= WEEKS - 1 -> 1
+        /** "Sun" or "Wed" - or "Sunday", "Wednesday". */
+        fun dayOf(night: LocalDate, long: Boolean = false): String =
+            night.dayOfWeek.getDisplayName(if (long) TextStyle.FULL else TextStyle.SHORT, Locale.ENGLISH)
+
+        /** A round's raffle entries for sikumim on [n] of its eight sichos. */
+        fun entriesFor(n: Int): Int = when {
+            n >= PER_ROUND -> 2
+            n >= PER_ROUND - 2 -> 1
             else -> 0
         }
 
@@ -52,7 +61,10 @@ class Sichos(notes: Map<String, String>) {
 
     val start: LocalDate? = notes[PREFIX + START]?.let { runCatching { Dates.parseKey(it) }.getOrNull() }
 
-    /** pid -> week counted from [start] -> the fields holding a sikkum for it. */
+    /** How many days after the start, within a week, the two nights fall. */
+    private val offsets: List<Int> = start?.let { s -> (0..6).filter { s.plusDays(it.toLong()).dayOfWeek in NIGHTS } }.orEmpty()
+
+    /** pid -> sicha counted from [start] -> the fields holding a sikkum on it. */
     private val cells = mutableMapOf<String, MutableMap<Int, MutableList<String>>>()
     private val values = mutableMapOf<String, String>()
     private val winners = mutableMapOf<LocalDate, String>()
@@ -71,29 +83,37 @@ class Sichos(notes: Map<String, String>) {
         }
     }
 
-    // A week belongs to whichever round and week the day it was written for falls in now - which is
-    // where it was written, unless the start has been moved since.
-    private fun weekIndex(day: LocalDate): Int =
-        Math.floorDiv(ChronoUnit.DAYS.between(requireNotNull(start), day), 7L).toInt()
+    // A sikkum belongs to whichever sicha the night it was written for is now - which is where it
+    // was written, unless the start has been moved since.
+    private fun weekIndex(day: LocalDate): Int {
+        val days = ChronoUnit.DAYS.between(requireNotNull(start), day)
+        val w = Math.floorDiv(days, 7L).toInt()
+        val r = Math.floorMod(days, 7L).toInt()
+        return 2 * w + offsets.count { it <= r } - 1
+    }
+
+    /** The night of sicha [index], counted from the start. */
+    private fun night(index: Int): LocalDate =
+        requireNotNull(start).plusDays(7L * Math.floorDiv(index, 2) + offsets[Math.floorMod(index, 2)])
 
     /**
-     * The week, counted from the start, whose sikumim are coming in on [today]. Its sicha is
-     * learned on the Wednesday night and the sikumim follow from the Thursday up to and including
-     * the next Wednesday - one handed in at that night's seder is on the week before's.
+     * The sicha, counted from the start, whose sikumim are coming in on [today]: the last one
+     * learned before today. Its sikumim follow from the next day up to and including the next
+     * sicha night - one handed in at that night's seder is on the one before.
      */
-    fun collecting(today: LocalDate): Int =
-        maxOf(0, Math.floorDiv(ChronoUnit.DAYS.between(requireNotNull(start), today) - 1, 7L).toInt())
+    fun collecting(today: LocalDate): Int = maxOf(0, weekIndex(today.minusDays(1)))
 
-    fun roundOf(day: LocalDate): Int = Math.floorDiv(weekIndex(day), WEEKS)
-    fun weekOf(day: LocalDate): Int = Math.floorMod(weekIndex(day), WEEKS)
-    fun roundStart(round: Int): LocalDate = requireNotNull(start).plusDays(7L * WEEKS * round)
+    fun roundOf(day: LocalDate): Int = Math.floorDiv(weekIndex(day), PER_ROUND)
+    fun weekOf(day: LocalDate): Int = Math.floorMod(weekIndex(day), PER_ROUND)
+    fun roundStart(round: Int): LocalDate = night(round * PER_ROUND)
     fun roundEnd(round: Int): LocalDate = roundStart(round + 1).minusDays(1)
-    fun weekStart(round: Int, week: Int): LocalDate = roundStart(round).plusDays(7L * week)
+    /** The night of the round's sicha [week], 0 to 7. */
+    fun weekStart(round: Int, week: Int): LocalDate = night(round * PER_ROUND + week)
 
-    /** The fields holding his sikkum for that week - more than one only if the start was moved. */
-    fun fieldsAt(pid: String, round: Int, week: Int): List<String> = cells[pid]?.get(round * WEEKS + week).orEmpty()
+    /** The fields holding his sikkum on that sicha - more than one only if the start was moved. */
+    fun fieldsAt(pid: String, round: Int, week: Int): List<String> = cells[pid]?.get(round * PER_ROUND + week).orEmpty()
 
-    /** "1", "r" once reviewed, or null when he has not handed one in for that week. */
+    /** "1", "r" once reviewed, or null when he has not handed one in on that sicha. */
     fun valueAt(pid: String, round: Int, week: Int): String? {
         val here = fieldsAt(pid, round, week).mapNotNull { values[it] }
         return when {
@@ -103,10 +123,10 @@ class Sichos(notes: Map<String, String>) {
         }
     }
 
-    fun count(pid: String, round: Int): Int = (0 until WEEKS).count { valueAt(pid, round, it) != null }
+    fun count(pid: String, round: Int): Int = (0 until PER_ROUND).count { valueAt(pid, round, it) != null }
     fun entries(pid: String, round: Int): Int = entriesFor(count(pid, round))
 
-    /** How many handed one in for that week. */
+    /** How many handed one in on that sicha. */
     fun handedIn(round: Int, week: Int): Int = Roster.PEOPLE.count { valueAt(it.id, round, week) != null }
 
     /** Everyone in [round]'s raffle, with his entries - but [without] whoever has been set aside. */
@@ -125,16 +145,17 @@ class Sichos(notes: Map<String, String>) {
         val out = linkedMapOf<String, String?>(START to Dates.keyOf(day))
         if (start == null || start == day) return out
         val moved = mutableMapOf<String, String>()
+        val after = Sichos(mapOf(PREFIX + START to Dates.keyOf(day)))
         cells.forEach { (pid, weeks) ->
             weeks.forEach { (index, fields) ->
                 fields.forEach { out[it] = null }
                 val value = if (fields.any { values[it] == REVIEWED }) REVIEWED else IN
-                moved[weekField(pid, day.plusDays(7L * index))] = value
+                moved[weekField(pid, after.night(index))] = value
             }
         }
         winners.forEach { (roundStart, pid) ->
             out[winField(roundStart)] = null
-            moved[winField(day.plusDays(7L * WEEKS * roundOf(roundStart)))] = pid
+            moved[winField(after.roundStart(roundOf(roundStart)))] = pid
         }
         out.putAll(moved)
         return out

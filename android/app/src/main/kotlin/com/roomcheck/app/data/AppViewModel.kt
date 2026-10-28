@@ -571,7 +571,7 @@ class AppViewModel(
         val book = sichos(s)
         if (book.start == null) return 0 to 0
         val i = book.collecting(today())
-        return i / Sichos.WEEKS to i % Sichos.WEEKS
+        return i / Sichos.PER_ROUND to i % Sichos.PER_ROUND
     }
 
     /** The round on the all-weeks screen: the one picked, or else this one. */
@@ -587,7 +587,7 @@ class AppViewModel(
         val shown = sichosRound(s)
         return when {
             shown == round -> week
-            shown < round -> Sichos.WEEKS - 1
+            shown < round -> Sichos.PER_ROUND - 1
             else -> 0
         }
     }
@@ -607,26 +607,26 @@ class AppViewModel(
     fun openSichos(tab: Tab) = update { it.copy(tab = tab, sichosRound = null, sichosWeek = null) }
 
     fun showSichosRound(round: Int) = update { it.copy(sichosRound = maxOf(0, round), sichosWeek = null) }
-    fun pickSichosWeek(week: Int) = update { it.copy(sichosWeek = week.coerceIn(0, Sichos.WEEKS - 1)) }
+    fun pickSichosWeek(week: Int) = update { it.copy(sichosWeek = week.coerceIn(0, Sichos.PER_ROUND - 1)) }
 
     /**
-     * The day the first round starts; every round after it starts four weeks after the one
-     * before. Changed later, every round moves with it, each sikkum staying in its week.
+     * The day the first round starts; every round after it starts eight sichos after the one
+     * before. Changed later, every round moves with it, each sikkum staying on its sicha.
      */
     fun setSichosStart(day: LocalDate) {
         setSichos(*sichos().restartedOn(day).toList().toTypedArray())
         update { it.copy(sichosRound = null, sichosWeek = null) }
     }
 
-    /** He handed one in for that week - or, tapped again, he did not after all. */
+    /** He handed one in for that sicha - or, tapped again, he did not after all. */
     fun toggleSikkum(pid: String, round: Int, week: Int) {
         val book = sichos()
         if (book.start == null) return
         val have = book.fieldsAt(pid, round, week)
         if (have.isNotEmpty()) setSichos(*have.map { it to null }.toTypedArray())
         else setSichos(Sichos.weekField(pid, book.weekStart(round, week)) to Sichos.IN)
-        // the week leads, so the Hebrew name after it does not turn the line around
-        toast("Week ${week + 1} ${if (have.isEmpty()) "✓" else "removed"} · ${logic().nameOf(pid, hebrew = true)}")
+        // the day leads, so the Hebrew name after it does not turn the line around
+        toast("${Sichos.dayOf(book.weekStart(round, week))} ${if (have.isEmpty()) "✓" else "removed"} · ${logic().nameOf(pid, hebrew = true)}")
     }
 
     fun setReviewed(pid: String, round: Int, week: Int, reviewed: Boolean) {
@@ -647,22 +647,23 @@ class AppViewModel(
         return pid
     }
 
-    /** Takes every sikkum of one week of [round] off, or of the whole round - its winner with it. */
+    /** Takes every sikkum on one sicha of [round] off, or of the whole round - its winner with it. */
     fun clearSichos(round: Int, week: Int? = null) {
         val book = sichos()
         if (book.start == null) return
         val cells = mutableMapOf<String, String?>()
-        (week?.let { listOf(it) } ?: (0 until Sichos.WEEKS).toList()).forEach { w ->
+        (week?.let { listOf(it) } ?: (0 until Sichos.PER_ROUND).toList()).forEach { w ->
             Roster.byId.keys.forEach { pid -> book.fieldsAt(pid, round, w).forEach { cells[it] = null } }
         }
         if (week == null) cells[Sichos.winField(book.roundStart(round))] = null
         setSichos(*cells.toList().toTypedArray())
-        toast(if (week == null) "Round ${round + 1} cleared" else "Week ${week + 1} cleared")
+        toast(if (week == null) "Round ${round + 1} cleared" else "${Sichos.dayOf(book.weekStart(round, week), long = true)} cleared")
     }
 
     /**
      * For trying the raffle out: [round] filled in at random, in place of whatever it had - a
-     * couple of bochurim on two weeks with no entry, the rest about half on three and half on four.
+     * couple of bochurim on four sichos with no entry, the rest about half on six or seven and half
+     * on all eight.
      */
     fun fillSichosAtRandom(round: Int, random: Random = Random.Default) {
         val book = sichos()
@@ -670,12 +671,12 @@ class AppViewModel(
         val cells = mutableMapOf<String, String?>()
         Roster.PEOPLE.map { it.id }.shuffled(random).forEachIndexed { i, pid ->
             val weeks = when {
-                i < 2 -> 2
-                random.nextBoolean() -> 3
-                else -> 4
+                i < 2 -> 4
+                random.nextBoolean() -> 6 + random.nextInt(2)
+                else -> Sichos.PER_ROUND
             }
-            val picked = (0 until Sichos.WEEKS).shuffled(random).take(weeks).toSet()
-            (0 until Sichos.WEEKS).forEach { w ->
+            val picked = (0 until Sichos.PER_ROUND).shuffled(random).take(weeks).toSet()
+            (0 until Sichos.PER_ROUND).forEach { w ->
                 book.fieldsAt(pid, round, w).forEach { cells[it] = null }
                 if (w in picked) cells[Sichos.weekField(pid, book.weekStart(round, w))] = Sichos.IN
             }
