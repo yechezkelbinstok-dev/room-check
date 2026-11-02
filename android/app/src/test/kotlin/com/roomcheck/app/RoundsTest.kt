@@ -156,6 +156,23 @@ class RoundsTest {
         assertEquals(listOf("12:45"), labels(vm))
     }
 
+    /**
+     * From the 1st of November the standing three are 11:00, 11:15 and 11:45: a night opened at
+     * 11:20 lands on 11:15, and putting a night back on its usual rounds puts it back on these.
+     * The night before the change is still the three it was walked at.
+     */
+    @Test
+    fun theStandingThreeFromNovember() {
+        val vm = vm(LocalDateTime.parse("2026-11-02T23:20"))
+        assertEquals(listOf("11:00", "11:15", "11:45"), labels(vm))
+        assertEquals("1115", vm.state.value.curSlot)
+        vm.onlyRoundTonight("1230")
+        vm.resetRoundsTonight()
+        assertEquals(listOf("11:00", "11:15", "11:45"), labels(vm))
+        vm.shiftDay(-2)
+        assertEquals(listOf("11:15", "11:30", "12:00"), labels(vm))
+    }
+
     /** It starts on the 29th: the Thursdays before were marked other ways, and keep what they had. */
     @Test
     fun earlierThursdaysAreAsTheyWere() {

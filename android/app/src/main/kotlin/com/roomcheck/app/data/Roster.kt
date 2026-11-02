@@ -25,6 +25,11 @@ data class Door(val wall: DoorWall, val pos: Float)
  */
 data class Room(val id: String, val label: String, val hebLabel: String, val w: Float, val h: Float, val door: Door, val beds: List<Bed>)
 
+/** A few particular bochurim and the mark each one nearly always gets - set in one tap. */
+data class Preset(val marks: List<Pair<String, Mark>>) {
+    constructor(vararg marks: Pair<String, Mark>) : this(marks.toList())
+}
+
 object Roster {
     val PEOPLE: List<Person> = listOf(
         Person("p1", "Shlomo", "Altein", "שלמה", "אלטיין"),
@@ -138,6 +143,15 @@ object Roster {
     val roomOf: Map<String, Room> = buildMap {
         PLAN.forEach { room -> room.beds.forEach { bed -> bed.slots.forEach { pid -> put(pid, room) } } }
     }
+
+    /**
+     * The buttons under the room numbers: each marks its bochurim, in the round on screen, the way
+     * they nearly always are - and nobody else. The same list as PRESETS in the site's index.html.
+     */
+    val PRESETS: List<Preset> = listOf(
+        Preset("p26" to Mark.IN, "p25" to Mark.OUT),   // Lipkind in, Liberow out
+        Preset("p4" to Mark.IN, "p2" to Mark.IN)       // Pevzner and Lehr in
+    )
 
     val SLOTS = listOf("1115" to "11:15", "1130" to "11:30", "1200" to "12:00")
     val SIDS = SLOTS.map { it.first }

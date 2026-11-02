@@ -141,6 +141,18 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .mk .v-out.on{background:var(--red);color:#fff}
 .mk .e.on{background:var(--grey);color:#fff}
 .viewrow{display:flex;align-items:center;gap:6px;margin-top:8px}
+/* presets: one button each under the room numbers, green with a tick once the round has them.
+   They wrap rather than scroll - a button scrolled off the edge is a button nobody knows is there */
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.presets button{flex:none;display:flex;align-items:center;gap:4px;height:34px;padding:0 11px;
+  border-radius:9px;background:#fff;border:1px solid var(--sep);font-size:13.5px;font-weight:600;
+  color:var(--text);white-space:nowrap}
+.presets .g{color:var(--green)}
+.presets .r{color:var(--red)}
+.presets .dot{color:var(--sub)}
+.presets .pk{display:none;color:var(--green)}
+.presets button.done{background:var(--green-l);border-color:#BCE0D2}
+.presets button.done .pk{display:inline}
 .seg2{display:flex;background:#E7E7EC;border-radius:9px;padding:2px;gap:2px;flex:1}
 .seg2 button{flex:1;border-radius:7px;padding:7px 4px;font-size:13px;font-weight:550;color:var(--sub2)}
 .seg2 button.on{background:#fff;color:var(--text);font-weight:650;box-shadow:0 1px 2px rgba(0,0,0,.13)}
@@ -386,15 +398,20 @@ h2{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
    Ids read like a clock face, not a 24-hour one: "1115" is quarter past eleven at night and
    "1200" is midnight. That is how every night ever marked is filed, so the scheme stays - and it
    means ids cannot be sorted as numbers, since 12 falls after 11 but before 1. */
-const BASE_SLOTS=[{id:"1115",label:"11:15"},{id:"1130",label:"11:30"},{id:"1200",label:"12:00"}];
+const BASE_SLOTS=[{id:"1100",label:"11:00"},{id:"1115",label:"11:15"},{id:"1145",label:"11:45"}], BASE_FROM="2026-11-01";
+/* The standing three before BASE_FROM. The nights before it were walked at these and are filed
+   under them; given the new three instead, an old night would open with two empty columns. The
+   same rule as the app's Slots.EARLIER_DEFAULT. */
+const EARLIER_SLOTS=[{id:"1115",label:"11:15"},{id:"1130",label:"11:30"},{id:"1200",label:"12:00"}];
 /* Thursday night - leil shishi - is walked twice, and later: 12:45 and 1:00. From THURSDAY_FROM,
    the first Thursday after it was decided; the Thursdays before were walked other ways and are
    filed under whatever they were marked in. The same rule as the app's Slots.defaultFor. */
 const THURSDAY_SLOTS=[{id:"1245",label:"12:45"},{id:"0100",label:"1:00"}], THURSDAY_FROM="2026-10-29";
 const defaultSlots=key=>{
-  if(!key||key<THURSDAY_FROM)return BASE_SLOTS;
+  const standing=key&&key<BASE_FROM?EARLIER_SLOTS:BASE_SLOTS;
+  if(!key||key<THURSDAY_FROM)return standing;
   const [y,m,d]=key.split("-").map(Number), day=new Date(y,(m||1)-1,d||1);
-  return !isNaN(day)&&day.getDay()===4?THURSDAY_SLOTS:BASE_SLOTS;
+  return !isNaN(day)&&day.getDay()===4?THURSDAY_SLOTS:standing;
 };
 const slotHour=id=>parseInt(id.slice(0,2),10)||0, slotMin=id=>parseInt(id.slice(2),10)||0;
 /* 6pm…11pm, then midnight, then 1am…5am - the order the rounds are actually walked. */
@@ -963,6 +980,36 @@ function setRoom(room,sid,v,only,onlyMark){
   }));
   save();
 }
+/* The buttons under the room numbers: each marks its bochurim, in the round on screen, the way they
+   nearly always are - and nobody else. The same list as the app's Roster.PRESETS. */
+const PRESETS=[
+  [["p26","in"],["p25","out"]],   /* Lipkind in, Liberow out */
+  [["p4","in"],["p2","in"]]       /* Pevzner and Lehr in */
+];
+/* In place at sid: everyone in it has its mark, or is off the walk and so not the preset's to mark. */
+const presetDone=(p,sid)=>p.every(([pid,v])=>{const st=statusOf(pid,sid);return offCheck(st)||st===v;});
+/* What it does, one part per mark in the order it names them - ["Pevzner, Lehr","in"]. Surnames,
+   unless two bochurim share one: then a bare "Altein" would not say which. */
+function presetParts(p,heb){
+  const parts=[];
+  p.forEach(([pid,v])=>{
+    const shared=allP().filter(x=>last(x.pid)===last(pid)).length>1;
+    const nm=shared?nameIn(pid,heb):lastIn(pid,heb), at=parts.find(x=>x[1]===v);
+    if(at)at[0].push(nm); else parts.push([[nm],v]);
+  });
+  return parts.map(([names,v])=>[names.join(", "),v]);
+}
+const presetText=(p,heb)=>presetParts(p,heb).map(([n,v])=>n+" "+v).join(" · ");
+/* A preset in round sid: its bochurim get their marks and nobody else is touched. Anyone off the
+   walk that night is skipped, the way a whole room skips him. */
+function applyPreset(p,sid){
+  const todo=p.filter(([pid,v])=>{const st=statusOf(pid,sid);return !offCheck(st)&&st!==v;});
+  /* the time leads, so a Hebrew name after it cannot turn the line around */
+  if(!todo.length){toast(label(sid)+" · already marked");return;}
+  snap(); const m=state.night.marks[sid]||(state.night.marks[sid]={});
+  todo.forEach(([pid,v])=>{m[pid]=v;touch(markKey(sid,pid));});
+  save(); toast(label(sid)+" · "+presetText(p,state.settings.hebrewOnPlan));
+}
 function undo(){const u=undoStack.pop();if(!u){toast("Nothing to undo");return;}state.night=u;save();render();toast("Undone");}
 
 /* ---------- report ---------- */
@@ -1079,6 +1126,10 @@ function headHTML(){
       class="${i===state.room?"on":""}">${i+1}</button>`;
   const idx=PLAN.map((r,i)=>i), down=idx.filter(i=>BOTTOM_FLOOR.includes(PLAN[i].id));
   const rooms=[down,idx.filter(i=>!down.includes(i))].map(row=>`<div class="rrow">${row.map(btn).join("")}</div>`).join("");
+  /* every name and word its own element, so Hebrew names cannot drag "in" and "out" past them */
+  const presets=PRESETS.map((p,i)=>`<button data-a="preset" data-pre="${i}"><span class="pk">✓</span>${
+    presetParts(p,state.settings.hebrewOnPlan).map(([n,v],j)=>`${j?`<span class="dot">·</span>`:``}<bdi>${esc(n)}</bdi><span class="${v==="in"?"g":"r"}">${v}</span>`).join("")
+  }</button>`).join("");
   return `<div class="hd">
       <div class="topbar">
         <button class="ibtn" data-a="day" data-d="-1" aria-label="Previous night">‹</button>
@@ -1101,6 +1152,7 @@ function headHTML(){
         <div class="rooms">${rooms}</div>
         <button class="ibtn" data-a="review" aria-label="Review">${IC.eye}</button>
       </div>
+      ${PRESETS.length?`<div class="presets">${presets}</div>`:``}
     </div>`}`;
 }
 const GLYPH={in:'<span class="rv g" title="here">✓</span>',
@@ -1594,6 +1646,8 @@ function sync(){
     const sp=i===state.room?null:roomSplit(r,sid);
     b.style.background=sp?sp.bg:""; b.style.borderColor=sp?sp.border:""; b.style.color=sp?sp.fg:"";
   });
+  document.querySelectorAll("[data-pre]").forEach(b=>
+    b.classList.toggle("done",presetDone(PRESETS[+b.dataset.pre],sid)));
   allSlots().map(s=>s.id).forEach(s=>{
     const e=document.querySelector(`[data-tb="${s}"]`); if(!e)return;
     const st=stats(s);
@@ -1739,6 +1793,7 @@ document.addEventListener("click",async e=>{
     goRoom(+t.dataset.i);return;}
   if(a==="room"){goRoom(state.room+(+t.dataset.d));return;}
   if(a==="roomset"){const r=PLAN.find(x=>x.id===t.dataset.r)||PLAN[state.room];setRoom(r,state.cur,t.dataset.v||null);sync();return;}
+  if(a==="preset"){applyPreset(PRESETS[+t.dataset.pre],state.cur);sync();return;}
   if(a==="mode"){state.mode=t.dataset.m;save();render();window.scrollTo(0,0);return;}
   if(a==="review"){state.review=true;render();window.scrollTo(0,0);return;}
   if(a==="onlyout"){state.onlyOut=t.dataset.v==="1";render();return;}
@@ -1931,7 +1986,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.17.3";
+const APP_VERSION="1.18.0";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

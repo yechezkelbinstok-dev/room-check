@@ -64,6 +64,20 @@ class AppScreenshotTest {
         }
     }
 
+    /**
+     * A night from November, on its standing three - 11:00, 11:15 and 11:45 - with the presets under
+     * the room numbers: Lipkind and Liberow's tapped for this round, Pevzner and Lehr's not yet.
+     */
+    @Test
+    fun presets() {
+        val vm = testVm(NightStore(folder.newFolder()), java.time.LocalDateTime.parse("2026-11-02T23:20"))
+        vm.applyPreset(Roster.PRESETS[0], vm.state.value.curSlot)
+        vm.jumpRoom(6)
+        paparazzi.snapshot(name = "check-presets") {
+            RoomCheckTheme { CheckScreen(vm) }
+        }
+    }
+
     /** A partly-checked room: the states an actual bed check produces, not a blank slate. */
     @Test
     fun checkScreenInProgress() {

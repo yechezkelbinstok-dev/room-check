@@ -21,7 +21,20 @@ data class Slot(val id: String, val label: String)
  */
 object Slots {
 
+    /** The standing three: 11:00, 11:15 and 11:45, from [DEFAULT_FROM]. */
     val DEFAULT = listOf(
+        Slot("1100", "11:00"),
+        Slot("1115", "11:15"),
+        Slot("1145", "11:45")
+    )
+    private const val DEFAULT_FROM = "2026-11-01"
+
+    /**
+     * The standing three before [DEFAULT_FROM]: 11:15, 11:30 and 12:00. The nights before it were
+     * walked at these and are filed under them; given the new three instead, an old night would
+     * open with two empty columns beside the two it was really marked in.
+     */
+    val EARLIER_DEFAULT = listOf(
         Slot("1115", "11:15"),
         Slot("1130", "11:30"),
         Slot("1200", "12:00")
@@ -40,13 +53,14 @@ object Slots {
     private const val THURSDAY_FROM = "2026-10-29"
 
     /**
-     * The rounds a night has when it names none of its own: Thursday's two, or the standing three.
-     * A night not filed under a date - [dateKey] null - is the standing three.
+     * The rounds a night has when it names none of its own: Thursday's two, or the standing three
+     * of its time. A night not filed under a date - [dateKey] null - is today's standing three.
      */
     fun defaultFor(dateKey: String?): List<Slot> {
-        if (dateKey == null || dateKey < THURSDAY_FROM) return DEFAULT
-        val day = runCatching { Dates.parseKey(dateKey) }.getOrNull() ?: return DEFAULT
-        return if (day.dayOfWeek == java.time.DayOfWeek.THURSDAY) THURSDAY else DEFAULT
+        val standing = if (dateKey != null && dateKey < DEFAULT_FROM) EARLIER_DEFAULT else DEFAULT
+        if (dateKey == null || dateKey < THURSDAY_FROM) return standing
+        val day = runCatching { Dates.parseKey(dateKey) }.getOrNull() ?: return standing
+        return if (day.dayOfWeek == java.time.DayOfWeek.THURSDAY) THURSDAY else standing
     }
 
     private fun hourOf(id: String) = id.take(2).toIntOrNull() ?: 0

@@ -30,7 +30,7 @@ class SlotsTest {
         assertEquals(listOf("11:15", "11:30", "12:00"), on("2026-10-22"))   // the Thursday before
         assertEquals(listOf("11:15", "11:30", "12:00"), on("2026-10-28"))   // Wednesday
         assertEquals(listOf("11:15", "11:30", "12:00"), on("2026-10-30"))   // Friday
-        assertEquals(listOf("11:15", "11:30", "12:00"), on("not a date"))
+        assertEquals(listOf("11:00", "11:15", "11:45"), on("not a date"))
         // a Thursday that names its own rounds gets those, and one with marks elsewhere keeps them
         assertEquals(listOf("12:30"), Slots.all(night("1230"), "2026-10-29").map { it.label })
         val marked = Night().apply { marks["1200"] = mutableMapOf("p1" to Mark.IN) }
@@ -41,7 +41,26 @@ class SlotsTest {
     /** A night with nothing said about it is the usual three. */
     @Test
     fun theUsualNightIsTheStandingThree() {
-        assertEquals(listOf("11:15", "11:30", "12:00"), Slots.all(Night()).map { it.label })
+        assertEquals(listOf("11:00", "11:15", "11:45"), Slots.all(Night()).map { it.label })
+    }
+
+    /**
+     * From the 1st of November 2026 the standing three are 11:00, 11:15 and 11:45. The nights
+     * before it keep 11:15, 11:30 and 12:00, which they were walked at and are filed under, and
+     * Thursday is its own two on both sides of the change.
+     */
+    @Test
+    fun theStandingThreeChangedOnTheFirstOfNovember() {
+        fun on(key: String) = Slots.all(Night(), key).map { it.label }
+        assertEquals(listOf("11:00", "11:15", "11:45"), on("2026-11-01"))   // the first night of them
+        assertEquals(listOf("11:00", "11:15", "11:45"), on("2026-11-02"))
+        assertEquals(listOf("11:00", "11:15", "11:45"), on("2027-02-14"))
+        assertEquals(listOf("11:15", "11:30", "12:00"), on("2026-10-31"))   // the night before
+        assertEquals(listOf("11:15", "11:30", "12:00"), on("2026-10-21"))
+        assertEquals(listOf("12:45", "1:00"), on("2026-11-05"))             // Thursday stays Thursday's
+        // an older night opens with the columns it was marked in, and none it never had
+        val old = Night().apply { marks["1130"] = mutableMapOf("p1" to Mark.IN) }
+        assertEquals(listOf("11:15", "11:30", "12:00"), Slots.all(old, "2026-10-27").map { it.label })
     }
 
     /**
@@ -71,7 +90,7 @@ class SlotsTest {
     @Test
     fun roundsBelongToTheirOwnNightOnly() {
         assertEquals(listOf("12:30"), Slots.all(night("1230")).map { it.label })
-        assertEquals(listOf("11:15", "11:30", "12:00"), Slots.all(Night()).map { it.label })
+        assertEquals(listOf("11:00", "11:15", "11:45"), Slots.all(Night()).map { it.label })
     }
 
     /** It has to survive being written out and read back, or it lasts until the app is closed. */
@@ -92,7 +111,7 @@ class SlotsTest {
     fun aRoundWithMarksInItCountsWithoutBeingDeclared() {
         val n = Night()
         n.marks["0130"] = mutableMapOf("p1" to Mark.OUT)
-        assertEquals(listOf("11:15", "11:30", "12:00", "1:30"), Slots.all(n).map { it.label })
+        assertEquals(listOf("11:00", "11:15", "11:45", "1:30"), Slots.all(n).map { it.label })
     }
 
     /** An empty slot map is not a round - clearing the last mark must not pin the column open. */
@@ -100,7 +119,7 @@ class SlotsTest {
     fun anEmptySlotMapIsNotARound() {
         val n = Night()
         n.marks["0130"] = mutableMapOf()
-        assertEquals(listOf("11:15", "11:30", "12:00"), Slots.all(n).map { it.label })
+        assertEquals(listOf("11:00", "11:15", "11:45"), Slots.all(n).map { it.label })
     }
 
     /** The round the app opens on is whichever is nearest behind the clock, across midnight too. */
@@ -132,8 +151,8 @@ class SlotsTest {
     /** The sheet shows everything unless you narrowed it, and narrowing can pick just one. */
     @Test
     fun theSheetCanBeNarrowedToOneTime() {
-        val n = Night().apply { sheetSlots.add("1200") }
-        assertEquals(listOf("12:00"), Slots.forSheet(n).map { it.label })
+        val n = Night().apply { sheetSlots.add("1145") }
+        assertEquals(listOf("11:45"), Slots.forSheet(n).map { it.label })
     }
 
     @Test
@@ -146,14 +165,14 @@ class SlotsTest {
     @Test
     fun narrowingTheSheetIsAlsoJustThatNight() {
         night("0130").apply { sheetSlots.add("0130") }
-        assertEquals(listOf("11:15", "11:30", "12:00"), Slots.forSheet(Night()).map { it.label })
+        assertEquals(listOf("11:00", "11:15", "11:45"), Slots.forSheet(Night()).map { it.label })
     }
 
     /** Removing the round the sheet was narrowed to must not leave a blank sheet. */
     @Test
     fun narrowingToATimeThatNoLongerExistsFallsBackToAll() {
         val n = Night().apply { sheetSlots.add("0130") }
-        assertEquals(listOf("11:15", "11:30", "12:00"), Slots.forSheet(n).map { it.label })
+        assertEquals(listOf("11:00", "11:15", "11:45"), Slots.forSheet(n).map { it.label })
     }
 
     /** A round with marks in it still shows, so an older night keeps the columns it was marked in. */
