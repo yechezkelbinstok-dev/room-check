@@ -94,8 +94,9 @@ object Roster {
     val PLAN: List<Room> = listOf(
         // a bunk across the top right and a single across the bottom right - the bottom bunk broke,
         // so Shlomo Altein has it to himself - and Lehr's own single down the left wall from the
-        // top corner
-        Room("r1", "Room 1", "חדר א׳", 100f, 78f, Door(DoorWall.BOTTOM, 38f), listOf(
+        // top corner. The door is near the bottom-left corner, onto the floor at the foot of
+        // Lehr's bed: further right, Altein's bed against that wall would stand in its way.
+        Room("r1", "Room 1", "חדר א׳", 100f, 78f, Door(DoorWall.BOTTOM, 12f), listOf(
             across(38f, 2f, "p3", "p4"),        // Piekarski / Pevzner - across the top right
             across(38f, 44f, "p1"),             // Shlomo Altein - across the bottom right, by the door
             upright(2f, 2f, "p2"))),            // Lehr - down the left wall, in the top corner
