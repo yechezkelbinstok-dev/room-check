@@ -141,18 +141,18 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .mk .v-out.on{background:var(--red);color:#fff}
 .mk .e.on{background:var(--grey);color:#fff}
 .viewrow{display:flex;align-items:center;gap:6px;margin-top:8px}
-/* presets: one button each under the room numbers, green with a tick once the round has them.
-   They wrap rather than scroll - a button scrolled off the edge is a button nobody knows is there */
-.presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+/* presets: a room's one-tap buttons under its name, green once the round has them. They wrap
+   rather than scroll - a button scrolled off the edge is a button nobody knows is there */
+.presets{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 8px}
 .presets button{flex:none;display:flex;align-items:center;gap:4px;height:34px;padding:0 11px;
   border-radius:9px;background:#fff;border:1px solid var(--sep);font-size:13.5px;font-weight:600;
   color:var(--text);white-space:nowrap}
+.presets svg{display:block;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.9;
+  stroke-linecap:round;stroke-linejoin:round}
 .presets .g{color:var(--green)}
 .presets .r{color:var(--red)}
 .presets .dot{color:var(--sub)}
-.presets .pk{display:none;color:var(--green)}
 .presets button.done{background:var(--green-l);border-color:#BCE0D2}
-.presets button.done .pk{display:inline}
 .seg2{display:flex;background:#E7E7EC;border-radius:9px;padding:2px;gap:2px;flex:1}
 .seg2 button{flex:1;border-radius:7px;padding:7px 4px;font-size:13px;font-weight:550;color:var(--sub2)}
 .seg2 button.on{background:#fff;color:var(--text);font-weight:650;box-shadow:0 1px 2px rgba(0,0,0,.13)}
@@ -505,7 +505,7 @@ const bedH=(x,y,slots)=>({x,y,w:BED_LONG,h:BED_SHORT,slots});   /* against the t
 const BOTTOM_FLOOR=["r1","r2","r3"];
 const PLAN=[
  {id:"r1",label:"Room 1",heb:"חדר א׳",w:100,h:78,door:{wall:"bottom",pos:38},beds:[
-   bedH(38,2,["p3","p4"]), bedH(38,44,["p2","p1"])]},
+   bedH(38,2,["p3","p4"]), bedH(38,44,["p1"]), bedV(2,2,["p2"])]},
  {id:"r2",label:"Room 2",heb:"חדר ב׳",w:100,h:78,door:{wall:"bottom",pos:85},beds:[
    bedV(2,2,["p8","p5"]), bedH(38,2,["p7","p6"])]},
  {id:"r3",label:"Room 3",heb:"חדר ג׳",w:100,h:118,door:{wall:"bottom",pos:70},beds:[
@@ -514,7 +514,7 @@ const PLAN=[
  {id:"r4",label:"Room 4",heb:"חדר ד׳",w:126,h:104,door:{wall:"bottom",pos:26},beds:[
    bedH(2,2,["p15"]), bedH(64,2,["p14"]), bedV(92,42,["p13","p16"])]},
  {id:"r5",label:"Room 5",heb:"חדר ה׳",w:100,h:92,door:{wall:"left",pos:76},beds:[
-   bedV(2,2,["p20","p18"]), bedV(66,2,["p17","p19"])]},
+   bedV(2,2,["p20","p18"]), bedH(38,2,["p17","p19"])]},
  /* real door is on the far wall; drawn a half-turn round so you see it as you walk in */
  {id:"r6",label:"Room 6",heb:"חדר ו׳",w:100,h:78,door:{wall:"bottom",pos:28},beds:[
    bedV(2,2,["p23","p24"]), bedV(66,2,["p22","p21"])]},
@@ -999,16 +999,14 @@ function presetParts(p,heb){
   });
   return parts.map(([names,v])=>[names.join(", "),v]);
 }
-const presetText=(p,heb)=>presetParts(p,heb).map(([n,v])=>n+" "+v).join(" · ");
 /* A preset in round sid: its bochurim get their marks and nobody else is touched. Anyone off the
    walk that night is skipped, the way a whole room skips him. */
 function applyPreset(p,sid){
   const todo=p.filter(([pid,v])=>{const st=statusOf(pid,sid);return !offCheck(st)&&st!==v;});
-  /* the time leads, so a Hebrew name after it cannot turn the line around */
   if(!todo.length){toast(label(sid)+" · already marked");return;}
   snap(); const m=state.night.marks[sid]||(state.night.marks[sid]={});
   todo.forEach(([pid,v])=>{m[pid]=v;touch(markKey(sid,pid));});
-  save(); toast(label(sid)+" · "+presetText(p,state.settings.hebrewOnPlan));
+  save(); toast(label(sid)+" · marked");
 }
 function undo(){const u=undoStack.pop();if(!u){toast("Nothing to undo");return;}state.night=u;save();render();toast("Undone");}
 
@@ -1087,6 +1085,16 @@ function bedHTML(bed,room){
   return `<div class="bed" style="left:${pc(MARGIN+bed.x,tw)};top:${pc(MARGIN+bed.y,th)};`
     +`width:${pc(bed.w,tw)};height:${pc(bed.h,th)}">${rows}</div>`;
 }
+/* A room's presets under its name - only the ones marking someone who sleeps in it. Each name its
+   own element and each mark its own icon, the bed buttons' tick and cross, so a Hebrew name cannot
+   drag its mark to the wrong side of it. */
+function presetsHTML(room){
+  const mine=PRESETS.map((p,i)=>[p,i]).filter(([p])=>p.some(([pid])=>roomOf(pid)===room));
+  if(!mine.length)return ``;
+  return `<div class="presets">${mine.map(([p,i])=>`<button data-a="preset" data-pre="${i}">${
+    presetParts(p,state.settings.hebrewOnPlan).map(([n,v],j)=>`${j?`<span class="dot">·</span>`:``}<bdi>${esc(n)}</bdi>${v==="in"?`<span class="g" aria-label="in">${IC.tick}</span>`:`<span class="r" aria-label="out">${IC.ex}</span>`}`).join("")
+  }</button>`).join("")}</div>`;
+}
 function roomBlock(i){
   const room=PLAN[i];
   return `<div class="roomblock" id="rb-${room.id}">
@@ -1094,6 +1102,7 @@ function roomBlock(i){
       <div class="t"><bdi>${esc(roomName(room))}</bdi><em data-rout="${room.id}"></em></div>
       <div class="rbtn"><button data-a="roomset" data-r="${room.id}" data-v="in">All in</button><button data-a="roomset" data-r="${room.id}" data-v="out">All out</button><button data-a="roomset" data-r="${room.id}" data-v="">Clear</button></div>
     </div>
+    ${presetsHTML(room)}
     <div class="planwrap"${i===state.room&&state.mode==="one"?' id="pw"':''}>
       <div class="plan" data-plan="${room.id}" style="aspect-ratio:${totalW(room)}/${totalH(room)}">${wallsSVG(room)}${room.beds.map(b=>bedHTML(b,room)).join("")}</div>
     </div>
@@ -1126,10 +1135,6 @@ function headHTML(){
       class="${i===state.room?"on":""}">${i+1}</button>`;
   const idx=PLAN.map((r,i)=>i), down=idx.filter(i=>BOTTOM_FLOOR.includes(PLAN[i].id));
   const rooms=[down,idx.filter(i=>!down.includes(i))].map(row=>`<div class="rrow">${row.map(btn).join("")}</div>`).join("");
-  /* every name and word its own element, so Hebrew names cannot drag "in" and "out" past them */
-  const presets=PRESETS.map((p,i)=>`<button data-a="preset" data-pre="${i}"><span class="pk">✓</span>${
-    presetParts(p,state.settings.hebrewOnPlan).map(([n,v],j)=>`${j?`<span class="dot">·</span>`:``}<bdi>${esc(n)}</bdi><span class="${v==="in"?"g":"r"}">${v}</span>`).join("")
-  }</button>`).join("");
   return `<div class="hd">
       <div class="topbar">
         <button class="ibtn" data-a="day" data-d="-1" aria-label="Previous night">‹</button>
@@ -1152,7 +1157,6 @@ function headHTML(){
         <div class="rooms">${rooms}</div>
         <button class="ibtn" data-a="review" aria-label="Review">${IC.eye}</button>
       </div>
-      ${PRESETS.length?`<div class="presets">${presets}</div>`:``}
     </div>`}`;
 }
 const GLYPH={in:'<span class="rv g" title="here">✓</span>',

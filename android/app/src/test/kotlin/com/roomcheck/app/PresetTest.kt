@@ -121,14 +121,38 @@ class PresetTest {
         assertEquals(Mark.OUT, vm.logic().statusOf("p1", sid))
     }
 
-    /** The button reads as what it does, names and all, in English or in Hebrew. */
+    /** The button names who it marks, each with his tick or cross, in English or in Hebrew. */
     @Test
-    fun itsLabelSaysWhatItDoes() {
+    fun itsButtonNamesWhoItMarks() {
         val logic = vm().logic()
-        assertEquals("Lipkind in · Liberow out", logic.presetText(lipkindLiberow, hebrew = false))
-        assertEquals("Pevzner, Lehr in", logic.presetText(pevznerLehr, hebrew = false))
-        assertEquals("ליפקינד in · ליבעראוו out", logic.presetText(lipkindLiberow, hebrew = true))
+        assertEquals(listOf("Lipkind" to Mark.IN, "Liberow" to Mark.OUT), logic.presetParts(lipkindLiberow, hebrew = false))
+        assertEquals(listOf("Pevzner, Lehr" to Mark.IN), logic.presetParts(pevznerLehr, hebrew = false))
+        assertEquals(listOf("ליפקינד" to Mark.IN, "ליבעראוו" to Mark.OUT), logic.presetParts(lipkindLiberow, hebrew = true))
         // two Alteins: a surname alone would not say which one
-        assertEquals("Dovid Altein in", logic.presetText(Preset("p13" to Mark.IN), hebrew = false))
+        assertEquals(listOf("Dovid Altein" to Mark.IN), logic.presetParts(Preset("p13" to Mark.IN), hebrew = false))
+    }
+
+    /** Each preset is on its own room's screen and on no other: Lipkind and Liberow's on 7, Pevzner and Lehr's on 1. */
+    @Test
+    fun eachPresetIsOnlyOnItsOwnRoom() {
+        Roster.PLAN.forEach { room ->
+            val want = when (room.id) {
+                "r7" -> listOf(lipkindLiberow)
+                "r1" -> listOf(pevznerLehr)
+                else -> emptyList()
+            }
+            assertEquals(room.id, want, Roster.presetsIn(room))
+        }
+    }
+
+    /** A tap says which round it went into, and a tap with nothing left to do says so. */
+    @Test
+    fun aTapSaysWhatItDid() {
+        val vm = vm()
+        val sid = vm.state.value.curSlot
+        vm.applyPreset(lipkindLiberow, sid)
+        assertEquals("11:15 · marked", vm.state.value.toast)
+        vm.applyPreset(lipkindLiberow, sid)
+        assertEquals("11:15 · already marked", vm.state.value.toast)
     }
 }

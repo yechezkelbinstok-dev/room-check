@@ -115,10 +115,6 @@ class NightLogic(
             if (shared) nameOf(pid, hebrew) else last(pid, hebrew)
         }).map { (mark, names) -> names.joinToString(", ") to mark }
 
-    /** [presetParts] as one line: "Lipkind in · Liberow out". */
-    fun presetText(preset: Preset, hebrew: Boolean): String =
-        presetParts(preset, hebrew).joinToString(" · ") { (names, mark) -> "$names ${if (mark == Mark.IN) "in" else "out"}" }
-
     /** Everyone switched to not in town, in walking order. */
     fun awayList(): List<String> =
         Roster.PLAN.flatMap { room -> room.beds.flatMap { it.slots } }.filter { isAway(it) }

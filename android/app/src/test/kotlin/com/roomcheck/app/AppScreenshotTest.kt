@@ -65,8 +65,8 @@ class AppScreenshotTest {
     }
 
     /**
-     * A night from November, on its standing three - 11:00, 11:15 and 11:45 - with the presets under
-     * the room numbers: Lipkind and Liberow's tapped for this round, Pevzner and Lehr's not yet.
+     * A night from November, on its standing three - 11:00, 11:15 and 11:45 - on Room 7, with its
+     * preset under the room's name and tapped for this round.
      */
     @Test
     fun presets() {

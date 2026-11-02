@@ -210,12 +210,10 @@ class AppViewModel(
      * else is touched. Anyone off the walk that night is skipped, the way a whole room skips him.
      */
     fun applyPreset(preset: Preset, sid: String) {
-        val hebrew = _state.value.settings.hebrewOnPlan
         val round = rounds().firstOrNull { it.id == sid }?.label ?: sid
         val todo = preset.marks.filter { (pid, mark) ->
             logic().statusOf(pid, sid).let { !it.offCheck && it != mark }
         }
-        // the time leads, so a Hebrew name after it cannot turn the line around
         if (todo.isEmpty()) { toast("$round · already marked"); return }
         snap()
         update { s ->
@@ -227,7 +225,7 @@ class AppViewModel(
             s.night.marks[sid] = marks
             persist(s); s
         }
-        toast("$round · ${logic().presetText(preset, hebrew)}")
+        toast("$round · marked")
     }
 
     fun undo() {

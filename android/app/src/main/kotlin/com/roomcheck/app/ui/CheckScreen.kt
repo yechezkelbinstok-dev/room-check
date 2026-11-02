@@ -253,27 +253,27 @@ private fun StickyControls(vm: AppViewModel, state: UiState, logic: NightLogic, 
             IconBtn(Icons.Filled.Search, "Find someone", onClick = onSearch)
             IconBtn(Icons.Filled.Visibility, "Review") { vm.setReview(true) }
         }
-        if (Roster.PRESETS.isNotEmpty()) PresetRow(vm, state, logic)
     }
 }
 
 /**
- * The presets, one button each: tapped, its bochurim get their marks in the round on screen. Green
- * with a tick once that round already has them, so a glance says whether it still needs the tap.
+ * A room's presets, one button each, under its name: tapped, its bochurim get their marks in the
+ * round on screen. Green with a tick once that round already has them, so a glance says whether it
+ * still needs the tap. Only on the room they are for - anywhere else they are just in the way.
  *
  * They wrap rather than scroll: with large text or Hebrew names they outgrow one line, and a button
  * scrolled off the edge of the screen is a button nobody knows is there.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PresetRow(vm: AppViewModel, state: UiState, logic: NightLogic) {
+private fun PresetRow(vm: AppViewModel, state: UiState, logic: NightLogic, presets: List<Preset>) {
     val hebrew = state.settings.hebrewOnPlan
     FlowRow(
-        Modifier.fillMaxWidth().padding(top = 8.dp),
+        Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Roster.PRESETS.forEach { preset ->
+        presets.forEach { preset ->
             val done = logic.presetDone(preset, state.curSlot)
             Row(
                 Modifier.height(34.dp).clip(RoundedCornerShape(9.dp))
@@ -284,16 +284,13 @@ private fun PresetRow(vm: AppViewModel, state: UiState, logic: NightLogic) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                if (done) Icon(Icons.Filled.Check, "Marked", tint = RC.green, modifier = Modifier.size(15.dp))
-                // every name and word its own Text, so Hebrew names cannot drag "in" and "out" to
-                // the wrong side of them
+                // each name its own Text and each mark its own icon - the same tick and cross as the
+                // bed's buttons - so a Hebrew name cannot drag its mark to the wrong side of it
                 logic.presetParts(preset, hebrew).forEachIndexed { i, (names, mark) ->
                     if (i > 0) Text("·", fontSize = 13.5.sp, color = RC.sub)
                     Text(names, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = RC.text, maxLines = 1)
-                    Text(
-                        if (mark == Mark.IN) "in" else "out", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
-                        color = if (mark == Mark.IN) RC.green else RC.red, maxLines = 1
-                    )
+                    if (mark == Mark.IN) Icon(Icons.Filled.Check, "in", tint = RC.green, modifier = Modifier.size(17.dp))
+                    else Icon(Icons.Filled.Close, "out", tint = RC.red, modifier = Modifier.size(17.dp))
                 }
             }
         }
@@ -458,6 +455,7 @@ private fun RoomBlock(
                 }
             }
         }
+        Roster.presetsIn(room).takeIf { it.isNotEmpty() }?.let { PresetRow(vm, state, logic, it) }
         FloorPlanCanvas(
             room = room,
             allIn = logic.roomAllIn(room, state.curSlot),
