@@ -7,6 +7,7 @@ import com.roomcheck.app.data.LuachNow
 import com.roomcheck.app.data.NightStore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -109,6 +110,28 @@ class LuachTest {
         // no months after the trip's
         assertEquals("תמוז תשפ״ז", Luach.months(hebrewMonths = true, summer = false).last().title(en = false))
         assertEquals("July 2027", Luach.months(hebrewMonths = false, summer = false).last().title(en = true))
+    }
+
+    @Test
+    fun everyDayOfTheYearCanBeOpenedWithTheSummerZmanOnOrOff() {
+        for (summer in listOf(true, false)) {
+            var d = LocalDate.of(2026, 8, 1)
+            while (d <= LocalDate.of(2027, 8, 31)) {
+                for (en in listOf(true, false)) {
+                    when (Luach.dayKind(d, summer)) {
+                        DayKind.OFF, DayKind.TRIP -> assertTrue("$d summer=$summer", Luach.stretchOn(d, summer, en).isNotEmpty())
+                        DayKind.ZMAN -> assertNotNull("$d summer=$summer", Luach.zmanOn(d, summer))
+                        else -> {}
+                    }
+                }
+                d = d.plusDays(1)
+            }
+        }
+        // the trip's day with the summer zman off, where there is no gap for it to sit in
+        assertNull(Luach.gapOn(LocalDate.of(2027, 7, 7), false))
+        assertEquals("Trip to Beis Chayeinu", Luach.stretchOn(LocalDate.of(2027, 7, 7), false, true))
+        assertEquals("נסיעה לבית חיינו", Luach.stretchOn(LocalDate.of(2027, 7, 7), false, false))
+        assertEquals("Trip to Beis Chayeinu", Luach.stretchOn(LocalDate.of(2027, 7, 7), true, true))
     }
 
     @Test

@@ -428,7 +428,7 @@ private fun DayCard(d: LocalDate, today: LocalDate, summer: Boolean, en: Boolean
         val z = Luach.zmanOn(d, summer)
         val what = when (kind) {
             DayKind.ZMAN -> z!!.name(en)
-            DayKind.OFF, DayKind.TRIP -> Luach.gapOn(d, summer)!!.name(en)
+            DayKind.OFF, DayKind.TRIP -> Luach.stretchOn(d, summer, en)
             DayKind.BEIN -> if (en) "Bein hazmanim" else "בין הזמנים"
             DayKind.NONE -> ""
         }

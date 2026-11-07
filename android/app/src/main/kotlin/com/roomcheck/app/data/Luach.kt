@@ -43,6 +43,9 @@ data class LuachDay(
     val stretch: String? = null,
     val stretchEn: String? = null
 ) {
+    /** What the stretch this line opens is called: its own name if it has one, else the line's title. */
+    fun stretchName(en: Boolean): String = if (en) stretchEn ?: titleEn else stretch ?: title
+
     val date: LocalDate = Dates.gregorianOf(year, month, day)
     /** When it happens. A line with no time counts from the start of its day. */
     val at: LocalDateTime = date.atTime(time ?: LocalTime.MIDNIGHT)
@@ -58,8 +61,7 @@ data class LuachDay(
 /** A stretch inside a zman away from seder: a break, OFF to BACK, or a trip, TRIP to HOME. */
 data class LuachGap(val from: LuachDay, val to: LuachDay) {
     val isTrip: Boolean get() = from.kind == LuachKind.TRIP
-    fun name(en: Boolean): String =
-        if (en) from.stretchEn ?: from.titleEn else from.stretch ?: from.title
+    fun name(en: Boolean): String = from.stretchName(en)
 }
 
 /**
@@ -220,6 +222,13 @@ object Luach {
     /** The luach's lines on a day - usually none, now and then one. */
     fun linesOn(date: LocalDate, summer: Boolean): List<LuachDay> =
         zmanim(summer).flatMap { it.days }.filter { it.date == date }
+
+    /**
+     * What a break or trip day is called. The last day of a zman cut short is the trip with nothing
+     * after it, so no gap holds it and it is named by the trip's own line.
+     */
+    fun stretchOn(date: LocalDate, summer: Boolean, en: Boolean): String =
+        gapOn(date, summer)?.name(en) ?: zmanOn(date, summer)?.end?.takeIf { it.date == date }?.stretchName(en).orEmpty()
 
     /** The gap a day falls in, if it falls in one. */
     fun gapOn(date: LocalDate, summer: Boolean): LuachGap? =
