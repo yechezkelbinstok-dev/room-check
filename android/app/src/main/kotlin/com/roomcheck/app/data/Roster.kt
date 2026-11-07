@@ -25,6 +25,11 @@ data class Door(val wall: DoorWall, val pos: Float)
  */
 data class Room(val id: String, val label: String, val hebLabel: String, val w: Float, val h: Float, val door: Door, val beds: List<Bed>)
 
+/** A few particular bochurim and the mark each one nearly always gets - set in one tap. */
+data class Preset(val marks: List<Pair<String, Mark>>) {
+    constructor(vararg marks: Pair<String, Mark>) : this(marks.toList())
+}
+
 object Roster {
     val PEOPLE: List<Person> = listOf(
         Person("p1", "Shlomo", "Altein", "שלמה", "אלטיין"),
@@ -87,10 +92,14 @@ object Roster {
     // deep as its own beds need plus roughly a 16-unit walkway in from the door. That walkway is
     // all the empty floor there should ever be; a room does not get depth it has no use for.
     val PLAN: List<Room> = listOf(
-        // both bunks across the right side, one against the top wall and one against the bottom
-        Room("r1", "Room 1", "חדר א׳", 100f, 78f, Door(DoorWall.BOTTOM, 38f), listOf(
+        // a bunk across the top right and a single across the bottom right - the bottom bunk broke,
+        // so Shlomo Altein has it to himself - and Lehr's own single down the left wall from the
+        // top corner. The door is near the bottom-left corner, onto the floor at the foot of
+        // Lehr's bed: further right, Altein's bed against that wall would stand in its way.
+        Room("r1", "Room 1", "חדר א׳", 100f, 78f, Door(DoorWall.BOTTOM, 12f), listOf(
             across(38f, 2f, "p3", "p4"),        // Piekarski / Pevzner - across the top right
-            across(38f, 44f, "p2", "p1"))),     // Lehr / Shlomo Altein - across the bottom right, by the door
+            across(38f, 44f, "p1"),             // Shlomo Altein - across the bottom right, by the door
+            upright(2f, 2f, "p2"))),            // Lehr - down the left wall, in the top corner
         // bunk on the left wall, the other across the top right
         Room("r2", "Room 2", "חדר ב׳", 100f, 78f, Door(DoorWall.BOTTOM, 85f), listOf(
             upright(2f, 2f, "p8", "p5"),        // Levin / Holtzberg
@@ -108,10 +117,11 @@ object Roster {
             across(2f, 2f, "p15"),              // Groner - single
             across(64f, 2f, "p14"),             // Goldstein - single, alongside it
             upright(92f, 42f, "p13", "p16"))),  // Dovid Altein / Palace - bunk on the right wall
-        // bunks on opposite walls, door low on the left wall below them
+        // one bunk down the left wall, the other turned to run across the top right; door low on
+        // the left wall below them
         Room("r5", "Room 5", "חדר ה׳", 100f, 92f, Door(DoorWall.LEFT, 76f), listOf(
             upright(2f, 2f, "p20", "p18"),      // Schwei / Browd
-            upright(66f, 2f, "p17", "p19"))),   // Backman / Flint
+            across(38f, 2f, "p17", "p19"))),    // Backman / Flint - across the top right
         // The real door is on the far wall, but every plan is drawn from the doorway looking in,
         // so this room is turned a half-turn to match: door at the bottom, and the beds swapped
         // left for right with it. That is a rotation, not a mirror - stand in the doorway and
@@ -138,6 +148,20 @@ object Roster {
     val roomOf: Map<String, Room> = buildMap {
         PLAN.forEach { room -> room.beds.forEach { bed -> bed.slots.forEach { pid -> put(pid, room) } } }
     }
+
+    /**
+     * One-tap buttons, each on the room of the bochurim it marks: tapped, they get their marks in
+     * the round on screen, the way they nearly always are - and nobody else does. The same list as
+     * PRESETS in the site's index.html.
+     */
+    val PRESETS: List<Preset> = listOf(
+        Preset("p26" to Mark.IN, "p25" to Mark.OUT),   // Lipkind in, Liberow out - Room 7
+        Preset("p4" to Mark.IN, "p2" to Mark.IN)       // Pevzner and Lehr in - Room 1
+    )
+
+    /** The presets shown on [room]: those marking someone who sleeps in it, and no others. */
+    fun presetsIn(room: Room): List<Preset> =
+        PRESETS.filter { preset -> preset.marks.any { (pid, _) -> roomOf[pid]?.id == room.id } }
 
     val SLOTS = listOf("1115" to "11:15", "1130" to "11:30", "1200" to "12:00")
     val SIDS = SLOTS.map { it.first }

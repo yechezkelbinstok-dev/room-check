@@ -64,6 +64,20 @@ class AppScreenshotTest {
         }
     }
 
+    /**
+     * A night from November, on its standing three - 11:00, 11:15 and 11:45 - on Room 7, with its
+     * preset under the room's name and tapped for this round.
+     */
+    @Test
+    fun presets() {
+        val vm = testVm(NightStore(folder.newFolder()), java.time.LocalDateTime.parse("2026-11-02T23:20"))
+        vm.applyPreset(Roster.PRESETS[0], vm.state.value.curSlot)
+        vm.jumpRoom(6)
+        paparazzi.snapshot(name = "check-presets") {
+            RoomCheckTheme { CheckScreen(vm) }
+        }
+    }
+
     /** A partly-checked room: the states an actual bed check produces, not a blank slate. */
     @Test
     fun checkScreenInProgress() {

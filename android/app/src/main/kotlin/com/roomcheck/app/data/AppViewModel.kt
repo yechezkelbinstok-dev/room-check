@@ -205,6 +205,29 @@ class AppViewModel(
         }
     }
 
+    /**
+     * One of [Roster.PRESETS], in the round [sid]: each of its bochurim gets his mark and nobody
+     * else is touched. Anyone off the walk that night is skipped, the way a whole room skips him.
+     */
+    fun applyPreset(preset: Preset, sid: String) {
+        val round = rounds().firstOrNull { it.id == sid }?.label ?: sid
+        val todo = preset.marks.filter { (pid, mark) ->
+            logic().statusOf(pid, sid).let { !it.offCheck && it != mark }
+        }
+        if (todo.isEmpty()) { toast("$round · already marked"); return }
+        snap()
+        update { s ->
+            val marks = s.night.marks[sid] ?: mutableMapOf()
+            todo.forEach { (pid, mark) ->
+                marks[pid] = mark
+                s.night.touch(Merge.markKey(sid, pid))
+            }
+            s.night.marks[sid] = marks
+            persist(s); s
+        }
+        toast("$round · marked")
+    }
+
     fun undo() {
         val prev = if (undoStack.isNotEmpty()) undoStack.removeLast() else null
         if (prev == null) { toast("Nothing to undo"); return }

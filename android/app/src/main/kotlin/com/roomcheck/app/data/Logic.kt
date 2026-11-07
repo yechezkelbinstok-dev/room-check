@@ -98,6 +98,23 @@ class NightLogic(
         Roster.PLAN.flatMap { room -> room.beds.flatMap { it.slots } }
             .filter { statusOf(it, sid) == Mark.OUT }
 
+    /**
+     * Whether [preset] is already in place at [sid]: everyone in it has its mark, or is off the walk
+     * that night and so is not the preset's to mark.
+     */
+    fun presetDone(preset: Preset, sid: String): Boolean =
+        preset.marks.all { (pid, mark) -> statusOf(pid, sid).let { it.offCheck || it == mark } }
+
+    /**
+     * What [preset] does, one part per mark in the order it names them - "Pevzner, Lehr" to IN.
+     * Surnames, unless two bochurim share one: then a bare "Altein" would not say which.
+     */
+    fun presetParts(preset: Preset, hebrew: Boolean): List<Pair<String, Mark>> =
+        preset.marks.groupBy({ it.second }, { (pid, _) ->
+            val shared = Roster.PEOPLE.count { last(it.id) == last(pid) } > 1
+            if (shared) nameOf(pid, hebrew) else last(pid, hebrew)
+        }).map { (mark, names) -> names.joinToString(", ") to mark }
+
     /** Everyone switched to not in town, in walking order. */
     fun awayList(): List<String> =
         Roster.PLAN.flatMap { room -> room.beds.flatMap { it.slots } }.filter { isAway(it) }

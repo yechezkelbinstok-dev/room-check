@@ -12,3 +12,4 @@ android/.kotlin/
 ios/RoomCheck.xcodeproj/
 ios/build/
 ios/out/
+__pycache__/
