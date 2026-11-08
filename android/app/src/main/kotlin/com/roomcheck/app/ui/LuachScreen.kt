@@ -41,7 +41,7 @@ import java.time.LocalDateTime
 import java.time.format.TextStyle as JTextStyle
 import java.util.Locale
 
-// a break is amber and a trip green, so the year reads at a glance: blue seder, amber off, green away
+// a break is amber and Crown Heights green, so the year reads at a glance: blue seder, amber off, green away
 private val amber = Color(0xFF9A5B08)
 private val amberL = Color(0xFFFBF1DF)
 
@@ -69,7 +69,7 @@ private fun tintOf(kind: DayKind): Pair<Color, Color> = when (kind) {
 
 /**
  * The yeshiva's year as its luach has it: where things stand tonight, then the year either as a
- * calendar, a month at a time, or as the luach's own list - every zman with its breaks and trips
+ * calendar, a month at a time, or as the luach's own list - every zman with its breaks and Crown Heights
  * and the bein hazmanim between them. In Hebrew it reads right to left, in English left to right.
  * The month goes by Hebrew months or regular ones, the other calendar's date small in each day -
  * Hebrew months in Hebrew and regular ones in English, unless the month's own switch says otherwise.
@@ -95,8 +95,11 @@ fun LuachScreen(vm: AppViewModel, now: LocalDateTime = LocalDateTime.now(), firs
     // Hebrew months or regular ones: the language picks unless the month switch has been set
     val hebMonths = Luach.hebrewMonthsFor(state.settings.luachMonths, en)
     val months = Luach.months(hebMonths, summer)
-    var month by remember(hebMonths, summer) { mutableIntStateOf(Luach.monthIndexOf(today, hebMonths, summer)) }
-    var picked by remember(hebMonths, summer) { mutableStateOf<LocalDate?>(today) }
+    // the month on screen is kept as a day in it, so it is still the one on screen when the year
+    // loses its summer zman or the months change from Hebrew to regular
+    var shown by remember { mutableStateOf(today) }
+    val month = Luach.monthIndexOf(shown, hebMonths, summer)
+    var picked by remember { mutableStateOf<LocalDate?>(today) }
 
     Column(Modifier.fillMaxSize().background(RC.bg)) {
         Row(
@@ -131,7 +134,7 @@ fun LuachScreen(vm: AppViewModel, now: LocalDateTime = LocalDateTime.now(), firs
                 if (!asList) {
                     item {
                         MonthCard(
-                            months, month, { month = it }, today, summer, en, hebMonths,
+                            months, month, { shown = months[it].days.first() }, today, summer, en, hebMonths,
                             { heb -> vm.setSettings { it.copy(luachMonths = if (heb) "heb" else "greg") } },
                             picked
                         ) { picked = it }
@@ -234,7 +237,7 @@ private fun NowCard(status: LuachNow, now: LocalDateTime, summer: Boolean, en: B
                     before == null -> {
                         Text(if (en) "The year is over" else "השנה נגמרה", fontSize = 27.sp, fontWeight = FontWeight.Bold)
                         Text(
-                            if (after?.cut == true) "It ended with the trip" else "It ended " + Luach.dateText(after!!.end.date),
+                            "It ended " + Luach.dateText(after!!.end.date),
                             style = ltr, fontSize = 13.sp, color = RC.sub2, modifier = Modifier.padding(bottom = 8.dp)
                         )
                     }
@@ -278,7 +281,7 @@ private fun ProgressLine(fraction: Float, color: Color, track: Color) {
 
 /**
  * One month, the way a wall calendar has it: a week to a row, Sunday first, every day tinted by
- * what it is - seder, a break, a trip, or bein hazmanim left plain. A day with a line on the luach
+ * what it is - seder, a break, Crown Heights, or bein hazmanim left plain. A day with a line on the luach
  * carries a dot in that line's colour; today is ringed in black, the day tapped in blue.
  */
 @Composable
@@ -330,7 +333,7 @@ private fun MonthCard(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             Legend(RC.blueL, RC.blue, if (en) "Seder" else "סדר")
             Legend(amberL, amber, if (en) "Off" else "חופש")
-            Legend(RC.greenL, RC.green, if (en) "Trip" else "נסיעה")
+            Legend(RC.greenL, RC.green, if (en) "Crown Heights" else "קראון הייטס")
         }
     }
 }
@@ -428,7 +431,7 @@ private fun DayCard(d: LocalDate, today: LocalDate, summer: Boolean, en: Boolean
         val z = Luach.zmanOn(d, summer)
         val what = when (kind) {
             DayKind.ZMAN -> z!!.name(en)
-            DayKind.OFF, DayKind.TRIP -> Luach.stretchOn(d, summer, en)
+            DayKind.OFF, DayKind.TRIP -> Luach.gapOn(d, summer)?.name(en).orEmpty()
             DayKind.BEIN -> if (en) "Bein hazmanim" else "בין הזמנים"
             DayKind.NONE -> ""
         }
@@ -466,9 +469,9 @@ private fun SummerSwitchCard(summer: Boolean, en: Boolean, onSummer: (Boolean) -
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text(if (en) "Summer zman after the trip" else "זמן קיץ אחרי הנסיעה", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(if (en) "Summer zman after Crown Heights" else "זמן קיץ אחרי קראון הייטס", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Text(
-                if (summer) "On the calendar, to the end of the zman" else "Off - the year ends with the trip",
+                if (summer) "On the calendar, to the end of the zman" else "Off - the zman ends " + Luach.dateText(Luach.lastDay(false)),
                 style = ltr, fontSize = 12.sp, color = RC.sub
             )
         }
@@ -516,7 +519,7 @@ private fun ZmanCard(
                 i++
             }
         }
-        // the stretch after the trip, which may not happen
+        // the stretch after Crown Heights, which may not happen
         if (z.optional) {
             HorizontalDivider(color = RC.sep, thickness = 0.5.dp, modifier = Modifier.padding(top = 4.dp))
             SummerSwitchCard(summer, en, onSummer)
@@ -525,7 +528,7 @@ private fun ZmanCard(
     }
 }
 
-/** A break or a trip, its two lines held together in its own colour with how long it lasts. */
+/** A break or Crown Heights, its two lines held together in its own colour with how long it lasts. */
 @Composable
 private fun GapBlock(g: LuachGap, today: LocalDate, next: LuachDay?, en: Boolean) {
     val (tint, light) = tintOf(g.from.kind)

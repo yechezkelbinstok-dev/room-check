@@ -1,6 +1,7 @@
 package com.roomcheck.app
 
 import com.roomcheck.app.data.AppViewModel
+import com.roomcheck.app.data.Dates
 import com.roomcheck.app.data.DayKind
 import com.roomcheck.app.data.Luach
 import com.roomcheck.app.data.LuachNow
@@ -30,7 +31,8 @@ class LuachTest {
         val expected: List<List<DayOfWeek>> = listOf(
             listOf(SUNDAY, THURSDAY, THURSDAY),
             // the Chanukah break is Tuesday to Tuesday now, where the printed luach had Monday to Monday
-            listOf(THURSDAY, TUESDAY, TUESDAY, THURSDAY, MONDAY, MONDAY),
+            // the Shabbos off from Wednesday night to Sunday night, then the Chanukah break
+            listOf(THURSDAY, WEDNESDAY, MONDAY, TUESDAY, TUESDAY, THURSDAY, MONDAY, MONDAY),
             listOf(WEDNESDAY, WEDNESDAY, MONDAY, WEDNESDAY)
         )
         assertEquals(expected, Luach.ZMANIM.map { z -> z.days.map { it.date.dayOfWeek } })
@@ -46,7 +48,7 @@ class LuachTest {
 
     @Test
     fun theChanukahBreakIsTuesdayToTuesday() {
-        val g = Luach.ZMANIM.first { it.id == "winter" }.gaps.first()
+        val g = Luach.ZMANIM.first { it.id == "winter" }.gaps.first { it.name(en = true) == "Chanukah break" }
         assertEquals("כ״ח כסלו", g.from.hebrew)
         assertEquals(LocalDate.of(2026, 12, 8), g.from.date)
         assertEquals("ה׳ טבת", g.to.hebrew)
@@ -56,11 +58,14 @@ class LuachTest {
     }
 
     @Test
-    fun inTheWinterZmanTheNextThingIsTheChanukahBreak() {
+    fun inTheWinterZmanTheNextThingIsTheShabbosOff() {
         val now = Luach.now(at("2026-10-19T19:00"), summer = true) as LuachNow.InZman
         assertEquals("winter", now.zman.id)
-        assertEquals("הפסקה", now.next?.title)
-        assertEquals("in 50 days", Luach.countdown(now.next!!.date, LocalDate.of(2026, 10, 19)))
+        assertEquals("התחלת שבת חופשה", now.next?.title)
+        assertEquals("in 16 days", Luach.countdown(now.next!!.date, LocalDate.of(2026, 10, 19)))
+        // and after it the Chanukah break
+        val after = Luach.now(at("2026-11-09T19:00"), summer = true) as LuachNow.InZman
+        assertEquals("הפסקה", after.next?.title)
     }
 
     @Test
@@ -85,24 +90,93 @@ class LuachTest {
     }
 
     @Test
-    fun theTripToBeisChayeinuIsTimeAway() {
+    fun crownHeightsIsTimeAway() {
         val trip = Luach.now(at("2027-07-09T12:00"), true) as LuachNow.InGap
         assertTrue(trip.gap.isTrip)
         assertEquals("חזרה לישיבה", trip.gap.to.title)
+        assertEquals("Going to Crown Heights", trip.gap.name(en = true))
+        assertEquals("נוסעים לקראון הייטס", trip.gap.name(en = false))
     }
 
     @Test
-    fun withTheSummerZmanOffTheYearEndsWithTheTrip() {
+    fun theShabbosOffIsWednesdayNightToSundayNight() {
+        val g = Luach.ZMANIM.first { it.id == "winter" }.gaps.first()
+        assertEquals("Shabbos off", g.name(en = true))
+        assertEquals("שבת חופשה", g.name(en = false))
+        assertEquals(LocalDate.of(2026, 11, 4), g.from.date)
+        assertEquals("כ״ד חשון", g.from.hebrew)
+        assertEquals(LocalDate.of(2026, 11, 9), g.to.date)
+        assertEquals("כ״ט חשון", g.to.hebrew)
+        // seder is back from Monday morning, so Sunday is the last day of it
+        assertEquals(LocalDate.of(2026, 11, 8), g.lastDate)
+        assertEquals(DayKind.ZMAN, Luach.dayKind(LocalDate.of(2026, 11, 3), true))
+        (4..8).forEach { assertEquals(DayKind.OFF, Luach.dayKind(LocalDate.of(2026, 11, it), true)) }
+        assertEquals(DayKind.ZMAN, Luach.dayKind(LocalDate.of(2026, 11, 9), true))
+        assertTrue(Luach.now(at("2026-11-08T22:00"), true) is LuachNow.InGap)
+        assertTrue(Luach.now(at("2026-11-09T08:00"), true) is LuachNow.InZman)
+    }
+
+    @Test
+    fun noBedCheckOnShabbosShavuosOrWhenThereIsNoSeder() {
+        fun why(d: String, summer: Boolean = true) = Luach.noSeder(LocalDate.parse(d), summer)?.en
+        // every Friday night, in the zman or out of it
+        assertEquals("Shabbos", why("2026-10-23"))
+        assertEquals("Shabbos", why("2026-12-11"))
+        assertEquals("Shabbos", why("2026-09-04"))
+        assertEquals("Shabbos", why("2028-03-03"))
+        assertEquals("שבת", Luach.noSeder(LocalDate.parse("2026-10-23"), true)?.he)
+        // an ordinary night, and the night after Shabbos
+        assertNull(why("2026-10-21"))
+        assertNull(why("2026-10-24"))
+        // the two nights of Shavuos: the evenings of the 5th and 6th of Sivan
+        val sivan5 = Dates.gregorianOf(5787, 9, 5)
+        assertEquals("Shavuos", why(sivan5.toString()))
+        assertEquals("Shavuos", why(sivan5.plusDays(1).toString()))
+        assertEquals("שבועות", Luach.noSeder(sivan5, true)?.he)
+        assertNull(why(sivan5.minusDays(1).toString()))
+        assertNull(why(sivan5.plusDays(2).toString()))
+        // the Shabbos off: Wednesday night to Sunday night, seder again on Monday night
+        assertNull(why("2026-11-03"))
+        assertEquals("Shabbos off", why("2026-11-04"))
+        assertEquals("Shabbos off", why("2026-11-05"))
+        assertEquals("Shabbos", why("2026-11-06"))
+        assertEquals("Shabbos off", why("2026-11-07"))
+        assertEquals("Shabbos off", why("2026-11-08"))
+        assertNull(why("2026-11-09"))
+        // the Chanukah break, to the evening seder starts again
+        assertEquals("Chanukah break", why("2026-12-08"))
+        assertEquals("Chanukah break", why("2026-12-14"))
+        assertNull(why("2026-12-15"))
+        // bein hazmanim, before the year and after it
+        assertEquals("Bein hazmanim", why("2026-09-24"))
+        assertEquals("בין הזמנים", Luach.noSeder(LocalDate.parse("2026-09-24"), true)?.he)
+        assertEquals("Bein hazmanim", why("2027-04-20"))
+        assertNull(why("2026-08-01"))
+        assertNull(why("2027-09-01"))
+        // away in Crown Heights, and with the summer zman off the zman ends the day it would have gone
+        assertNull(why("2027-07-06"))
+        assertEquals("Going to Crown Heights", why("2027-07-07"))
+        assertEquals("Going to Crown Heights", why("2027-07-11"))
+        assertNull(why("2027-07-12"))
+        assertNull(why("2027-07-06", summer = false))
+        assertEquals("Bein hazmanim", why("2027-07-07", summer = false))
+        assertEquals("Bein hazmanim", why("2027-07-12", summer = false))
+    }
+
+    @Test
+    fun withTheSummerZmanOffTheZmanEndsTheDayItWouldHaveGone() {
         val trip = Luach.ZMANIM.last().days.first { it.kind == com.roomcheck.app.data.LuachKind.TRIP }
         val cut = Luach.zmanim(summer = false).last()
         assertTrue(cut.cut)
-        assertEquals(trip, cut.end)
+        assertEquals(com.roomcheck.app.data.LuachKind.END, cut.end.kind)
+        assertEquals("Zman ends", cut.end.title(en = true))
+        assertEquals(trip.date, cut.end.date)
         assertEquals(trip.date, Luach.lastDay(summer = false))
         // Pesach is still bein hazmanim before the summer zman
         val pesach = Luach.now(at("2027-04-20T12:00"), summer = false) as LuachNow.Between
         assertEquals("summer", pesach.before?.id)
-        // the trip's day is the trip, and after it there is nothing
-        assertEquals(DayKind.TRIP, Luach.dayKind(trip.date, false))
+        // the last day is the end of the zman - not Crown Heights - and after it there is nothing
+        assertEquals(DayKind.ZMAN, Luach.dayKind(trip.date, false))
         assertEquals(DayKind.NONE, Luach.dayKind(trip.date.plusDays(1), false))
         val over = Luach.now(trip.date.plusDays(1).atTime(12, 0), summer = false) as LuachNow.Between
         assertTrue(over.after!!.cut)
@@ -119,7 +193,7 @@ class LuachTest {
             while (d <= LocalDate.of(2027, 8, 31)) {
                 for (en in listOf(true, false)) {
                     when (Luach.dayKind(d, summer)) {
-                        DayKind.OFF, DayKind.TRIP -> assertTrue("$d summer=$summer", Luach.stretchOn(d, summer, en).isNotEmpty())
+                        DayKind.OFF, DayKind.TRIP -> assertTrue("$d summer=$summer", Luach.gapOn(d, summer)?.name(en).orEmpty().isNotEmpty())
                         DayKind.ZMAN -> assertNotNull("$d summer=$summer", Luach.zmanOn(d, summer))
                         else -> {}
                     }
@@ -127,11 +201,11 @@ class LuachTest {
                 d = d.plusDays(1)
             }
         }
-        // the trip's day with the summer zman off, where there is no gap for it to sit in
+        // the day it would have gone: Crown Heights with the summer zman on, the end of the zman with it off
+        assertEquals("Going to Crown Heights", Luach.gapOn(LocalDate.of(2027, 7, 7), true)?.name(en = true))
         assertNull(Luach.gapOn(LocalDate.of(2027, 7, 7), false))
-        assertEquals("Trip to Beis Chayeinu", Luach.stretchOn(LocalDate.of(2027, 7, 7), false, true))
-        assertEquals("נסיעה לבית חיינו", Luach.stretchOn(LocalDate.of(2027, 7, 7), false, false))
-        assertEquals("Trip to Beis Chayeinu", Luach.stretchOn(LocalDate.of(2027, 7, 7), true, true))
+        assertEquals(DayKind.TRIP, Luach.dayKind(LocalDate.of(2027, 7, 7), true))
+        assertEquals(DayKind.ZMAN, Luach.dayKind(LocalDate.of(2027, 7, 7), false))
     }
 
     @Test
@@ -196,11 +270,37 @@ class LuachTest {
     fun inEnglishTheLuachReadsInEnglish() {
         val winter = Luach.ZMANIM.first { it.id == "winter" }
         assertEquals("Winter zman", winter.name(en = true))
-        val brk = winter.gaps.first()
+        assertEquals("Shabbos off", winter.gaps[0].name(en = true))
+        val brk = winter.gaps[1]
         assertEquals("Chanukah break", brk.name(en = true))
         assertEquals("Break begins", brk.from.title(en = true))
         assertEquals("Tue · 28 Kislev · 2:00 pm", Luach.whenTextEn(brk.from))
-        assertEquals("Shabbos off", winter.gaps[1].name(en = true))
+        assertEquals("Shabbos off", winter.gaps[2].name(en = true))
+    }
+
+    @Test
+    fun aNightWithNoSederIsLockedUnlessSomethingWasAlreadyMarkedOnIt() {
+        // Friday night, 23 October
+        val vm = testVm(NightStore(folder.newFolder()), at("2026-10-23T23:00"))
+        assertEquals("Shabbos", vm.noSeder()?.en)
+        assertTrue(vm.isLocked())
+        // Saturday night has its seder, and Thursday's is its own two rounds
+        vm.shiftDay(1)
+        assertNull(vm.noSeder())
+        assertFalse(vm.isLocked())
+        vm.shiftDay(-2)
+        assertNull(vm.noSeder())
+        // a Friday that already has marks keeps them, to look at and to change
+        vm.shiftDay(1)
+        assertTrue(vm.isLocked())
+        vm.setMark("p1", "1100", com.roomcheck.app.data.Mark.OUT)
+        assertNull(vm.noSeder())
+        assertFalse(vm.isLocked())
+        // the summer switch moves what the luach says of the night
+        val summer = testVm(NightStore(folder.newFolder()), at("2027-07-07T23:00"))
+        assertEquals("Going to Crown Heights", summer.noSeder()?.en)
+        summer.setSummerZman(false)
+        assertEquals("Bein hazmanim", summer.noSeder()?.en)
     }
 
     @Test

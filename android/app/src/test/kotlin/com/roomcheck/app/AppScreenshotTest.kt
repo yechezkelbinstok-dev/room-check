@@ -53,6 +53,20 @@ class AppScreenshotTest {
         }
     }
 
+    /** Friday night: Shabbos, with nothing to mark. */
+    @Test
+    fun shabbosNight() {
+        val vm = testVm(NightStore(folder.newFolder()), java.time.LocalDateTime.parse("2026-10-23T23:00"))
+        paparazzi.snapshot(name = "check-shabbos") { RoomCheckTheme { CheckScreen(vm) } }
+    }
+
+    /** Sunday night in the Shabbos off: the break's own name. */
+    @Test
+    fun shabbosOffNight() {
+        val vm = testVm(NightStore(folder.newFolder()), java.time.LocalDateTime.parse("2026-11-08T23:00"))
+        paparazzi.snapshot(name = "check-shabbos-off") { RoomCheckTheme { CheckScreen(vm) } }
+    }
+
     /** Thursday night: its own two rounds, 12:45 and 1:00, in place of the three. */
     @Test
     fun thursdayNight() {

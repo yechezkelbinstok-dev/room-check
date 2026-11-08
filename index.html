@@ -175,6 +175,9 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .next button:disabled{color:var(--sub);opacity:.5}
 
 /* closed record */
+.noseder{padding:84px 32px;text-align:center}
+.noseder .en{font-size:26px;font-weight:700}
+.noseder .he{font-size:22px;color:var(--sub);margin-top:4px}
 .lock{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--blue-l);
   border-radius:11px;padding:11px 14px;margin:12px;font-size:13.5px;color:#0B4F9E;font-weight:500}
 .lock button{font-size:14.5px;font-weight:650;color:var(--blue)}
@@ -1111,9 +1114,27 @@ function marksHTML(){
 }
 
 /* ---------- screens ---------- */
+/* Why a night has no bed check - there is no seder to check on - or null for a night that has one.
+   Shabbos, every Friday night; Shavuos, the evenings of the 5th and 6th of Sivan; and whatever the
+   luach has at the hour of the bed check as a break, Crown Heights, or bein hazmanim. A night the
+   luach does not cover has none to say. As the app's Luach.noSeder. */
+function luNoSeder(night,summer){
+  const h=luHebOf(night);
+  if(h.m===3&&(h.d===5||h.d===6))return {en:"Shavuos",he:"שבועות"};
+  if(night.getDay()===5)return {en:"Shabbos",he:"שבת"};
+  if(night<LUACH[0].days[0].date||night>luEnd(LUACH[LUACH.length-1]).date)return null;
+  const st=luNow(new Date(night.getFullYear(),night.getMonth(),night.getDate(),23,0),summer);
+  return st.type==="zman"?null:st.type==="gap"?{en:luGapName(st.gap,true),he:luGapName(st.gap,false)}:{en:"Bein hazmanim",he:"בין הזמנים"};
+}
+/* ...for the night on screen, unless something has already been marked on it */
+function noSeder(){
+  if(Object.values(state.night.marks||{}).some(m=>Object.keys(m||{}).length))return null;
+  return luNoSeder(parseKey(state.dateKey),summerOn());
+}
 /* closed either because you said so, or because 6am came and went */
 function isLocked(){
   if(state.editing)return false;
+  if(noSeder())return true;
   if(state.night.closed)return true;
   if(state.dateKey===tonightKey())return false;
   return allSlots().map(s=>s.id).some(s=>Object.keys(state.night.marks[s]||{}).length>0);
@@ -1219,10 +1240,12 @@ function summaryHTML(){
     }</div></div>`:``}`;
 }
 function checkScreen(){
+  const why=noSeder();
   return headHTML()+
-    (showingReview()?reviewHTML():
+    (why?`<div class="noseder"><div class="en">${esc(why.en)}</div><div class="he">${esc(why.he)}</div></div>`:
+     showingReview()?reviewHTML():
       (state.editing?`<div class="lock" style="margin-bottom:0"><span>Editing a closed night</span><button data-a="done">Done</button></div>`:``)+marksHTML())+
-    `<div class="bar"><div class="st" id="stat"></div>${showingReview()?``:`<button class="fbtn" data-a="closenight">Save</button>`}<button class="cp" data-a="copy">Copy</button></div>`;
+    (why?``:`<div class="bar"><div class="st" id="stat"></div>${showingReview()?``:`<button class="fbtn" data-a="closenight">Save</button>`}<button class="cp" data-a="copy">Copy</button></div>`);
 }
 /* ---------- yeshiva calendar ----------
    The yeshiva's luach for the year - לוח שנת הלימודים תשפ״ו-תשפ״ז - line for line, with the changes
@@ -1230,27 +1253,30 @@ function checkScreen(){
    as printed (year, month with Nisan 1 to Adar II 13, day) and its time: the Gregorian date and the
    weekday are worked out from it, never typed in beside it, so the two cannot disagree. The same
    lines as the app's Luach.kt.
-   Kinds: start/end of a zman, off/back for a break, trip/home for travelling together, and event
-   for something that happens with the zman carrying on. */
+   Kinds: start/end of a zman, off/back for a break, trip/home for going to Crown Heights together,
+   and event for something that happens with the zman carrying on. */
 const LUACH_YEAR="תשפ״ו–תשפ״ז", LUACH_YEAR_EN="5786–5787";
 const LUACH=[
  {id:"elul",name:"זמן אלול",nameEn:"Elul zman",days:[
    {h:[5786,6,10],t:"17:30",k:"start",title:"התחלת הזמן",titleEn:"Zman begins"},
-   {h:[5786,6,28],k:"event",title:"נסיעה להרבי",titleEn:"Trip to the Rebbe",
+   {h:[5786,6,28],k:"event",title:"נסיעה להרבי",titleEn:"Going to the Rebbe",
      note:"המשך הסדר אחר ר״ה אצל הרבי",noteEn:"Seder continues at the Rebbe after Rosh Hashanah"},
    {h:[5787,7,6],t:"14:00",k:"end",title:"סיום הזמן",titleEn:"Zman ends"}]},
  {id:"winter",name:"זמן חורף",nameEn:"Winter zman",days:[
    {h:[5787,7,27],t:"17:30",k:"start",title:"התחלת הזמן",titleEn:"Zman begins"},
+   /* Wednesday night to Sunday night: seder from Monday morning */
+   {h:[5787,8,24],k:"off",title:"התחלת שבת חופשה",titleEn:"Shabbos off begins",stretch:"שבת חופשה",stretchEn:"Shabbos off"},
+   {h:[5787,8,29],k:"back",title:"המשך הזמן",titleEn:"Zman resumes"},
    /* the luach printed Monday כ״ז כסלו to Monday ד׳ טבת; it has since moved to Tuesday to Tuesday */
    {h:[5787,9,28],t:"14:00",k:"off",title:"הפסקה",titleEn:"Break begins",note:"חנוכה",noteEn:"Chanukah",stretchEn:"Chanukah break"},
    {h:[5787,10,5],t:"17:30",k:"back",title:"המשך הזמן",titleEn:"Zman resumes"},
    {h:[5787,12,4],t:"11:00",k:"off",title:"התחלת שבת חופשה",titleEn:"Shabbos off begins",stretch:"שבת חופשה",stretchEn:"Shabbos off"},
    {h:[5787,12,8],t:"20:30",k:"back",title:"המשך הזמן",titleEn:"Zman resumes"},
    {h:[5787,1,5],t:"14:00",k:"end",title:"סיום הזמן",titleEn:"Zman ends"}]},
- /* may not happen, so it can be switched off - see summerOn */
+ /* what comes after Crown Heights may not happen, so it can be switched off - see summerOn */
  {id:"summer",name:"זמן קיץ",nameEn:"Summer zman",optional:true,days:[
    {h:[5787,1,28],t:"17:30",k:"start",title:"התחלת הזמן",titleEn:"Zman begins"},
-   {h:[5787,4,2],k:"trip",title:"נסיעה לבית חיינו",titleEn:"Trip to Beis Chayeinu",note:"הישיבה יארגן אוטובוס",noteEn:"The yeshiva is arranging a bus"},
+   {h:[5787,4,2],k:"trip",title:"נוסעים לקראון הייטס",titleEn:"Going to Crown Heights",note:"הישיבה יארגן אוטובוס",noteEn:"The yeshiva is arranging a bus"},
    {h:[5787,4,7],k:"home",title:"חזרה לישיבה",titleEn:"Back to yeshiva"},
    {h:[5787,5,15],t:"14:00",k:"end",title:"סיום הזמן",titleEn:"Zman ends"}]}];
 const LU_DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], LU_MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -1268,14 +1294,23 @@ LUACH.forEach(z=>z.days.forEach(d=>{
 }));
 const luTitle=(d,en)=>en?d.titleEn:d.title, luNote=(d,en)=>en?d.noteEn:d.note, luName=(z,en)=>en?z.nameEn:z.name;
 const luGaps=z=>{const o=[];for(let i=0;i+1<z.days.length;i++){const a=z.days[i],b=z.days[i+1];
-  if((a.k==="off"&&b.k==="back")||(a.k==="trip"&&b.k==="home"))o.push({from:a,to:b,trip:a.k==="trip"});}return o;};
+  if((a.k==="off"&&b.k==="back")||(a.k==="trip"&&b.k==="home"))
+    /* seder that resumes with no time is back from the morning: the day before was the stretch's last */
+    o.push({from:a,to:b,trip:a.k==="trip",last:b.k==="back"&&!b.t?new Date(b.date.getFullYear(),b.date.getMonth(),b.date.getDate()-1):b.date});}return o;};
 const luGapName=(g,en)=>en?(g.from.stretchEn||g.from.titleEn):(g.from.stretch||g.from.title);
 /* Whether the year has a summer zman. It belongs to the whole yeshiva, so it rides in the shared
    record with everyone's settings and reads the same on every device. */
 const NO_SUMMER="yeshiva.noSummer";
 const summerOn=()=>!(people&&people.notes&&people.notes[NO_SUMMER]==="1");
-const luYear=summer=>LUACH.filter(z=>summer||!z.optional);
 const luEnd=z=>z.days[z.days.length-1];
+/* with the summer zman switched off it ends the day it would have gone to Crown Heights */
+const luCut=z=>{
+  if(!z.optional)return z;
+  const i=z.days.findIndex(d=>d.k==="trip");
+  return Object.assign({},z,{cut:true,days:z.days.slice(0,i).concat(Object.assign({},z.days[i],{k:"end",title:"סיום הזמן",titleEn:"Zman ends",note:null,noteEn:null,stretch:null,stretchEn:null}))});
+};
+const LUACH_CUT=LUACH.map(luCut);
+const luYear=summer=>summer?LUACH:LUACH_CUT;
 function luNow(at,summer){
   const y=luYear(summer);
   for(let i=0;i<y.length;i++){const z=y[i];
@@ -1288,10 +1323,10 @@ function luNow(at,summer){
   }
   return {type:"between",after:y[y.length-1]||null,before:null};
 }
-/* What a whole day is: seder, a break, a trip, or bein hazmanim. A break's first and last days count
+/* What a whole day is: seder, a break, Crown Heights, or bein hazmanim. A break's first and last days count
    as the break - each has half a day of it, and it is the break the day is remembered for. */
 const luZmanOn=(d,summer)=>luYear(summer).find(z=>d>=z.days[0].date&&d<=luEnd(z).date)||null;
-const luGapOn=(d,summer)=>{const z=luZmanOn(d,summer);return z?luGaps(z).find(g=>d>=g.from.date&&d<=g.to.date)||null:null;};
+const luGapOn=(d,summer)=>{const z=luZmanOn(d,summer);return z?luGaps(z).find(g=>d>=g.from.date&&d<=g.last)||null:null;};
 function luDayKind(d,summer){const z=luZmanOn(d,summer);if(!z)return "bein";const g=luGapOn(d,summer);return g?(g.trip?"trip":"off"):"zman";}
 const luLinesOn=(d,summer)=>luYear(summer).flatMap(z=>z.days).filter(x=>+x.date===+d);
 const luProgress=(a,b,at)=>{const t=b-a;return t<=0?1:Math.max(0,Math.min(1,(at-a)/t));};
@@ -1383,13 +1418,13 @@ function luNowCard(st,now,summer,E){
       body+=`<div class="sub">${en(n<=0?"The zman starts today":"The zman starts in "+n+" day"+(n===1?"":"s"))}</div>
         ${st.after?`<div class="lu-bar"><i class="k-bein" style="width:${(luProgress(luEnd(st.after).at,st.before.days[0].at,now)*100).toFixed(2)}%"></i></div>`:``}
         ${luNext(st.before.days[0],today,luName(st.before,E),E)}`;
-    }else body+=`<div class="sub">${en(!summer&&st.after&&st.after.id==="winter"?"No summer zman this year":"The year's zmanim are over")}</div>`;
+    }else body+=`<div class="sub">${en(st.after?"It ended "+luDate(luEnd(st.after).date):"The year's zmanim are over")}</div>`;
   }
   return `<div class="lu-now"><div class="lu-today"><span><b>${E?"Tonight":"הלילה"}</b> · ${esc(E?luHebEn(nh):hebDayMonth(night))}</span><span class="g">${en(luDate(parseKey(night)))}</span></div>${body}</div>`;
 }
 
 /* One month, the way a wall calendar has it: a week to a row, Sunday first, every day tinted by
-   what it is - seder, a break, a trip, or bein hazmanim left plain. A day with a line on the luach
+   what it is - seder, a break, Crown Heights, or bein hazmanim left plain. A day with a line on the luach
    carries a dot in that line's colour; today is ringed in black, the day tapped in blue. */
 function luMonthCard(m,i,count,today,summer,E,H,pick){
   const rtl=!E, lead=m.days[0].getDay();
@@ -1413,7 +1448,7 @@ function luMonthCard(m,i,count,today,summer,E,H,pick){
     <div class="lu-grid lu-heads">${heads.map(x=>`<span>${x}</span>`).join("")}</div>
     <div class="lu-grid">${cells}</div>
     <div class="lu-legend"><span class="d-zman">${E?"Seder":"סדר"}</span><span class="d-off">${E?"Break":"הפסקה"}</span>
-      <span class="d-trip">${E?"Trip":"נסיעה"}</span><span class="d-bein">${E?"Bein hazmanim":"בין הזמנים"}</span></div>
+      <span class="d-trip">${E?"Crown Heights":"קראון הייטס"}</span><span class="d-bein">${E?"Bein hazmanim":"בין הזמנים"}</span></div>
   </div>`;
 }
 /* the day tapped on the month: its date both ways, what kind of day it is, and its luach lines */
@@ -1432,12 +1467,12 @@ function luMonthLines(m,today,summer,E,next){
   return `<div class="lu-ml"><div class="h">${E?"THIS MONTH":"בחודש הזה"}</div>
     ${lines.length?lines.map(x=>luRow(x,today,x===next,E)).join(""):`<div class="none">${E?"Nothing on the luach this month":"אין כלום בלוח בחודש הזה"}</div>`}</div>`;
 }
-const luSummerCard=(summer,E)=>`<div class="lu-sc"><div><b>${E?"Summer zman":"זמן קיץ"}</b><i>${en(summer?"On the calendar":"Switched off - no summer zman this year")}</i></div>
+const luSummerCard=(summer,E)=>`<div class="lu-sc"><div><b>${E?"Summer zman after Crown Heights":"זמן קיץ אחרי קראון הייטס"}</b><i>${en(summer?"On the calendar, to the end of the zman":"Off - the zman ends "+luDate(luEnd(luYear(false)[luYear(false).length-1]).date))}</i></div>
   <button class="sw${summer?" on":""}" data-a="summer" aria-label="Summer zman"><i></i></button></div>`;
 function luZman(z,today,isCur,next,summer,E){
-  const off=z.optional&&!summer, s=z.days[0], e=luEnd(z);
+  const off=false, s=z.days[0], e=luEnd(z);
   let rows="";
-  if(!off){const gaps=luGaps(z);
+  {const gaps=luGaps(z);
     for(let i=0;i<z.days.length;i++){const d=z.days[i], g=gaps.find(g=>g.from===d);
       if(g){rows+=`<div class="lu-gap ${luKind(g.from.k)}">${luRow(g.from,today,g.from===next,E)}
           <div class="len">${en(luLength(luDays(g.from.date,g.to.date)))}</div>${luRow(g.to,today,g.to===next,E)}</div>`;i++;}
@@ -1448,7 +1483,7 @@ function luZman(z,today,isCur,next,summer,E){
     <div class="hd2"><div class="ttl"><div class="nm">${esc(luName(z,E))}${isCur?`<span class="lu-pill now">${E?"Now":"עכשיו"}</span>`:off?``:`<span class="lu-pill">${en(luLength(luDays(s.date,e.date)))}</span>`}</div>
       <div class="hr">${r1}</div><div class="gr">${r2}</div></div>
       ${z.optional?`<button class="sw${summer?" on":""}" data-a="summer" aria-label="Summer zman"><i></i></button>`:``}</div>
-    ${off?`<div class="offt">${en("Switched off - no summer zman this year.")}</div>`:`<div class="rows">${rows}</div>`}
+    <div class="rows">${rows}</div>
   </div>`;
 }
 function luBein(end,nextStart,isNow,E){
@@ -1474,12 +1509,11 @@ function luachScreen(now){
       (pick&&m.days.some(d=>+d===+pick)?luDayCard(pick,today,summer,E,next):``)+
       luMonthLines(m,today,summer,E,next)+luSummerCard(summer,E);
   }else{
-    LUACH.forEach((z,i)=>{
+    const year=luYear(summer);
+    year.forEach((z,i)=>{
       body+=luZman(z,today,cur===z,next,summer,E);
-      if(!z.optional||summer){
-        const following=LUACH.slice(i+1).find(x=>!x.optional||summer);
-        body+=luBein(luEnd(z),following?following.days[0]:null,st.type==="between"&&st.after===z,E);
-      }
+      const following=year[i+1];
+      body+=luBein(luEnd(z),following?following.days[0]:null,st.type==="between"&&st.after===z,E);
     });
   }
   return `<div class="hd"><div class="h1"><div><div class="htitle">Yeshiva calendar</div>
@@ -1986,7 +2020,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.18.2";
+const APP_VERSION="1.18.3";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

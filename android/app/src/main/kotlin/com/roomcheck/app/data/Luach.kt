@@ -1,5 +1,6 @@
 package com.roomcheck.app.data
 
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -14,14 +15,14 @@ enum class LuachKind {
     START, END,
     /** Seder stops for a break, and starts again. */
     OFF, BACK,
-    /** The yeshiva travels together, and comes home. */
+    /** The yeshiva goes to Crown Heights together, and comes home. */
     TRIP, HOME,
     /** Something that happens with the zman carrying on - נסיעה להרבי, where seder continues at the Rebbe. */
     EVENT
 }
 
 /**
- * What a whole day is, for colouring it on the month: seder, a break, a trip, bein hazmanim - or
+ * What a whole day is, for colouring it on the month: seder, a break, Crown Heights, bein hazmanim - or
  * [NONE], before the year starts or after it ends, when there is nothing to say about it.
  */
 enum class DayKind { ZMAN, OFF, TRIP, BEIN, NONE }
@@ -58,15 +59,20 @@ data class LuachDay(
     fun note(en: Boolean) = if (en) noteEn else note
 }
 
-/** A stretch inside a zman away from seder: a break, OFF to BACK, or a trip, TRIP to HOME. */
+/** A stretch inside a zman away from seder: a break, OFF to BACK, or Crown Heights, TRIP to HOME. */
 data class LuachGap(val from: LuachDay, val to: LuachDay) {
     val isTrip: Boolean get() = from.kind == LuachKind.TRIP
+    /**
+     * The last day the stretch has. Seder that resumes at a time is back that day; one that resumes
+     * with no time is back from the morning, so the day before was the last of the stretch.
+     */
+    val lastDate: LocalDate get() = if (to.kind == LuachKind.BACK && to.time == null) to.date.minusDays(1) else to.date
     fun name(en: Boolean): String = from.stretchName(en)
 }
 
 /**
- * A zman and its lines. An [optional] zman's stretch after its trip may not happen; [cut] is the zman
- * with that stretch switched off, ending with the trip.
+ * A zman and its lines. An [optional] zman's stretch after Crown Heights may not happen; [cut] is the
+ * zman with that stretch switched off, ending the day it would have gone.
  */
 data class Zman(
     val id: String, val name: String, val nameEn: String, val days: List<LuachDay>, val optional: Boolean = false,
@@ -87,7 +93,7 @@ data class Zman(
 sealed interface LuachNow {
     /** In a zman, seder on. [next] is the next line still to come in it. */
     data class InZman(val zman: Zman, val next: LuachDay?) : LuachNow
-    /** In a break or a trip inside a zman. */
+    /** In a break or away in Crown Heights, inside a zman. */
     data class InGap(val zman: Zman, val gap: LuachGap) : LuachNow
     /** Bein hazmanim: [after] the zman just ended, [before] the next to start - either may be missing. */
     data class Between(val after: Zman?, val before: Zman?) : LuachNow
@@ -149,13 +155,19 @@ object Luach {
         Zman("elul", "זמן אלול", "Elul zman", listOf(
             LuachDay(5786, 12, 10, LuachKind.START, "התחלת הזמן", "Zman begins", t(17, 30)),
             LuachDay(
-                5786, 12, 28, LuachKind.EVENT, "נסיעה להרבי", "Trip to the Rebbe",
+                5786, 12, 28, LuachKind.EVENT, "נסיעה להרבי", "Going to the Rebbe",
                 note = "המשך הסדר אחר ר״ה אצל הרבי", noteEn = "Seder continues at the Rebbe after Rosh Hashanah"
             ),
             LuachDay(5787, 0, 6, LuachKind.END, "סיום הזמן", "Zman ends", t(14, 0))
         )),
         Zman("winter", "זמן חורף", "Winter zman", listOf(
             LuachDay(5787, 0, 27, LuachKind.START, "התחלת הזמן", "Zman begins", t(17, 30)),
+            // Wednesday night to Sunday night: seder from Monday morning
+            LuachDay(
+                5787, 1, 24, LuachKind.OFF, "התחלת שבת חופשה", "Shabbos off begins",
+                stretch = "שבת חופשה", stretchEn = "Shabbos off"
+            ),
+            LuachDay(5787, 1, 29, LuachKind.BACK, "המשך הזמן", "Zman resumes"),
             // the luach printed Monday כ״ז כסלו to Monday ד׳ טבת; it has since moved to Tuesday to Tuesday
             LuachDay(
                 5787, 2, 28, LuachKind.OFF, "הפסקה", "Break begins", t(14, 0),
@@ -169,11 +181,11 @@ object Luach {
             LuachDay(5787, 5, 8, LuachKind.BACK, "המשך הזמן", "Zman resumes", t(20, 30)),
             LuachDay(5787, 7, 5, LuachKind.END, "סיום הזמן", "Zman ends", t(14, 0))
         )),
-        // what comes after the trip may not happen, so it can be switched off - see NightStore.summerZman
+        // what comes after Crown Heights may not happen, so it can be switched off - see NightStore.summerZman
         Zman("summer", "זמן קיץ", "Summer zman", optional = true, days = listOf(
             LuachDay(5787, 7, 28, LuachKind.START, "התחלת הזמן", "Zman begins", t(17, 30)),
             LuachDay(
-                5787, 10, 2, LuachKind.TRIP, "נסיעה לבית חיינו", "Trip to Beis Chayeinu",
+                5787, 10, 2, LuachKind.TRIP, "נוסעים לקראון הייטס", "Going to Crown Heights",
                 note = "הישיבה יארגן אוטובוס", noteEn = "The yeshiva is arranging a bus"
             ),
             LuachDay(5787, 10, 7, LuachKind.HOME, "חזרה לישיבה", "Back to yeshiva"),
@@ -181,14 +193,18 @@ object Luach {
         ))
     )
 
-    /** The zmanim the year actually has: with the summer zman switched off, it ends with the trip. */
+    /** The zmanim the year actually has: with the summer zman switched off, it ends the day it would have gone. */
     fun zmanim(summer: Boolean): List<Zman> = if (summer) ZMANIM else CUT
 
     private val CUT = ZMANIM.map { z ->
-        if (!z.optional) z else z.copy(days = z.days.takeWhile { it.kind != LuachKind.HOME }, cut = true)
+        if (!z.optional) z else {
+            val gone = z.days.first { it.kind == LuachKind.TRIP }
+            val end = LuachDay(gone.year, gone.month, gone.day, LuachKind.END, "סיום הזמן", "Zman ends")
+            z.copy(days = z.days.takeWhile { it.kind != LuachKind.TRIP } + end, cut = true)
+        }
     }
 
-    /** The year's last day: the summer zman's end, or the trip when it is switched off. */
+    /** The year's last day: the summer zman's end, or the day it would have gone when it is switched off. */
     fun lastDay(summer: Boolean): LocalDate = zmanim(summer).last().end.date
 
     fun now(at: LocalDateTime, summer: Boolean): LuachNow {
@@ -210,9 +226,7 @@ object Luach {
     fun dayKind(date: LocalDate, summer: Boolean): DayKind {
         if (date < firstDay || date > lastDay(summer)) return DayKind.NONE
         val z = zmanOn(date, summer) ?: return DayKind.BEIN
-        // a zman cut short ends with its trip, and the trip's day is the trip
-        if (z.cut && date == z.end.date) return DayKind.TRIP
-        val g = z.gaps.firstOrNull { date >= it.from.date && date <= it.to.date } ?: return DayKind.ZMAN
+        val g = z.gaps.firstOrNull { date >= it.from.date && date <= it.lastDate } ?: return DayKind.ZMAN
         return if (g.isTrip) DayKind.TRIP else DayKind.OFF
     }
 
@@ -223,16 +237,32 @@ object Luach {
     fun linesOn(date: LocalDate, summer: Boolean): List<LuachDay> =
         zmanim(summer).flatMap { it.days }.filter { it.date == date }
 
+    /** Why a night has no bed check - there is no seder to check on - in English and in Hebrew. */
+    data class NoSeder(val en: String, val he: String)
+
     /**
-     * What a break or trip day is called. The last day of a zman cut short is the trip with nothing
-     * after it, so no gap holds it and it is named by the trip's own line.
+     * The night of [night]'s evening has no seder: Shabbos - every Friday night - and Shavuos, and
+     * whatever the luach has as a break, away in Crown Heights, or bein hazmanim at the hour of the
+     * bed check. Null for a night with seder, and for one the luach does not cover.
      */
-    fun stretchOn(date: LocalDate, summer: Boolean, en: Boolean): String =
-        gapOn(date, summer)?.name(en) ?: zmanOn(date, summer)?.end?.takeIf { it.date == date }?.stretchName(en).orEmpty()
+    fun noSeder(night: LocalDate, summer: Boolean): NoSeder? {
+        // the evenings of the 5th and 6th of Sivan are the two nights of Shavuos - named so when one is a Friday too
+        Dates.hebrewOf(night).let { if (it.month == 9 && (it.day == 5 || it.day == 6)) return NoSeder("Shavuos", "שבועות") }
+        if (night.dayOfWeek == DayOfWeek.FRIDAY) return NoSeder("Shabbos", "שבת")
+        if (night < firstDay || night > yearEnd) return null
+        return when (val s = now(night.atTime(CHECK_HOUR, 0), summer)) {
+            is LuachNow.InZman -> null
+            is LuachNow.InGap -> NoSeder(s.gap.name(true), s.gap.name(false))
+            is LuachNow.Between -> NoSeder("Bein hazmanim", "בין הזמנים")
+        }
+    }
+
+    /** The hour of the evening the bed check is by: the first of the night's standing rounds is 11. */
+    private const val CHECK_HOUR = 23
 
     /** The gap a day falls in, if it falls in one. */
     fun gapOn(date: LocalDate, summer: Boolean): LuachGap? =
-        zmanOn(date, summer)?.gaps?.firstOrNull { date >= it.from.date && date <= it.to.date }
+        zmanOn(date, summer)?.gaps?.firstOrNull { date >= it.from.date && date <= it.lastDate }
 
     private val firstDay = ZMANIM.first().start.date
     private val yearEnd = ZMANIM.last().end.date
@@ -262,7 +292,7 @@ object Luach {
         out
     }
 
-    /** The months the year has: with the summer zman switched off, none after the trip's. */
+    /** The months the year has: with the summer zman switched off, none after the day it would have gone. */
     fun months(hebrewMonths: Boolean, summer: Boolean = true): List<LuachMonth> {
         val all = if (hebrewMonths) this.hebrewMonths else gregorianMonths
         val last = lastDay(summer)

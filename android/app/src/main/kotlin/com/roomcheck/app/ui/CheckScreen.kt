@@ -37,6 +37,7 @@ fun CheckScreen(vm: AppViewModel) {
     val logic = vm.logic(state)
     val locked = vm.isLocked(state)
     val review = vm.showingReview(state)
+    val noSeder = vm.noSeder(state)
     var showCalendar by remember { mutableStateOf(false) }
     var openPerson by remember { mutableStateOf<String?>(null) }
     var searching by remember { mutableStateOf(false) }
@@ -53,12 +54,13 @@ fun CheckScreen(vm: AppViewModel) {
 
         Box(Modifier.weight(1f)) {
             when {
+                noSeder != null -> NoSeder(noSeder)
                 review -> ReviewScreen(vm, state, logic)
                 else -> RoomsArea(vm, state, logic, onOpenPerson = { openPerson = it })
             }
         }
 
-        BottomBar(vm, state, logic, review)
+        if (noSeder == null) BottomBar(vm, state, logic, review)
     }
 
     if (showCalendar) {
@@ -71,6 +73,15 @@ fun CheckScreen(vm: AppViewModel) {
         LaunchedEffect(pid) { kotlinx.coroutines.delay(3500); vm.clearHighlight() }
     }
     Toast(vm, state.toast)
+}
+
+/** A night with no seder: nothing to mark, only what the night is. Hebrew on a line of its own, so it reads the right way. */
+@Composable
+private fun NoSeder(why: Luach.NoSeder) {
+    Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(why.en, fontSize = 26.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Text(why.he, fontSize = 22.sp, color = RC.sub, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
+    }
 }
 
 /** What a change came to, over the bottom of the screen for a moment. */

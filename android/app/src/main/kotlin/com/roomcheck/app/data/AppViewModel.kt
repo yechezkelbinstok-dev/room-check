@@ -138,8 +138,18 @@ class AppViewModel(
         }
     }
 
+    /**
+     * Why the night on screen has no bed check - Shabbos, Shavuos, a break, bein hazmanim - or null
+     * for one that has seder. A night with something already marked on it keeps what it has.
+     */
+    fun noSeder(s: UiState = _state.value): Luach.NoSeder? {
+        if (s.night.marks.values.any { it.isNotEmpty() }) return null
+        return Luach.noSeder(Dates.parseKey(s.dateKey), s.summerZman)
+    }
+
     fun isLocked(s: UiState = _state.value): Boolean {
         if (s.editing) return false
+        if (noSeder(s) != null) return true
         if (s.night.closed) return true
         if (s.dateKey == tonight()) return false
         return rounds(s).any { s.night.marks[it.id]?.isNotEmpty() == true }

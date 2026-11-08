@@ -40,7 +40,7 @@ class LuachScreenTest {
         }
     }
 
-    /** An ordinary night in the winter zman, the Chanukah break the next thing up. */
+    /** An ordinary night in the winter zman, the Shabbos off the next thing up. */
     @Test
     fun monthHebrew() = shot("luach-month", "2026-10-19T19:00", monthParts)
 
@@ -75,12 +75,19 @@ class LuachScreenTest {
     @Test
     fun tammuzSummerOff() = shot("luach-tammuz-no-summer", "2027-07-06T12:00", monthParts.take(2), summer = false)
 
-    /** The trip's own day with the stretch after it switched off, opened - it crashed with no gap to name it by. */
+    /** The day it would have gone to Crown Heights, with the stretch after it switched off: the end of the zman. */
     @Test
     fun tripDaySummerOff() = shot("luach-trip-day-no-summer", "2027-07-07T12:00", monthParts.take(2), summer = false)
 
     @Test
     fun tripDaySummerOffEnglish() = shot("luach-trip-day-no-summer-en", "2027-07-07T12:00", monthParts.take(2), english = true, summer = false)
+
+    /** In the Shabbos off: its days tinted as a break, the day opened as it. */
+    @Test
+    fun shabbosOff() = shot("luach-shabbos-off", "2026-11-08T12:00", monthParts.take(2))
+
+    @Test
+    fun shabbosOffInTheList() = shot("luach-shabbos-off-list", "2026-11-08T12:00", listParts.take(2), list = true)
 
     /** Before the year starts: Elul's first days blank. */
     @Test
