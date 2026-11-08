@@ -105,6 +105,7 @@ class LuachTest {
         assertEquals("שבת חופשה", g.name(en = false))
         assertEquals(LocalDate.of(2026, 11, 4), g.from.date)
         assertEquals("כ״ד חשון", g.from.hebrew)
+        assertEquals("Wed, Nov 4 · 7:00 pm", Luach.whenText(g.from))
         assertEquals(LocalDate.of(2026, 11, 9), g.to.date)
         assertEquals("כ״ט חשון", g.to.hebrew)
         // seder is back from Monday morning, so Sunday is the last day of it
@@ -112,6 +113,8 @@ class LuachTest {
         assertEquals(DayKind.ZMAN, Luach.dayKind(LocalDate.of(2026, 11, 3), true))
         (4..8).forEach { assertEquals(DayKind.OFF, Luach.dayKind(LocalDate.of(2026, 11, it), true)) }
         assertEquals(DayKind.ZMAN, Luach.dayKind(LocalDate.of(2026, 11, 9), true))
+        assertTrue(Luach.now(at("2026-11-04T18:59"), true) is LuachNow.InZman)
+        assertTrue(Luach.now(at("2026-11-04T19:00"), true) is LuachNow.InGap)
         assertTrue(Luach.now(at("2026-11-08T22:00"), true) is LuachNow.InGap)
         assertTrue(Luach.now(at("2026-11-09T08:00"), true) is LuachNow.InZman)
     }

@@ -162,9 +162,9 @@ object Luach {
         )),
         Zman("winter", "זמן חורף", "Winter zman", listOf(
             LuachDay(5787, 0, 27, LuachKind.START, "התחלת הזמן", "Zman begins", t(17, 30)),
-            // Wednesday night to Sunday night: seder from Monday morning
+            // Wednesday from 7 pm to Sunday night: seder from Monday morning
             LuachDay(
-                5787, 1, 24, LuachKind.OFF, "התחלת שבת חופשה", "Shabbos off begins",
+                5787, 1, 24, LuachKind.OFF, "התחלת שבת חופשה", "Shabbos off begins", t(19, 0),
                 stretch = "שבת חופשה", stretchEn = "Shabbos off"
             ),
             LuachDay(5787, 1, 29, LuachKind.BACK, "המשך הזמן", "Zman resumes"),
