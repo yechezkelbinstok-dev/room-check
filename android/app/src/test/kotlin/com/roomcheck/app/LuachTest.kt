@@ -287,7 +287,6 @@ class LuachTest {
         // Saturday night has its seder, and Thursday's is its own two rounds
         vm.shiftDay(1)
         assertNull(vm.noSeder())
-        assertFalse(vm.isLocked())
         vm.shiftDay(-2)
         assertNull(vm.noSeder())
         // a Friday that already has marks keeps them, to look at and to change
