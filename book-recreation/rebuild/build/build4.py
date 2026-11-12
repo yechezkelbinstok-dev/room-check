@@ -83,7 +83,6 @@ def L(path, white=False): return load_rgba(path, white_bg=white)
 rashi5 = L(D + 'comp/rashi5_0.png')
 purim3 = L(D + 'comp/ls_purim3_0.png')
 sefiras = L(D + 'comp/ls_sefiras_0.png')
-chumash = L(D + 'comp/chumash_haftoros_0.png')
 avos_green = L(D + 'build/src_avos_green.png')
 tehillim = L(D + 'comp/tehillim5_0.png', white=True)
 pocket = L(D + 'series/bo3.png')
@@ -258,6 +257,13 @@ for op in ops:
     for cv in (white, trans):
         if op[0] == 'shadow': paste_clip(cv, op[1], op[2], op[3])
         else: paste_clip(cv, op[3], op[4], op[5])
+NAMES = {'D2 dark volumes': '01_two_dark_volumes_STANDIN', 'D Melukat': '02_sefer_hamaamarim_melukat_brown_EXACT',
+         'E2 Rashi': '03_biurim_lpirush_rashi_STANDIN', 'E1 white box': '04_white_slipcase_DRAWN',
+         'H maroon': '05_shidduchim_vnisuin_RELETTERED', 'F Moadim 3': '06_likkutei_sichos_moadim_3vol_SAME_EDITION',
+         'E3 Sefer HaSichos': '07_sefer_hasichos_row_STANDIN', 'C Avos': '08_biurim_lpirkei_avos_green_EXACT',
+         'G Tehillim': '09_tehillim_tehillos_menachem_EXACT', 'J Haggadah': '10_haggadah_red_2vol_EXACT',
+         'B pocket LS': '11_likkutei_sichos_parshiyos_pocket_EXACT', 'K regular LS': '12_likkutei_sichos_regular_EXACT',
+         'I Chumash': '13_chumash_brown_RELETTERED', 'A front Moadim': '14_likkutei_sichos_moadim_front_STANDIN'}
 sharp = white.convert('RGB').filter(ImageFilter.UnsharpMask(radius=1.0, percent=20, threshold=2))
 sharp.save(OUT, optimize=True)
 t = np.asarray(trans).copy(); inner = ndi.binary_erosion(t[..., 3] == 255, iterations=2)
@@ -265,4 +271,17 @@ t[..., :3][inner] = np.asarray(sharp)[inner]
 ys, xs = np.where(t[..., 3] > 2); p = 6
 box = (max(0, xs.min() - p), max(0, ys.min() - p), min(W, xs.max() + p + 1), min(H, ys.max() + p + 1))
 Image.fromarray(t, 'RGBA').crop(box).save(OUT.replace('.png', '_transparent.png'), optimize=True)
+PIECES = __import__('os').environ.get('PIECES')
+if PIECES:
+    import os; os.makedirs(PIECES, exist_ok=True); layout = []
+    for z, op in enumerate([o for o in ops if o[0] == 'obj'], 1):
+        _, name, kind, img, X, Y = op
+        bb = img.getbbox(); piece = img.crop(bb); fn = NAMES[name] + '.png'
+        piece.save(os.path.join(PIECES, fn), optimize=True)
+        layout.append({'file': fn, 'z_order': z, 'x': int(X + bb[0] - box[0]), 'y': int(Y + bb[1] - box[1]),
+                       'width': piece.width, 'height': piece.height, 'status': fn.rsplit('_', 1)[-1][:-4] if not fn.endswith('EDITION.png') else 'SAME_EDITION'})
+    json.dump({'canvas': {'width': int(box[2] - box[0]), 'height': int(box[3] - box[1])},
+               'note': 'x/y = top-left in the final transparent PNG; draw in z_order (1 = back). Shadows are only in the final image.',
+               'pieces': layout}, open(os.path.join(PIECES, '..', 'layout.json'), 'w'), indent=1)
+    print('pieces saved:', len(layout))
 print('saved', OUT, 'and transparent', box)

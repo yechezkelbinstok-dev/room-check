@@ -1,0 +1,135 @@
+{
+ "canvas": {
+  "width": 2364,
+  "height": 1305
+ },
+ "note": "x/y = top-left in the final transparent PNG; draw in z_order (1 = back). Shadows are only in the final image.",
+ "pieces": [
+  {
+   "file": "01_two_dark_volumes_STANDIN.png",
+   "z_order": 1,
+   "x": 1390,
+   "y": 19,
+   "width": 115,
+   "height": 512,
+   "status": "STANDIN"
+  },
+  {
+   "file": "02_sefer_hamaamarim_melukat_brown_EXACT.png",
+   "z_order": 2,
+   "x": 1036,
+   "y": 10,
+   "width": 357,
+   "height": 514,
+   "status": "EXACT"
+  },
+  {
+   "file": "03_biurim_lpirush_rashi_STANDIN.png",
+   "z_order": 3,
+   "x": 483,
+   "y": 205,
+   "width": 335,
+   "height": 573,
+   "status": "STANDIN"
+  },
+  {
+   "file": "04_white_slipcase_DRAWN.png",
+   "z_order": 4,
+   "x": 397,
+   "y": 200,
+   "width": 118,
+   "height": 540,
+   "status": "DRAWN"
+  },
+  {
+   "file": "05_shidduchim_vnisuin_RELETTERED.png",
+   "z_order": 5,
+   "x": 1597,
+   "y": 61,
+   "width": 424,
+   "height": 645,
+   "status": "RELETTERED"
+  },
+  {
+   "file": "06_likkutei_sichos_moadim_3vol_SAME_EDITION.png",
+   "z_order": 6,
+   "x": 1417,
+   "y": 114,
+   "width": 349,
+   "height": 669,
+   "status": "SAME_EDITION"
+  },
+  {
+   "file": "07_sefer_hasichos_row_STANDIN.png",
+   "z_order": 7,
+   "x": 789,
+   "y": 318,
+   "width": 640,
+   "height": 372,
+   "status": "STANDIN"
+  },
+  {
+   "file": "08_biurim_lpirkei_avos_green_EXACT.png",
+   "z_order": 8,
+   "x": 1017,
+   "y": 373,
+   "width": 377,
+   "height": 642,
+   "status": "EXACT"
+  },
+  {
+   "file": "09_tehillim_tehillos_menachem_EXACT.png",
+   "z_order": 9,
+   "x": 1395,
+   "y": 396,
+   "width": 453,
+   "height": 579,
+   "status": "EXACT"
+  },
+  {
+   "file": "10_haggadah_red_2vol_EXACT.png",
+   "z_order": 10,
+   "x": 1894,
+   "y": 559,
+   "width": 437,
+   "height": 695,
+   "status": "EXACT"
+  },
+  {
+   "file": "11_likkutei_sichos_parshiyos_pocket_EXACT.png",
+   "z_order": 11,
+   "x": 15,
+   "y": 692,
+   "width": 830,
+   "height": 553,
+   "status": "EXACT"
+  },
+  {
+   "file": "12_likkutei_sichos_regular_EXACT.png",
+   "z_order": 12,
+   "x": 895,
+   "y": 781,
+   "width": 860,
+   "height": 477,
+   "status": "EXACT"
+  },
+  {
+   "file": "13_chumash_brown_RELETTERED.png",
+   "z_order": 13,
+   "x": 1689,
+   "y": 701,
+   "width": 414,
+   "height": 532,
+   "status": "RELETTERED"
+  },
+  {
+   "file": "14_likkutei_sichos_moadim_front_STANDIN.png",
+   "z_order": 14,
+   "x": 621,
+   "y": 625,
+   "width": 440,
+   "height": 664,
+   "status": "STANDIN"
+  }
+ ]
+}
