@@ -13,16 +13,30 @@
 | `output/recreation_v7.png` | Same composite on white, 2368×1424 (canvas spans original x −12..580, ×4) |
 | `output/recreation_v6.png` | Previous version: real-photo stand-ins for the Chumash and the maroon book instead of re-lettered covers |
 
-## Rebuild
+## Start here
+1. Unzip, then run `./rebuild.sh`. It installs the Python deps, re-letters the two reconstructed covers if the Frank Ruehl font is available (`apt install culmus`), and writes `output/recreation_rebuilt.png` + `output/recreation_rebuilt_transparent.png`. This reproduces v7 exactly.
+2. Compare against `uploads/original_composite.jpg`. The user's feedback screenshot is `uploads/user_circled_feedback.jpg`.
+
+## What's in this zip
+| Folder | Contents |
+|---|---|
+| `output/` | Every delivered version: v1, v3, v5, v6, v7 (+ transparent), and comparisons vs the original |
+| `uploads/` | The original composite + the photos the user found (Avos green, Haggadah red, Melukat brown, regular Likkutei Sichos) + their circled feedback |
+| `build/` | Scripts (`build4.py` = current, `reletter.py`, `register.py`, `common.py`), `reg.json` placements, prepared cut-outs. `old_versions/` = earlier build scripts |
+| `comp/`, `series/`, `cand3/` | Full-size product photos used by the build (mostly Chabad Shop) |
+| `candidates/` | Every other candidate photo downloaded (Chabad Shop, Heichal Menachem, Kehot thumbnails, Shai LaMora Chumash) |
+| `research/` | Full Chabad Shop catalogue JSON (4,112 products), Heichal & esicha product lists, Yandex reverse-search results, Kehot 5780 price list PDF, crops of each set from the original |
+
+## Rebuild manually
 ```bash
 pip install opencv-python-headless scipy pillow numpy
 apt-get install -y culmus            # Frank Ruehl Hebrew font, only needed for reletter.py
-cd book-recreation/build
+cd build
 python3 reletter.py                  # regenerates src_chumash_brown.png + src_shidduchim.png
 python3 build4.py 4.0 ../output/recreation_v8.png 1   # args: scale, output (white), tone-match on/off
 # -> writes recreation_v8.png and recreation_v8_transparent.png
 ```
-`common.py` sets `D` = the `book-recreation/` folder; all paths are relative to it.
+`common.py` sets `D` = the top folder (parent of `build/`); all paths are relative to it.
 
 ## How build4.py works
 1. Coordinates are in **original-image pixels** (568×356); `S=4` is the output scale. `put(img, x, y)` places a piece, `fit()` scales a crop to a width/height, `put_registered(key, img)` uses `build/reg.json`.
