@@ -204,6 +204,8 @@ class AppViewModel(
             val marks = s.night.marks[sid] ?: mutableMapOf()
             Roster.PEOPLE.forEach { p ->
                 if (logic(s).statusOf(p.id, sid).offCheck) return@forEach
+                // someone already marked in the dorm stays there unless he is named as missing
+                if (marks[p.id] == Mark.DORM && p.id !in missing) return@forEach
                 val value = if (p.id in missing) Mark.OUT else Mark.IN
                 if (marks[p.id] != value) {
                     marks[p.id] = value

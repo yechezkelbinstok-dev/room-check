@@ -77,6 +77,24 @@ class NightImageTest {
         }
     }
 
+    /** Some in the dorm but not in their rooms: amber on the sheet and under each time. */
+    @Test
+    fun dormSheet() {
+        val vm = halfCheckedNight()
+        listOf("p2", "p20").forEach { vm.setMark(it, "1115", Mark.DORM) }
+        Roster.PEOPLE.forEach { vm.setMark(it.id, "1200", Mark.IN) }
+        vm.setMark("p13", "1130", Mark.DORM)
+        vm.setMark("p7", "1200", Mark.DORM)
+        val state = vm.state.value
+        listOf(false to "sheet-dorm", true to "sheet-dorm-hebrew").forEach { (heb, name) ->
+            paparazzi.snapshot(name = name) {
+                val bmp = NightImage.render(vm.logic(state), state.dateKey, hebrew = heb)
+                dump(bmp, "night-image-$name.png")
+                Image(bmp.asImageBitmap(), null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
+            }
+        }
+    }
+
     /** A night with an extra 1:30 round, and the sheet narrowed to just that one. */
     @Test
     fun customTimeSheet() {

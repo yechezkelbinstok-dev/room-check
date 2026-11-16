@@ -46,7 +46,8 @@ fun ReviewScreen(vm: AppViewModel, state: UiState, logic: NightLogic) {
         }
         val roomsWithPeople = Roster.PLAN.mapNotNull { room ->
             val ppl = room.beds.flatMap { it.slots }
-            val list = if (state.onlyOut) ppl.filter { pid -> logic.sids.any { logic.statusOf(pid, it) == Mark.OUT } } else ppl
+            // not in his room either way, so in the dorm is on the short list too
+            val list = if (state.onlyOut) ppl.filter { pid -> logic.sids.any { logic.statusOf(pid, it).let { m -> m == Mark.OUT || m == Mark.DORM } } } else ppl
             if (list.isNotEmpty()) room to list else null
         }
         // Bottom room goes in contentPadding, not in the modifier: padding on the modifier shrinks
@@ -78,6 +79,7 @@ fun ReviewScreen(vm: AppViewModel, state: UiState, logic: NightLogic) {
                                     val (glyph, color) = when (logic.statusOf(pid, sid)) {
                                         Mark.IN -> "✓" to RC.green
                                         Mark.OUT -> "✕" to RC.red
+                                        Mark.DORM -> "D" to RC.amber
                                         Mark.EXC -> "E" to RC.grey
                                         Mark.AWAY -> "T" to RC.blue
                                         null -> "–" to Color(0xFFC9CBD2)

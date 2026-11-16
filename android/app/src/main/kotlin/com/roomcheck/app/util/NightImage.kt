@@ -48,6 +48,8 @@ object NightImage {
     private val greenL = Color.parseColor("#E6F4EE")
     private val red = Color.parseColor("#C42B21")
     private val redL = Color.parseColor("#FBEBEA")
+    private val amber = Color.parseColor("#A35F00")
+    private val amberL = Color.parseColor("#FCF0DC")
     private val grey = Color.parseColor("#8A8A8E")
     private val greyL = Color.parseColor("#EEEEF1")
 
@@ -78,8 +80,14 @@ object NightImage {
 
     // tone carries the meaning: red for names, green only for a round actually walked and clear,
 // grey for one nobody has marked. Green on "not marked" would read as an all-clear it has not earned.
-private class Summary(val label: String, val cols: List<List<String>>, val colW: Float, val tone: Int) {
-    val rows: Int get() = cols.maxOf { it.size }
+// Whoever was in the dorm but not in his room follows in amber under a heading of his own - and
+// alone, with no "everybody there" over it, on a round nobody was out at.
+private class Summary(
+    val label: String, val cols: List<List<String>>, val colW: Float, val tone: Int,
+    val dorm: List<List<String>> = emptyList(), val dormColW: Float = colW
+) {
+    val mainRows: Int get() = cols.maxOfOrNull { it.size } ?: 0
+    val rows: Int get() = mainRows + (if (dorm.isEmpty()) 0 else 1 + dorm.maxOf { it.size })
 }
 
     /**
@@ -88,28 +96,37 @@ private class Summary(val label: String, val cols: List<List<String>>, val colW:
      * side by side you read down the one you want and stop.
      */
     private fun summarize(logic: NightLogic, slots: List<Slot>, hebrew: Boolean, cardTextW: Float): List<Summary> {
-        val p = paint(NAME_SZ, red)
         return slots.map { slot ->
             val sid = slot.id
             val missing = logic.missingAt(sid)
+            val dorm = logic.dormAt(sid).map { logic.nameOf(it, hebrew) }
             val started = logic.stats(sid).started
             val tone = if (missing.isNotEmpty()) red else if (started) green else grey
+            val (dormCols, dormW) = if (dorm.isEmpty()) emptyList<List<String>>() to cardTextW else columns(dorm, cardTextW)
             if (missing.isEmpty()) {
                 val txt = if (!started) (if (hebrew) NOT_MARKED_HE else "Not marked")
                           else (if (hebrew) ALL_IN_HE else "Everybody there")
-                return@map Summary(slot.label, listOf(listOf(txt)), cardTextW, tone)
+                val main = if (dorm.isEmpty()) listOf(listOf(txt)) else emptyList()
+                return@map Summary(slot.label, main, cardTextW, tone, dormCols, dormW)
             }
-            val names = missing.map { logic.nameOf(it, hebrew) }
-            // As many name columns as the card is actually wide enough for. With three times a
-            // card is one name wide and this changes nothing; with ONE time the card is the whole
-            // page, and a single column of names down its edge left the rest an empty grey slab.
-            val widest = names.maxOf { p.measureText(it) }.coerceAtMost(cardTextW)
-            val cols = ((cardTextW + INNER_GAP) / (widest + INNER_GAP)).toInt()
-                .coerceIn(1, minOf(names.size, MAX_COLS))
-            val colW = (cardTextW - (cols - 1) * INNER_GAP) / cols
-            // a name too long for its column wraps rather than being cut
-            Summary(slot.label, flow(names.map { wrap(it, p, colW) }, cols), colW, tone)
+            val (cols, colW) = columns(missing.map { logic.nameOf(it, hebrew) }, cardTextW)
+            Summary(slot.label, cols, colW, tone, dormCols, dormW)
         }
+    }
+
+    /**
+     * As many name columns as the card is actually wide enough for. With three times a card is one
+     * name wide and this changes nothing; with ONE time the card is the whole page, and a single
+     * column of names down its edge left the rest an empty grey slab.
+     */
+    private fun columns(names: List<String>, cardTextW: Float): Pair<List<List<String>>, Float> {
+        val p = paint(NAME_SZ, red)
+        val widest = names.maxOf { p.measureText(it) }.coerceAtMost(cardTextW)
+        val cols = ((cardTextW + INNER_GAP) / (widest + INNER_GAP)).toInt()
+            .coerceIn(1, minOf(names.size, MAX_COLS))
+        val colW = (cardTextW - (cols - 1) * INNER_GAP) / cols
+        // a name too long for its column wraps rather than being cut
+        return flow(names.map { wrap(it, p, colW) }, cols) to colW
     }
 
     /** Fills columns top to bottom, breaking only between names so a wrapped one is never split. */
@@ -196,6 +213,7 @@ private class Summary(val label: String, val cols: List<List<String>>, val colW:
     // "not marked", not "not checked yet": a round can be missed outright, and "yet" promises
     // it is still coming.
     private const val NOT_MARKED_HE = "לא סומן"            // not marked
+    private const val DORM_HE = "בפנימיה"                 // in the dorm
 
     private fun summaryH(s: List<Summary>): Float = 28f + TITLE_H + cardHeight(s) + 30f
 
@@ -252,6 +270,17 @@ private class Summary(val label: String, val cols: List<List<String>>, val colW:
                 val cx = x + CARD_PAD + k * (s.colW + INNER_GAP)
                 col.forEachIndexed { j, line ->
                     c.drawText(line, d.p(cx), y + CARD_HEAD + j * LINE_H, p)
+                }
+            }
+            if (s.dorm.isNotEmpty()) {
+                val top = y + CARD_HEAD + s.mainRows * LINE_H
+                c.drawText(if (d.rtl) DORM_HE else "In the dorm", d.p(x + CARD_PAD), top, d.align(paint(26f, amber, bold = true)))
+                val dp = d.align(paint(NAME_SZ, amber))
+                s.dorm.forEachIndexed { k, col ->
+                    val cx = x + CARD_PAD + k * (s.dormColW + INNER_GAP)
+                    col.forEachIndexed { j, line ->
+                        c.drawText(line, d.p(cx), top + (j + 1) * LINE_H, dp)
+                    }
                 }
             }
         }
@@ -329,6 +358,7 @@ private class Summary(val label: String, val cols: List<List<String>>, val colW:
         val (bg, fg) = when (mark) {
             Mark.IN -> greenL to green
             Mark.OUT -> redL to red
+            Mark.DORM -> amberL to amber
             Mark.EXC, Mark.AWAY -> greyL to grey
             null -> Color.parseColor("#F7F7F9") to faint
         }
@@ -347,6 +377,14 @@ private class Summary(val label: String, val cols: List<List<String>>, val colW:
             Mark.OUT -> {
                 c.drawLine(cx - 10f, cy - 10f, cx + 10f, cy + 10f, stroke)
                 c.drawLine(cx + 10f, cy - 10f, cx - 10f, cy + 10f, stroke)
+            }
+            Mark.DORM -> {
+                // a little house: in the building, not in his bed
+                c.drawLine(cx - 13f, cy - 1f, cx, cy - 13f, stroke)
+                c.drawLine(cx, cy - 13f, cx + 13f, cy - 1f, stroke)
+                c.drawLine(cx - 8f, cy - 5f, cx - 8f, cy + 11f, stroke)
+                c.drawLine(cx - 8f, cy + 11f, cx + 8f, cy + 11f, stroke)
+                c.drawLine(cx + 8f, cy + 11f, cx + 8f, cy - 5f, stroke)
             }
             Mark.EXC -> {
                 // פ׳ for patur on a Hebrew sheet - an English letter has no business on it

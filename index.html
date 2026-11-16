@@ -30,6 +30,7 @@
   --grey:#8A8A8E;
   --grey-l:#EEEEF1;
   --amber:#96600A;
+  --amber-l:#FCF0DC;
   --wall:#24262D;
   --floor:#FBFBFA;
   --f:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
@@ -74,6 +75,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .seg3 button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.14)}
 .seg3 button.on .a{color:var(--text)}
 .seg3 .b.out{color:var(--red);font-weight:600}
+.seg3 .b.dorm{color:var(--amber);font-weight:600}
 .seg3 .b.done{color:var(--green)}
 /* one row of room buttons per floor, rooms 1 to 3 on top; five columns so a
    room number sits in the same place whichever row it is on */
@@ -90,6 +92,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .rbar .t{font-size:19px;font-weight:650;letter-spacing:-.01em}
 .rbar .t em{font-style:normal;font-size:13px;font-weight:500;color:var(--sub);margin-left:8px}
 .rbar .t em.miss{color:var(--red);font-weight:600}
+.rbar .t em.dorm{color:var(--amber);font-weight:600}
 
 .rbar button{font-size:14px;font-weight:600;color:var(--blue);flex:none;padding-left:12px}
 .rbar .rbtn{display:flex;flex:none}
@@ -111,6 +114,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .slot.row{flex-direction:row;align-items:center}
 .slot.in{background:var(--green-l)}
 .slot.out{background:var(--red-l)}
+.slot.dorm{background:var(--amber-l)}
 .slot.exc,.slot.away{background:var(--grey-l)}
 .nb{flex:1;min-width:0;text-align:left;padding:1px 0;display:block}
 .slot.col .nb{text-align:center}
@@ -123,6 +127,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .slot.row .mk button{width:26px;height:26px}
 .slot.row .mk .e{width:22px}
 .slot.out .ln{color:var(--red)}
+.slot.dorm .ln{color:var(--amber)}
 .slot.exc .ln,.slot.exc .fn,.slot.away .ln,.slot.away .fn{color:var(--grey)}
 /* excused is rare enough to live in the person's sheet, so a bed has no button for it; anyone off
    the walk gets a word in place of the buttons */
@@ -139,6 +144,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .mk button:active{background:#DEDFE6}
 .mk .v-in.on{background:var(--green);color:#fff}
 .mk .v-out.on{background:var(--red);color:#fff}
+.mk .v-dorm.on{background:var(--amber);color:#fff}
 .mk .e.on{background:var(--grey);color:#fff}
 .viewrow{display:flex;align-items:center;gap:6px;margin-top:8px}
 /* presets: one button each under the room numbers, green with a tick once the round has them.
@@ -164,6 +170,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .rv{width:34px;text-align:center;font-size:14px;font-weight:700}
 .rv.g{color:var(--green)}
 .rv.r{color:var(--red)}
+.rv.a{color:var(--amber)}
 .rv.e{color:var(--grey);font-size:12px}
 .rv.t{color:var(--blue);font-size:12px}
 .rv.n{color:#C9CBD2}
@@ -193,6 +200,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .bar .st{flex:1;min-width:0;font-size:13px;color:var(--sub2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bar .st b{color:var(--text);font-weight:600}
 .bar .st b.r{color:var(--red)}
+.bar .st b.a{color:var(--amber)}
 .bar .fbtn{flex:none;background:var(--blue);color:#fff;font-size:15px;font-weight:650;
   border-radius:10px;padding:12px 18px}
 .bar .fbtn:active{opacity:.8}
@@ -451,6 +459,8 @@ const RKEY="dorm-plan-v1", MKEY="dorm-mirror-v1", NPRE="dn:";
 const IC={
   tick:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.6l4.6 4.6L19 7.2"/></svg>`,
   ex:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 6.6l10.8 10.8M17.4 6.6L6.6 17.4"/></svg>`,
+  /* in the dorm: a little house - in the building, not in his bed */
+  home:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.6L12 4.6l8 7"/><path d="M6.8 10v9.2h10.4V10"/></svg>`,
   undo:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7H15.5A4.5 4.5 0 0 1 20 11.5A4.5 4.5 0 0 1 15.5 16H10"/><path d="M10.5 3.5L6 7l4.5 3.5"/></svg>`,
   eye:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>`,
   grid:`<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.3"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.3"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.3"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.3"/></svg>`,
@@ -868,24 +878,26 @@ function roomAllIn(room,sid){
   return any||roomChecked(room,sid);
 }
 /* A room's button split by its marks: red across the share of the room still on the walk that is
-   marked out, green across the share marked in, white across whoever is not marked yet. Null when
-   it would be one colour anyway - nothing marked, or everyone in - so those keep their own look. */
+   marked out, amber across the share in the dorm, green across the share marked in, white across
+   whoever is not marked yet. Null when it would be one colour anyway - nothing marked, or everyone
+   in - so those keep their own look. */
 function roomSplit(room,sid){
-  let live=0,out=0,inn=0;
+  let live=0,out=0,dorm=0,inn=0;
   room.beds.forEach(b=>b.slots.forEach(pid=>{const st=statusOf(pid,sid);
-    if(offCheck(st))return; live++; if(st==="out")out++; else if(st==="in")inn++;}));
-  if(!live||(!out&&!inn)||inn===live)return null;
-  const r=Math.round(out/live*100), g=Math.round((out+inn)/live*100);
-  return {bg:`linear-gradient(to right,#F4C7C3 0 ${r}%,#D3ECE1 ${r}% ${g}%,#fff ${g}% 100%)`,
-    border:out?"#E8B9B4":"#BCE0D2", fg:out?"#7A1A14":"var(--green)"};
+    if(offCheck(st))return; live++; if(st==="out")out++; else if(st==="dorm")dorm++; else if(st==="in")inn++;}));
+  if(!live||(!out&&!dorm&&!inn)||inn===live)return null;
+  const r=Math.round(out/live*100), a=Math.round((out+dorm)/live*100), g=Math.round((out+dorm+inn)/live*100);
+  return {bg:`linear-gradient(to right,#F4C7C3 0 ${r}%,#F6DDB2 ${r}% ${a}%,#D3ECE1 ${a}% ${g}%,#fff ${g}% 100%)`,
+    border:out?"#E8B9B4":dorm?"#E8C88E":"#BCE0D2", fg:out?"#7A1A14":dorm?"var(--amber)":"var(--green)"};
 }
 const outIn=(room,sid)=>{const o=[];room.beds.forEach(b=>b.slots.forEach(pid=>{if(statusOf(pid,sid)==="out")o.push(pid);}));return o;};
+const dormIn=(room,sid)=>{const o=[];room.beds.forEach(b=>b.slots.forEach(pid=>{if(statusOf(pid,sid)==="dorm")o.push(pid);}));return o;};
 function stats(sid){
-  let out=0,inn=0,exc=0,away=0;
+  let out=0,inn=0,exc=0,away=0,dorm=0;
   allP().forEach(({pid})=>{const s=statusOf(pid,sid);
-    if(s==="out")out++;else if(s==="in")inn++;else if(s==="exc")exc++;else if(s==="away")away++;});
+    if(s==="out")out++;else if(s==="dorm")dorm++;else if(s==="in")inn++;else if(s==="exc")exc++;else if(s==="away")away++;});
   const left=PLAN.filter(r=>!roomChecked(r,sid)).length;
-  return {out,inn,exc,away,left,started:left<PLAN.length};
+  return {out,inn,exc,away,dorm,left,started:left<PLAN.length};
 }
 const label=id=>{const s=allSlots().find(x=>x.id===id);return s?s.label:id;};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -964,6 +976,8 @@ function markMissing(missing,sid){
   snap(); const m=state.night.marks[sid]||(state.night.marks[sid]={});
   allP().forEach(({pid})=>{
     if(offCheck(statusOf(pid,sid)))return;
+    /* someone already marked in the dorm stays there unless he is named as missing */
+    if(m[pid]==="dorm"&&!missing.includes(pid))return;
     const v=missing.includes(pid)?"out":"in";
     if(m[pid]!==v){m[pid]=v;touch(markKey(sid,pid));}
   });
@@ -1020,14 +1034,17 @@ function undo(){const u=undoStack.pop();if(!u){toast("Nothing to undo");return;}
 /* Not in town at any round tonight, in walking order. */
 const awayAt=()=>allP().filter(({pid})=>allSlots().some(s=>statusOf(pid,s.id)==="away")).map(({pid})=>pid);
 const missingAt=sid=>allP().filter(({pid})=>statusOf(pid,sid)==="out").map(({pid})=>pid);
+const dormAt=sid=>allP().filter(({pid})=>statusOf(pid,sid)==="dorm").map(({pid})=>pid);
 /* The night as plain text to paste into a message: the date, then each time and just the names
-   of whoever wasn't there. Same shape as the app, so it does not matter which one sent it. */
+   of whoever wasn't there, and on a line of its own whoever was in the dorm but not in his room.
+   Same shape as the app, so it does not matter which one sent it. */
 function report(){
   const L=[hebDayMonth(state.dateKey)];
   allSlots().forEach(({id:sid,label:lbl})=>{
     L.push("",lbl);
-    const miss=missingAt(sid);
-    L.push(miss.length?miss.map(nameOf).join(", "):(stats(sid).started?"Everybody there":"Not marked"));
+    const miss=missingAt(sid), dorm=dormAt(sid);
+    L.push(miss.length?miss.map(nameOf).join(", "):(!stats(sid).started?"Not marked":dorm.length?"Nobody out":"Everybody there"));
+    if(dorm.length)L.push("In the dorm: "+dorm.map(nameOf).join(", "));
     const u=PLAN.filter(r=>!roomChecked(r,sid));
     if(stats(sid).started&&u.length)L.push("(still to mark: "+u.map(r=>r.label).join(", ")+")");
   });
@@ -1082,6 +1099,7 @@ function bedHTML(bed,room){
       </button>
       <div class="mk">
         <button class="v-in" data-mk data-p="${pid}" data-v="in" aria-label="${esc(nameOf(pid))} here">${IC.tick}</button>
+        <button class="v-dorm" data-mk data-p="${pid}" data-v="dorm" aria-label="${esc(nameOf(pid))} in the dorm">${IC.home}</button>
         <button class="v-out" data-mk data-p="${pid}" data-v="out" aria-label="${esc(nameOf(pid))} not here">${IC.ex}</button>
       </div>
     </div>`;
@@ -1178,6 +1196,7 @@ function headHTML(){
 }
 const GLYPH={in:'<span class="rv g" title="here">✓</span>',
   out:'<span class="rv r" title="not here">✕</span>',
+  dorm:'<span class="rv a" title="in the dorm">D</span>',
   exc:'<span class="rv e" title="excused">E</span>',
   away:'<span class="rv t" title="not in town">T</span>',
   none:'<span class="rv n" title="not marked">–</span>'};
@@ -1186,7 +1205,8 @@ function reviewHTML(){
   PLAN.forEach(room=>{
     const ppl=[];
     room.beds.forEach(b=>b.slots.forEach(pid=>ppl.push(pid)));
-    const list=state.onlyOut?ppl.filter(pid=>allSlots().map(s=>s.id).some(s=>statusOf(pid,s)==="out")):ppl;
+    /* not in his room either way, so in the dorm is on the short list too */
+    const list=state.onlyOut?ppl.filter(pid=>allSlots().map(s=>s.id).some(s=>["out","dorm"].includes(statusOf(pid,s)))):ppl;
     if(!list.length)return;
     shownAny=true;
     body+=`<h2>${esc(room.label)}</h2><div class="blk">`+list.map(pid=>
@@ -1215,13 +1235,15 @@ function summaryHTML(){
     let badge,inner;
     if(!st.started){badge=`<span class="b d">not done</span>`;inner=`<div class="none">Not done</div>`;}
     else{
-      badge=st.out?`<span class="b r">${st.out} out</span>`:`<span class="b g">all in</span>`;
+      badge=st.out?`<span class="b r">${st.out} out</span>`:st.dorm?`<span class="b" style="color:var(--amber)">${st.dorm} in dorm</span>`:`<span class="b g">all in</span>`;
       const rows=[];
       PLAN.forEach(r=>{
         if(!roomChecked(r,s.id))return;
         outIn(r,s.id).forEach(pid=>rows.push(
           `<div class="li"><span class="a">${esc(nameOf(pid))}</span><span class="z">${esc(r.label)}</span></div>`));
       });
+      dormAt(s.id).forEach(pid=>rows.push(
+        `<div class="li"><span class="a" style="color:var(--amber)">${esc(nameOf(pid))}</span><span class="z">In the dorm</span></div>`));
       const un=PLAN.filter(r=>!roomChecked(r,s.id));
       if(un.length)rows.push(`<div class="li"><span class="a" style="font-size:13px;color:var(--amber)">Not checked — ${un.map(r=>esc(r.label)).join(", ")}</span></div>`);
       inner=rows.length?rows.join(""):`<div class="none">Everyone in</div>`;
@@ -1653,15 +1675,25 @@ function timesScreen(){
     </div>`;
 }
 
+/* A wide bed's surname is one line beside three buttons: a long one shrinks until it fits rather
+   than losing its end to an ellipsis, the way the app's beds do it. */
+function fitNames(){
+  document.querySelectorAll(".slot.row .ln").forEach(el=>{
+    el.style.fontSize="";
+    for(let px=13;px>9&&el.scrollWidth>el.clientWidth;px-=.5)el.style.fontSize=px-.5+"px";
+  });
+}
 /* ---------- live sync ---------- */
 function sync(){
   const sid=state.cur;
+  fitNames();
   document.querySelectorAll("[data-mk]").forEach(b=>
     b.classList.toggle("on",statusOf(b.dataset.p,sid)===b.dataset.v));
   document.querySelectorAll("[data-slot]").forEach(el=>{
     const st=statusOf(el.dataset.slot,sid);
     el.classList.toggle("in",st==="in");
     el.classList.toggle("out",st==="out");
+    el.classList.toggle("dorm",st==="dorm");
     el.classList.toggle("exc",st==="exc");
     el.classList.toggle("away",st==="away");
   });
@@ -1669,9 +1701,9 @@ function sync(){
     const pl=document.querySelector(`[data-plan="${room.id}"]`);
     if(pl)pl.classList.toggle("allin",roomAllIn(room,sid));
     const ro=document.querySelector(`[data-rout="${room.id}"]`);
-    if(ro){const o=outIn(room,sid).length;
-      ro.textContent=o?o+" out":room.beds.reduce((a,b)=>a+b.slots.length,0)+" beds";
-      ro.className=o?"miss":"";}
+    if(ro){const o=outIn(room,sid).length, d=dormIn(room,sid).length;
+      ro.textContent=[o?o+" out":"",d?d+" in dorm":""].filter(Boolean).join(" · ")||room.beds.reduce((a,b)=>a+b.slots.length,0)+" beds";
+      ro.className=o?"miss":d?"dorm":"";}
   });
   PLAN.forEach((r,i)=>{
     const b=document.querySelector(`[data-rp="${r.id}"]`); if(!b)return;
@@ -1686,6 +1718,7 @@ function sync(){
     const e=document.querySelector(`[data-tb="${s}"]`); if(!e)return;
     const st=stats(s);
     if(st.out){e.textContent=st.out+" out";e.className="b out";}
+    else if(st.dorm){e.textContent=st.dorm+" in dorm";e.className="b dorm";}
     else if(!st.started){e.textContent="—";e.className="b";}
     else if(!st.left){e.textContent="all in";e.className="b done";}
     else{e.textContent=st.left+" left";e.className="b";}
@@ -1693,6 +1726,7 @@ function sync(){
   const st=stats(sid), sl=document.getElementById("stat");
   if(sl){
     const bits=[st.out?`<b class="r">${st.out} out</b>`:`<b>Nobody out</b>`];
+    if(st.dorm)bits.push(`<b class="a">${st.dorm} in dorm</b>`);
     if(st.left)bits.push(st.left+" left");
     if(st.away)bits.push(st.away+" not in town");
     if(st.exc)bits.push(st.exc+" excused");
@@ -1709,6 +1743,7 @@ function openWho(pid){
       ${allSlots().map(s=>{const st=statusOf(pid,s.id);
         return `<div class="li"><span class="a">${s.label}</span><div class="mk">
           <button class="v-in ${st==="in"?"on":""}" data-a="wset" data-s="${s.id}" data-v="in">${IC.tick}</button>
+          <button class="v-dorm ${st==="dorm"?"on":""}" data-a="wset" data-s="${s.id}" data-v="dorm" aria-label="In the dorm">${IC.home}</button>
           <button class="v-out ${st==="out"?"on":""}" data-a="wset" data-s="${s.id}" data-v="out">${IC.ex}</button>
           <button class="e ${st==="exc"?"on":""}" data-a="wset" data-s="${s.id}" data-v="exc">E</button>
         </div></div>`;}).join("")}

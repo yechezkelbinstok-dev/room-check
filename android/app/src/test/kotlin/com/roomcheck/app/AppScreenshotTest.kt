@@ -105,6 +105,23 @@ class AppScreenshotTest {
         }
     }
 
+    /** In the dorm beside in and out, on the beds, the room chips and the counts. */
+    @Test
+    fun inTheDorm() {
+        val vm = viewModel()
+        val slot = vm.state.value.curSlot
+        vm.setMark("p2", slot, Mark.IN)
+        vm.setMark("p4", slot, Mark.IN)
+        vm.setMark("p1", slot, Mark.DORM)
+        vm.setMark("p3", slot, Mark.OUT)
+        vm.setMark("p26", slot, Mark.IN)                                          // room 7: half in, half in the dorm
+        vm.setMark("p25", slot, Mark.DORM)
+        vm.setMark("p10", slot, Mark.DORM)                                        // room 3: one in the dorm, the rest unmarked
+        paparazzi.snapshot(name = "check-dorm") {
+            RoomCheckTheme { CheckScreen(vm) }
+        }
+    }
+
     /** Room buttons split by their marks: red for out, green for in, white for not marked yet. */
     @Test
     fun roomsSplitByShareMissing() {

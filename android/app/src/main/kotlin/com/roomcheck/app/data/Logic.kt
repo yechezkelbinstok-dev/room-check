@@ -1,6 +1,6 @@
 package com.roomcheck.app.data
 
-data class SlotStats(val out: Int, val inCount: Int, val exc: Int, val left: Int, val started: Boolean, val away: Int = 0)
+data class SlotStats(val out: Int, val inCount: Int, val exc: Int, val left: Int, val started: Boolean, val away: Int = 0, val dorm: Int = 0)
 
 /** [slots] is the times this night is walked at - its usual rounds, or its own, plus anything marked in. */
 class NightLogic(
@@ -68,6 +68,13 @@ class NightLogic(
         return live.count { statusOf(it, sid) == Mark.OUT }.toFloat() / live.size
     }
 
+    /** Share of the room still on the walk that is in the dorm but not in the room at [sid]. */
+    fun dormShare(room: Room, sid: String): Float {
+        val live = livePids(room, sid)
+        if (live.isEmpty()) return 0f
+        return live.count { statusOf(it, sid) == Mark.DORM }.toFloat() / live.size
+    }
+
     /** Share of the room still on the walk that is marked in at [sid]. */
     fun inShare(room: Room, sid: String): Float {
         val live = livePids(room, sid)
@@ -78,11 +85,15 @@ class NightLogic(
     fun outIn(room: Room, sid: String): List<String> =
         room.beds.flatMap { it.slots }.filter { statusOf(it, sid) == Mark.OUT }
 
+    fun dormIn(room: Room, sid: String): List<String> =
+        room.beds.flatMap { it.slots }.filter { statusOf(it, sid) == Mark.DORM }
+
     fun stats(sid: String): SlotStats {
-        var out = 0; var inC = 0; var exc = 0; var away = 0
+        var out = 0; var inC = 0; var exc = 0; var away = 0; var dorm = 0
         Roster.PEOPLE.forEach { p ->
             when (statusOf(p.id, sid)) {
                 Mark.OUT -> out++
+                Mark.DORM -> dorm++
                 Mark.IN -> inC++
                 Mark.EXC -> exc++
                 Mark.AWAY -> away++
@@ -90,13 +101,18 @@ class NightLogic(
             }
         }
         val left = Roster.PLAN.count { !roomChecked(it, sid) }
-        return SlotStats(out, inC, exc, left, left < Roster.PLAN.size, away)
+        return SlotStats(out, inC, exc, left, left < Roster.PLAN.size, away, dorm)
     }
 
     /** Everyone marked out at [sid], in room order then bed order - the order you walked them. */
     fun missingAt(sid: String): List<String> =
         Roster.PLAN.flatMap { room -> room.beds.flatMap { it.slots } }
             .filter { statusOf(it, sid) == Mark.OUT }
+
+    /** Everyone in the dorm but not in his room at [sid], in walking order. */
+    fun dormAt(sid: String): List<String> =
+        Roster.PLAN.flatMap { room -> room.beds.flatMap { it.slots } }
+            .filter { statusOf(it, sid) == Mark.DORM }
 
     /**
      * Whether [preset] is already in place at [sid]: everyone in it has its mark, or is off the walk
@@ -123,7 +139,8 @@ class NightLogic(
 
     /**
      * The night as plain text to paste into a message: the Hebrew date, then each time with just
-     * the names of whoever wasn't there. Nothing else - no room labels, no counts, no totals.
+     * the names of whoever wasn't there, and on a line of its own whoever was in the dorm but not
+     * in his room. Nothing else - no room labels, no counts, no totals.
      */
     fun report(dateKey: String): String {
         val lines = mutableListOf(Dates.hebrewDayMonth(dateKey))
@@ -131,13 +148,16 @@ class NightLogic(
             lines.add("")
             lines.add(slots[i].label)
             val missing = missingAt(sid)
+            val dorm = dormAt(sid)
             lines.add(
                 when {
                     missing.isNotEmpty() -> missing.joinToString(", ") { nameOf(it) }
                     !stats(sid).started -> "Not marked"
+                    dorm.isNotEmpty() -> "Nobody out"
                     else -> "Everybody there"
                 }
             )
+            if (dorm.isNotEmpty()) lines.add("In the dorm: " + dorm.joinToString(", ") { nameOf(it) })
             val unchecked = uncheckedAt(sid)
             if (stats(sid).started && unchecked.isNotEmpty()) {
                 lines.add("(still to mark: ${unchecked.joinToString(", ") { it.label }})")

@@ -53,7 +53,7 @@ object Merge {
             key.startsWith("m:") -> key.split(":", limit = 3).let { (_, sid, pid) ->
                 val slot = n.marks.getOrPut(sid) { mutableMapOf() }
                 val mark = when (value) {
-                    "in" -> Mark.IN; "out" -> Mark.OUT; "exc" -> Mark.EXC; else -> null
+                    "in" -> Mark.IN; "out" -> Mark.OUT; "dorm" -> Mark.DORM; "exc" -> Mark.EXC; else -> null
                 }
                 if (mark == null) slot.remove(pid) else slot[pid] = mark
             }

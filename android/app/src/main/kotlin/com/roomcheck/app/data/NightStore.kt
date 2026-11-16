@@ -6,10 +6,12 @@ import org.json.JSONObject
 import java.io.File
 
 /**
+ * DORM is not in his room but still in the dorm - apart from OUT, which is not in the building.
+ *
  * AWAY is never written into a night: it comes from the person's standing "not in town" switch,
  * the way "excused indefinitely" gives EXC, so it reads the same whichever night is open.
  */
-enum class Mark { IN, OUT, EXC, AWAY }
+enum class Mark { IN, OUT, DORM, EXC, AWAY }
 
 /** Off the walk this round - excused or not in town - so the room is judged without him. */
 val Mark?.offCheck: Boolean get() = this == Mark.EXC || this == Mark.AWAY
@@ -76,6 +78,7 @@ data class Night(
                     when (slot.optString(pid)) {
                         "in" -> map[pid] = Mark.IN
                         "out" -> map[pid] = Mark.OUT
+                        "dorm" -> map[pid] = Mark.DORM
                         "exc" -> map[pid] = Mark.EXC
                     }
                 }

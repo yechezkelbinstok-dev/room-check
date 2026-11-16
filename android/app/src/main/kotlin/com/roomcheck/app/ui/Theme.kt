@@ -18,6 +18,8 @@ object RC {
     val greenL = Color(0xFFE6F4EE)
     val red = Color(0xFFC42B21)
     val redL = Color(0xFFFBEBEA)
+    val amber = Color(0xFFA35F00)  // in the dorm, not in his room
+    val amberL = Color(0xFFFCF0DC)
     val grey = Color(0xFF8A8A8E)
     val greyL = Color(0xFFEEEEF1)
     val wall = Color(0xFF24262D)

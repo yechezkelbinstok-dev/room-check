@@ -202,11 +202,12 @@ private fun StickyControls(vm: AppViewModel, state: UiState, logic: NightLogic, 
                     Text(label, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = if (on) RC.text else RC.sub2)
                     val (txt, color) = when {
                         st.out > 0 -> st.out.toString() + " out" to RC.red
+                        st.dorm > 0 -> st.dorm.toString() + " in dorm" to RC.amber
                         !st.started -> "—" to RC.sub
                         st.left == 0 -> "all in" to RC.green
                         else -> st.left.toString() + " left" to RC.sub
                     }
-                    Text(txt, fontSize = 11.sp, color = color, fontWeight = if (st.out > 0 || st.left == 0) FontWeight.Bold else FontWeight.Normal)
+                    Text(txt, fontSize = 11.sp, color = color, fontWeight = if (st.out > 0 || st.dorm > 0 || st.left == 0) FontWeight.Bold else FontWeight.Normal)
                 }
             }
         }
@@ -225,30 +226,36 @@ private fun StickyControls(vm: AppViewModel, state: UiState, logic: NightLogic, 
                         floor.forEach { i ->
                             val room = Roster.PLAN[i]
                             val out = logic.outIn(room, state.curSlot).size
+                            val dorm = logic.dormIn(room, state.curSlot).size
                             val checked = logic.roomChecked(room, state.curSlot)
                             val (bg, fg) = when {
                                 i == state.room && state.mode == RoomMode.ONE -> RC.text to Color.White
                                 out > 0 -> Color.White to Color(0xFF7A1A14)
+                                dorm > 0 -> Color.White to RC.amber
                                 checked -> RC.greenL to RC.green
                                 else -> Color.White to RC.sub2
                             }
-                            // Split by its marks: red across the share missing, green across the share
-                            // in, white across whoever is not marked yet. Nothing marked or everyone in
-                            // stays one colour, as before.
+                            // Split by its marks: red across the share missing, amber across the share
+                            // in the dorm, green across the share in, white across whoever is not
+                            // marked yet. Nothing marked or everyone in stays one colour, as before.
                             val red = logic.missingShare(room, state.curSlot)
+                            val amber = logic.dormShare(room, state.curSlot)
                             val green = logic.inShare(room, state.curSlot)
                             val split = !(i == state.room && state.mode == RoomMode.ONE) &&
-                                (red > 0f || green > 0f) && green < 1f
+                                (red > 0f || amber > 0f || green > 0f) && green < 1f
                             Box(
                                 Modifier.weight(1f).height(34.dp).clip(RoundedCornerShape(9.dp))
                                     .background(if (split) Color.White else bg)
                                     .then(if (split) Modifier.drawBehind {
                                         drawRect(Color(0xFFF4C7C3), size = size.copy(width = size.width * red))
-                                        drawRect(Color(0xFFD3ECE1), topLeft = androidx.compose.ui.geometry.Offset(size.width * red, 0f),
+                                        drawRect(Color(0xFFF6DDB2), topLeft = androidx.compose.ui.geometry.Offset(size.width * red, 0f),
+                                            size = size.copy(width = size.width * amber))
+                                        drawRect(Color(0xFFD3ECE1), topLeft = androidx.compose.ui.geometry.Offset(size.width * (red + amber), 0f),
                                             size = size.copy(width = size.width * green))
                                     } else Modifier)
                                     .border(1.dp, when {
                                         split && red > 0f -> Color(0xFFE8B9B4)
+                                        split && amber > 0f -> Color(0xFFE8C88E)
                                         split -> Color(0xFFBCE0D2)
                                         bg == Color.White -> RC.sep
                                         else -> Color.Transparent
@@ -450,11 +457,13 @@ private fun RoomBlock(
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(if (state.settings.hebrewOnPlan) room.hebLabel else room.label, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 val out = logic.outIn(room, state.curSlot).size
+                val dorm = logic.dormIn(room, state.curSlot).size
                 val beds = room.beds.sumOf { it.slots.size }
                 Text(
-                    if (out > 0) "$out out" else "$beds beds",
-                    fontSize = 13.sp, fontWeight = if (out > 0) FontWeight.Bold else FontWeight.Medium,
-                    color = if (out > 0) RC.red else RC.sub, modifier = Modifier.padding(start = 8.dp)
+                    listOfNotNull("$out out".takeIf { out > 0 }, "$dorm in dorm".takeIf { dorm > 0 })
+                        .joinToString(" · ").ifEmpty { "$beds beds" },
+                    fontSize = 13.sp, fontWeight = if (out > 0 || dorm > 0) FontWeight.Bold else FontWeight.Medium,
+                    color = if (out > 0) RC.red else if (dorm > 0) RC.amber else RC.sub, modifier = Modifier.padding(start = 8.dp)
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -502,6 +511,7 @@ private fun BottomBar(vm: AppViewModel, state: UiState, logic: NightLogic, revie
     ) {
         val label = logic.slots.firstOrNull { it.id == state.curSlot }?.label ?: state.curSlot
         val bits = mutableListOf(if (st.out > 0) "${st.out} out" else "Nobody out")
+        if (st.dorm > 0) bits.add("${st.dorm} in dorm")
         if (st.left > 0) bits.add("${st.left} left")
         if (st.away > 0) bits.add("${st.away} not in town")
         if (st.exc > 0) bits.add("${st.exc} excused")

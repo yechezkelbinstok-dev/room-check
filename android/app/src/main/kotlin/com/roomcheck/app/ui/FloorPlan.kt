@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
@@ -173,7 +174,7 @@ fun FloorPlanCanvas(
 }
 
 /**
- * The mark buttons - in, out, and excused unless [withExcused] is off - sized to the space they actually get - on BOTH axes. Measuring width
+ * The mark buttons - in, in the dorm, out, and excused unless [withExcused] is off - sized to the space they actually get - on BOTH axes. Measuring width
  * alone was the bug behind the squashed, pill-shaped buttons with a half-cut "E": Modifier.size
  * asks for a square but is still clamped by the incoming height constraint, so a button starved
  * of height silently flattened instead of shrinking. Taking the smaller of the two keeps every
@@ -189,7 +190,7 @@ fun MarkButtons(
 ) {
     BoxWithConstraints(modifier) {
         val gap = 3.dp
-        val count = if (withExcused) 3 else 2
+        val count = if (withExcused) 4 else 3
         val preferred = if (compact) 26.dp else 30.dp
         val byWidth = (maxWidth - gap * (count - 1)) / count
         val byHeight = if (maxHeight == Dp.Infinity) preferred else maxHeight
@@ -205,6 +206,10 @@ private fun MarkButtonRow(status: Mark?, size: Dp, gap: Dp, onSet: (Mark) -> Uni
     Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
         MarkButton(size, status == Mark.IN, RC.green, { onSet(Mark.IN) }) {
             Icon(Icons.Filled.Check, contentDescription = "Here", modifier = Modifier.size(glyph))
+        }
+        // between the two, because that is where it is: out of his room, not out of the building
+        MarkButton(size, status == Mark.DORM, RC.amber, { onSet(Mark.DORM) }) {
+            Icon(Icons.Filled.Home, contentDescription = "In the dorm", modifier = Modifier.size(glyph))
         }
         MarkButton(size, status == Mark.OUT, RC.red, { onSet(Mark.OUT) }) {
             Icon(Icons.Filled.Close, contentDescription = "Not here", modifier = Modifier.size(glyph))
@@ -248,11 +253,13 @@ fun PersonSlot(
     val bgColor = when (status) {
         Mark.IN -> RC.greenL
         Mark.OUT -> RC.redL
+        Mark.DORM -> RC.amberL
         Mark.EXC, Mark.AWAY -> RC.greyL
         null -> Color.Transparent
     }
     val nameColor = when (status) {
         Mark.OUT -> RC.red
+        Mark.DORM -> RC.amber
         Mark.EXC, Mark.AWAY -> RC.grey
         else -> RC.text
     }
@@ -350,7 +357,7 @@ private fun SlotName(
 }
 
 /**
- * What a bed on the plan offers: here or not here. Excused is rare enough to live in the person's
+ * What a bed on the plan offers: here, in the dorm, or not here. Excused is rare enough to live in the person's
  * sheet, so the bed has no button for it - and someone off the walk, excused or not in town, gets
  * a word in place of the buttons, since there is nothing to mark for him.
  */
