@@ -69,13 +69,15 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 /* sticky: times + rooms */
 .stick{position:sticky;top:0;z-index:20;background:var(--bg);padding:10px 12px 8px}
 .seg3{display:flex;background:#E7E7EC;border-radius:11px;padding:3px;gap:3px}
-.seg3 button{flex:1;border-radius:8px;padding:6px 2px 7px;text-align:center}
+/* top-aligned, so the times stay level whichever tab has a second line under it */
+.seg3 button{flex:1;border-radius:8px;padding:6px 2px 7px;text-align:center;display:flex;flex-direction:column;align-items:center}
 .seg3 .a{font-size:16px;font-weight:600;color:var(--sub2)}
-.seg3 .b{font-size:11px;height:14px;color:var(--sub);margin-top:1px}
+.seg3 .b{font-size:11px;min-height:14px;line-height:14px;color:var(--sub);margin-top:1px}
+.seg3 .b span{display:block}
 .seg3 button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.14)}
 .seg3 button.on .a{color:var(--text)}
-.seg3 .b.out{color:var(--red);font-weight:600}
-.seg3 .b.dorm{color:var(--amber);font-weight:600}
+.seg3 .b .o{color:var(--red);font-weight:600}
+.seg3 .b .d{color:var(--amber);font-weight:600}
 .seg3 .b.done{color:var(--green)}
 /* one row of room buttons per floor, rooms 1 to 3 on top; five columns so a
    room number sits in the same place whichever row it is on */
@@ -92,7 +94,8 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .rbar .t{font-size:19px;font-weight:650;letter-spacing:-.01em}
 .rbar .t em{font-style:normal;font-size:13px;font-weight:500;color:var(--sub);margin-left:8px}
 .rbar .t em.miss{color:var(--red);font-weight:600}
-.rbar .t em.dorm{color:var(--amber);font-weight:600}
+.rbar .t em .d{color:var(--amber)}
+.rbar .t em .dot{color:var(--sub);font-weight:400}
 
 .rbar button{font-size:14px;font-weight:600;color:var(--blue);flex:none;padding-left:12px}
 .rbar .rbtn{display:flex;flex:none}
@@ -1701,9 +1704,11 @@ function sync(){
     const pl=document.querySelector(`[data-plan="${room.id}"]`);
     if(pl)pl.classList.toggle("allin",roomAllIn(room,sid));
     const ro=document.querySelector(`[data-rout="${room.id}"]`);
+    /* each count in its own colour: out in red, in the dorm in amber */
     if(ro){const o=outIn(room,sid).length, d=dormIn(room,sid).length;
-      ro.textContent=[o?o+" out":"",d?d+" in dorm":""].filter(Boolean).join(" · ")||room.beds.reduce((a,b)=>a+b.slots.length,0)+" beds";
-      ro.className=o?"miss":d?"dorm":"";}
+      ro.innerHTML=[o?`<span>${o} out</span>`:"",d?`<span class="d">${d} in dorm</span>`:""].filter(Boolean).join(`<span class="dot"> · </span>`)
+        ||room.beds.reduce((a,b)=>a+b.slots.length,0)+" beds";
+      ro.className=o||d?"miss":"";}
   });
   PLAN.forEach((r,i)=>{
     const b=document.querySelector(`[data-rp="${r.id}"]`); if(!b)return;
@@ -1717,8 +1722,8 @@ function sync(){
   allSlots().map(s=>s.id).forEach(s=>{
     const e=document.querySelector(`[data-tb="${s}"]`); if(!e)return;
     const st=stats(s);
-    if(st.out){e.textContent=st.out+" out";e.className="b out";}
-    else if(st.dorm){e.textContent=st.dorm+" in dorm";e.className="b dorm";}
+    /* out and in the dorm are two different things, so each gets its own line */
+    if(st.out||st.dorm){e.innerHTML=(st.out?`<span class="o">${st.out} out</span>`:"")+(st.dorm?`<span class="d">${st.dorm} in dorm</span>`:"");e.className="b";}
     else if(!st.started){e.textContent="—";e.className="b";}
     else if(!st.left){e.textContent="all in";e.className="b done";}
     else{e.textContent=st.left+" left";e.className="b";}

@@ -185,29 +185,38 @@ private fun IconBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, desc:
 @Composable
 private fun StickyControls(vm: AppViewModel, state: UiState, logic: NightLogic, onSearch: () -> Unit) {
     Column(Modifier.background(RC.bg).padding(12.dp, 10.dp, 12.dp, 8.dp)) {
+        // Every tab as tall as the tallest, so one round with both counts stacked does not leave
+        // the white of the tab you are on shorter or taller than the rest. Top-aligned, so the
+        // times stay level whichever tab has the extra line.
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(11.dp)).background(Color(0xFFE7E7EC)).padding(3.dp),
+            Modifier.fillMaxWidth().height(IntrinsicSize.Min).clip(RoundedCornerShape(11.dp))
+                .background(Color(0xFFE7E7EC)).padding(3.dp),
             horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             logic.slots.forEach { (sid, label) ->
                 val on = sid == state.curSlot
                 val st = logic.stats(sid)
                 Column(
-                    Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                    Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(8.dp))
                         .background(if (on) Color.White else Color.Transparent)
                         .clickable { vm.selectSlot(sid) }
                         .padding(2.dp, 6.dp, 2.dp, 7.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(label, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = if (on) RC.text else RC.sub2)
-                    val (txt, color) = when {
-                        st.out > 0 -> st.out.toString() + " out" to RC.red
-                        st.dorm > 0 -> st.dorm.toString() + " in dorm" to RC.amber
-                        !st.started -> "—" to RC.sub
-                        st.left == 0 -> "all in" to RC.green
-                        else -> st.left.toString() + " left" to RC.sub
+                    // out and in the dorm are two different things, so each gets its own line -
+                    // neither stands in for the other
+                    if (st.out > 0 || st.dorm > 0) {
+                        if (st.out > 0) Text("${st.out} out", fontSize = 11.sp, lineHeight = 14.sp, color = RC.red, fontWeight = FontWeight.Bold)
+                        if (st.dorm > 0) Text("${st.dorm} in dorm", fontSize = 11.sp, lineHeight = 14.sp, color = RC.amber, fontWeight = FontWeight.Bold)
+                    } else {
+                        val (txt, color) = when {
+                            !st.started -> "—" to RC.sub
+                            st.left == 0 -> "all in" to RC.green
+                            else -> st.left.toString() + " left" to RC.sub
+                        }
+                        Text(txt, fontSize = 11.sp, lineHeight = 14.sp, color = color, fontWeight = if (st.left == 0) FontWeight.Bold else FontWeight.Normal)
                     }
-                    Text(txt, fontSize = 11.sp, color = color, fontWeight = if (st.out > 0 || st.dorm > 0 || st.left == 0) FontWeight.Bold else FontWeight.Normal)
                 }
             }
         }
@@ -459,12 +468,17 @@ private fun RoomBlock(
                 val out = logic.outIn(room, state.curSlot).size
                 val dorm = logic.dormIn(room, state.curSlot).size
                 val beds = room.beds.sumOf { it.slots.size }
-                Text(
-                    listOfNotNull("$out out".takeIf { out > 0 }, "$dorm in dorm".takeIf { dorm > 0 })
-                        .joinToString(" · ").ifEmpty { "$beds beds" },
-                    fontSize = 13.sp, fontWeight = if (out > 0 || dorm > 0) FontWeight.Bold else FontWeight.Medium,
-                    color = if (out > 0) RC.red else if (dorm > 0) RC.amber else RC.sub, modifier = Modifier.padding(start = 8.dp)
-                )
+                // each count in its own colour: out in red, in the dorm in amber
+                val parts = buildList {
+                    if (out > 0) add("$out out" to RC.red)
+                    if (dorm > 0) add("$dorm in dorm" to RC.amber)
+                }
+                if (parts.isEmpty()) {
+                    Text("$beds beds", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = RC.sub, modifier = Modifier.padding(start = 8.dp))
+                } else parts.forEachIndexed { i, (text, color) ->
+                    if (i > 0) Text("·", fontSize = 13.sp, color = RC.sub, modifier = Modifier.padding(start = 5.dp))
+                    Text(text, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = color, modifier = Modifier.padding(start = if (i > 0) 5.dp else 8.dp))
+                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 listOf("All in" to Mark.IN, "All out" to Mark.OUT, "Clear" to null).forEach { (text, value) ->
