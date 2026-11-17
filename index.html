@@ -1039,18 +1039,23 @@ const awayAt=()=>allP().filter(({pid})=>allSlots().some(s=>statusOf(pid,s.id)===
 const missingAt=sid=>allP().filter(({pid})=>statusOf(pid,sid)==="out").map(({pid})=>pid);
 const dormAt=sid=>allP().filter(({pid})=>statusOf(pid,sid)==="dorm").map(({pid})=>pid);
 /* The night as plain text to paste into a message: the date, then each time and just the names
-   of whoever wasn't there, and on a line of its own whoever was in the dorm but not in his room.
-   Same shape as the app, so it does not matter which one sent it. */
+   of whoever wasn't there; then, as a section of its own, each time anyone was in the dorm but not
+   in his room. Same shape as the app, so it does not matter which one sent it. */
 function report(){
   const L=[hebDayMonth(state.dateKey)];
   allSlots().forEach(({id:sid,label:lbl})=>{
     L.push("",lbl);
-    const miss=missingAt(sid), dorm=dormAt(sid);
-    L.push(miss.length?miss.map(nameOf).join(", "):(!stats(sid).started?"Not marked":dorm.length?"Nobody out":"Everybody there"));
-    if(dorm.length)L.push("In the dorm: "+dorm.map(nameOf).join(", "));
+    const miss=missingAt(sid);
+    L.push(miss.length?miss.map(nameOf).join(", "):(!stats(sid).started?"Not marked":dormAt(sid).length?"Nobody out":"Everybody there"));
     const u=PLAN.filter(r=>!roomChecked(r,sid));
     if(stats(sid).started&&u.length)L.push("(still to mark: "+u.map(r=>r.label).join(", ")+")");
   });
+  /* whoever was in the dorm but not in his room: a section of its own, each time anyone was */
+  const inDorm=allSlots().map(({id,label:lbl})=>[lbl,dormAt(id)]).filter(([,d])=>d.length);
+  if(inDorm.length){
+    L.push("","Missing — in the dorm");
+    inDorm.forEach(([lbl,d])=>L.push("",lbl,d.map(nameOf).join(", ")));
+  }
   const away=awayAt();
   if(away.length)L.push("","Not in town",away.map(nameOf).join(", "));
   return L.join("\n");
@@ -1245,18 +1250,21 @@ function summaryHTML(){
         outIn(r,s.id).forEach(pid=>rows.push(
           `<div class="li"><span class="a">${esc(nameOf(pid))}</span><span class="z">${esc(r.label)}</span></div>`));
       });
-      dormAt(s.id).forEach(pid=>rows.push(
-        `<div class="li"><span class="a" style="color:var(--amber)">${esc(nameOf(pid))}</span><span class="z">In the dorm</span></div>`));
       const un=PLAN.filter(r=>!roomChecked(r,s.id));
       if(un.length)rows.push(`<div class="li"><span class="a" style="font-size:13px;color:var(--amber)">Not checked — ${un.map(r=>esc(r.label)).join(", ")}</span></div>`);
-      inner=rows.length?rows.join(""):`<div class="none">Everyone in</div>`;
+      inner=rows.length?rows.join(""):`<div class="none">${st.dorm?"Nobody out":"Everyone in"}</div>`;
     }
     return `<div class="sumh"><span class="a">${s.label}</span>${badge}</div><div style="padding:0 12px"><div class="blk">${inner}</div></div>`;
   }).join("");
   const exc=allP().filter(({pid})=>allSlots().map(s=>s.id).some(s=>statusOf(pid,s)==="exc"));
   const away=awayAt();
+  /* in the dorm but not in his room, under its own heading: each one with the times he was */
+  const dorm=allP().map(({pid})=>[pid,allSlots().filter(s=>statusOf(pid,s.id)==="dorm").map(s=>s.label)]).filter(([,t])=>t.length);
   return `<div class="lock"><span>Closed — ${esc(longDate(state.dateKey))}</span><button data-a="edit">Edit</button></div>
     ${blocks}
+    ${dorm.length?`<div class="sumh"><span class="a">Missing — in the dorm</span></div><div style="padding:0 12px"><div class="blk">${
+      dorm.map(([pid,t])=>`<div class="li"><span class="a" style="color:var(--amber)">${esc(nameOf(pid))}</span><span class="z">${t.join(" · ")}</span></div>`).join("")
+    }</div></div>`:``}
     ${away.length?`<div class="sumh"><span class="a">Not in town</span></div><div style="padding:0 12px"><div class="blk">${
       away.map(pid=>`<div class="li"><span class="a">${esc(nameOf(pid))}</span><span class="z">${esc(roomOf(pid).label)}</span></div>`).join("")
     }</div></div>`:``}

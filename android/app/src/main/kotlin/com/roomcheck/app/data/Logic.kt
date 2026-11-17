@@ -139,8 +139,8 @@ class NightLogic(
 
     /**
      * The night as plain text to paste into a message: the Hebrew date, then each time with just
-     * the names of whoever wasn't there, and on a line of its own whoever was in the dorm but not
-     * in his room. Nothing else - no room labels, no counts, no totals.
+     * the names of whoever wasn't there; then, as a section of its own, each time anyone was in the
+     * dorm but not in his room, with their names. Nothing else - no room labels, no counts, no totals.
      */
     fun report(dateKey: String): String {
         val lines = mutableListOf(Dates.hebrewDayMonth(dateKey))
@@ -148,19 +148,27 @@ class NightLogic(
             lines.add("")
             lines.add(slots[i].label)
             val missing = missingAt(sid)
-            val dorm = dormAt(sid)
             lines.add(
                 when {
                     missing.isNotEmpty() -> missing.joinToString(", ") { nameOf(it) }
                     !stats(sid).started -> "Not marked"
-                    dorm.isNotEmpty() -> "Nobody out"
+                    dormAt(sid).isNotEmpty() -> "Nobody out"
                     else -> "Everybody there"
                 }
             )
-            if (dorm.isNotEmpty()) lines.add("In the dorm: " + dorm.joinToString(", ") { nameOf(it) })
             val unchecked = uncheckedAt(sid)
             if (stats(sid).started && unchecked.isNotEmpty()) {
                 lines.add("(still to mark: ${unchecked.joinToString(", ") { it.label }})")
+            }
+        }
+        val inDorm = sids.indices.mapNotNull { i -> dormAt(sids[i]).takeIf { it.isNotEmpty() }?.let { slots[i].label to it } }
+        if (inDorm.isNotEmpty()) {
+            lines.add("")
+            lines.add("Missing — in the dorm")
+            inDorm.forEach { (label, pids) ->
+                lines.add("")
+                lines.add(label)
+                lines.add(pids.joinToString(", ") { nameOf(it) })
             }
         }
         val away = awayList()

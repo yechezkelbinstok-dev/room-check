@@ -73,21 +73,27 @@ class DormTest {
     }
 
     @Test
-    fun theTextNamesThemOnALineOfTheirOwn() {
+    fun theTextNamesThemInASectionOfTheirOwn() {
         val vm = testVm(NightStore(folder.newFolder()))
-        Roster.PEOPLE.forEach { vm.setMark(it.id, "1115", Mark.IN) }
-        vm.setMark("p1", "1115", Mark.OUT)
-        vm.setMark("p2", "1115", Mark.DORM)
-        Roster.PEOPLE.forEach { vm.setMark(it.id, "1130", Mark.IN) }
-        vm.setMark("p4", "1130", Mark.DORM)
-        val lines = vm.logic().report(vm.state.value.dateKey).lines()
+        val sids = vm.logic().sids
+        Roster.PEOPLE.forEach { vm.setMark(it.id, sids[0], Mark.IN) }
+        vm.setMark("p1", sids[0], Mark.OUT)
+        vm.setMark("p2", sids[0], Mark.DORM)
+        Roster.PEOPLE.forEach { vm.setMark(it.id, sids[1], Mark.IN) }
+        vm.setMark("p4", sids[1], Mark.DORM)
+        val labels = vm.logic().slots.map { it.label }
+        val text = vm.logic().report(vm.state.value.dateKey)
+        val lines = text.lines()
 
-        val at1115 = lines.indexOf("11:15")
-        assertEquals("Shlomo Altein", lines[at1115 + 1])
-        assertEquals("In the dorm: Yosef Lehr", lines[at1115 + 2])
-        val at1130 = lines.indexOf("11:30")
-        assertEquals("Nobody out", lines[at1130 + 1])
-        assertEquals("In the dorm: Dovber Pevzner", lines[at1130 + 2])
+        // the missing, time by time, with nobody in the dorm among them
+        assertEquals("Shlomo Altein", lines[lines.indexOf(labels[0]) + 1])
+        assertEquals("Nobody out", lines[lines.indexOf(labels[1]) + 1])
+        assertEquals("Not marked", lines[lines.indexOf(labels[2]) + 1])
+        // then the dorm under its own heading, only the times anyone was there
+        val section = lines.indexOf("Missing — in the dorm")
+        assertTrue(section > lines.indexOf(labels[2]))
+        assertEquals(listOf("", labels[0], "Yosef Lehr", "", labels[1], "Dovber Pevzner"), lines.drop(section + 1))
+        assertEquals(1, Regex("Yosef Lehr").findAll(text).count())
     }
 
     @Test

@@ -80,38 +80,43 @@ object NightImage {
 
     // tone carries the meaning: red for names, green only for a round actually walked and clear,
 // grey for one nobody has marked. Green on "not marked" would read as an all-clear it has not earned.
-// Whoever was in the dorm but not in his room follows in amber under a heading of his own - and
-// alone, with no "everybody there" over it, on a round nobody was out at.
-private class Summary(
-    val label: String, val cols: List<List<String>>, val colW: Float, val tone: Int,
-    val dorm: List<List<String>> = emptyList(), val dormColW: Float = colW
-) {
-    val mainRows: Int get() = cols.maxOfOrNull { it.size } ?: 0
-    val rows: Int get() = mainRows + (if (dorm.isEmpty()) 0 else 1 + dorm.maxOf { it.size })
+private class Summary(val label: String, val cols: List<List<String>>, val colW: Float, val tone: Int) {
+    val rows: Int get() = cols.maxOf { it.size }
 }
+
+/** The summary's sections: who was missing, then - when anyone was - who was in the dorm but not in his room. */
+private class Sections(val missing: List<Summary>, val dorm: List<Summary>?)
 
     /**
      * One card per time, each holding its own names one to a line. Run together with commas the
      * three lists were a wall of text you had to parse to find a single name in; as three lists
      * side by side you read down the one you want and stop.
+     *
+     * Whoever was in the dorm but not in his room gets a section of his own under the missing,
+     * with a card for each time in the same places, rather than being tucked into theirs.
      */
-    private fun summarize(logic: NightLogic, slots: List<Slot>, hebrew: Boolean, cardTextW: Float): List<Summary> {
-        return slots.map { slot ->
-            val sid = slot.id
-            val missing = logic.missingAt(sid)
-            val dorm = logic.dormAt(sid).map { logic.nameOf(it, hebrew) }
-            val started = logic.stats(sid).started
-            val tone = if (missing.isNotEmpty()) red else if (started) green else grey
-            val (dormCols, dormW) = if (dorm.isEmpty()) emptyList<List<String>>() to cardTextW else columns(dorm, cardTextW)
-            if (missing.isEmpty()) {
-                val txt = if (!started) (if (hebrew) NOT_MARKED_HE else "Not marked")
-                          else (if (hebrew) ALL_IN_HE else "Everybody there")
-                val main = if (dorm.isEmpty()) listOf(listOf(txt)) else emptyList()
-                return@map Summary(slot.label, main, cardTextW, tone, dormCols, dormW)
+    private fun summarize(logic: NightLogic, slots: List<Slot>, hebrew: Boolean, cardTextW: Float): Sections {
+        // [none] in [noneTone] when nobody is named: green for the missing (a round walked and clear), grey for the dorm
+        fun card(slot: Slot, pids: List<String>, tone: Int, none: String, noneTone: Int): Summary {
+            val started = logic.stats(slot.id).started
+            if (pids.isEmpty()) {
+                if (!started) return Summary(slot.label, listOf(listOf(if (hebrew) NOT_MARKED_HE else "Not marked")), cardTextW, grey)
+                return Summary(slot.label, listOf(listOf(none)), cardTextW, noneTone)
             }
-            val (cols, colW) = columns(missing.map { logic.nameOf(it, hebrew) }, cardTextW)
-            Summary(slot.label, cols, colW, tone, dormCols, dormW)
+            val (cols, colW) = columns(pids.map { logic.nameOf(it, hebrew) }, cardTextW)
+            return Summary(slot.label, cols, colW, tone)
         }
+        val missing = slots.map { slot ->
+            // nobody out, but somebody in the dorm: not "everybody there", which he wasn't
+            val none = when {
+                logic.dormAt(slot.id).isNotEmpty() -> if (hebrew) NOBODY_OUT_HE else "Nobody out"
+                else -> if (hebrew) ALL_IN_HE else "Everybody there"
+            }
+            card(slot, logic.missingAt(slot.id), red, none, green)
+        }
+        val dorm = slots.takeIf { s -> s.any { logic.dormAt(it.id).isNotEmpty() } }
+            ?.map { slot -> card(slot, logic.dormAt(slot.id), amber, if (hebrew) NONE_HE else "None", grey) }
+        return Sections(missing, dorm)
     }
 
     /**
@@ -176,14 +181,14 @@ private class Summary(
     fun render(logic: NightLogic, dateKey: String, hebrew: Boolean = false, slots: List<Slot> = logic.slots): Bitmap {
         val colW = widestNameWidth(logic, hebrew) + 40f + slots.size * COL_W
         var w = 2 * colW + GAP + 2 * PAD
-        var summaries = summarize(logic, slots, hebrew, cardWidth(w, slots.size) - 2 * CARD_PAD)
-        var h = heightOf(summaries)
+        var sections = summarize(logic, slots, hebrew, cardWidth(w, slots.size) - 2 * CARD_PAD)
+        var h = heightOf(sections)
         // A heavy night makes the summary long. Widen rather than let the thread crop it: the
         // extra width re-wraps the names shorter, so one pass always lands inside the ratio.
         if (h / w > MAX_RATIO) {
             w = h / MAX_RATIO
-            summaries = summarize(logic, slots, hebrew, cardWidth(w, slots.size) - 2 * CARD_PAD)
-            h = heightOf(summaries)
+            sections = summarize(logic, slots, hebrew, cardWidth(w, slots.size) - 2 * CARD_PAD)
+            h = heightOf(sections)
         }
 
         val bmp = Bitmap.createBitmap(w.toInt(), h.toInt(), Bitmap.Config.ARGB_8888)
@@ -192,8 +197,9 @@ private class Summary(
 
         val d = Dir(w, rtl = hebrew)
         drawHeader(c, dateKey, d)
-        drawSummary(c, summaries, HEADER_H, d)
-        drawSheet(c, logic, slots, hebrew, HEADER_H + summaryH(summaries), d)
+        drawSummary(c, TITLE, sections.missing, HEADER_H, d)
+        sections.dorm?.let { drawSummary(c, DORM_TITLE, it, HEADER_H + summaryH(sections.missing), d) }
+        drawSheet(c, logic, slots, hebrew, HEADER_H + summaryH(sections), d)
         return bmp
     }
 
@@ -213,15 +219,19 @@ private class Summary(
     // "not marked", not "not checked yet": a round can be missed outright, and "yet" promises
     // it is still coming.
     private const val NOT_MARKED_HE = "לא סומן"            // not marked
-    private const val DORM_HE = "בפנימיה"                 // in the dorm
+    // in the dorm but not in his room: missing all the same, so named under the same word
+    private const val DORM_TITLE = "חסרים — בפנימיה"     // missing - in the dorm
+    private const val NOBODY_OUT_HE = "אף אחד לא בחוץ"    // nobody out
+    private const val NONE_HE = "אין"                   // none
 
     private fun summaryH(s: List<Summary>): Float = 28f + TITLE_H + cardHeight(s) + 30f
+    private fun summaryH(s: Sections): Float = summaryH(s.missing) + (s.dorm?.let { summaryH(it) } ?: 0f)
 
-    private fun heightOf(summaries: List<Summary>): Float {
+    private fun heightOf(sections: Sections): Float {
         val split = splitPoint()
         val left = Roster.PLAN.take(split).sumOf { blockH(it).toDouble() }.toFloat()
         val right = Roster.PLAN.drop(split).sumOf { blockH(it).toDouble() }.toFloat()
-        return HEADER_H + summaryH(summaries) + BAND_H + maxOf(left, right) + PAD
+        return HEADER_H + summaryH(sections) + BAND_H + maxOf(left, right) + PAD
     }
 
     /**
@@ -247,10 +257,13 @@ private class Summary(
         c.drawLine(PAD, 186f, d.w - PAD, 186f, Paint().apply { color = hair; strokeWidth = 2f })
     }
 
-    /** Who was missing, at the top, so it answers the question before anything is opened. */
-    private fun drawSummary(c: Canvas, summaries: List<Summary>, startY: Float, d: Dir) {
+    /**
+     * Who was missing, at the top, so it answers the question before anything is opened - and
+     * under it, as a section of its own headed [title], who was in the dorm but not in his room.
+     */
+    private fun drawSummary(c: Canvas, title: String, summaries: List<Summary>, startY: Float, d: Dir) {
         var y = startY + 28f
-        c.drawText(TITLE, d.p(PAD), y + 46f, d.align(paint(50f, ink, bold = true)))
+        c.drawText(title, d.p(PAD), y + 46f, d.align(paint(50f, ink, bold = true)))
         y += TITLE_H
 
         // All three cards take the tallest card's height. Sized to their own contents they would
@@ -270,17 +283,6 @@ private class Summary(
                 val cx = x + CARD_PAD + k * (s.colW + INNER_GAP)
                 col.forEachIndexed { j, line ->
                     c.drawText(line, d.p(cx), y + CARD_HEAD + j * LINE_H, p)
-                }
-            }
-            if (s.dorm.isNotEmpty()) {
-                val top = y + CARD_HEAD + s.mainRows * LINE_H
-                c.drawText(if (d.rtl) DORM_HE else "In the dorm", d.p(x + CARD_PAD), top, d.align(paint(26f, amber, bold = true)))
-                val dp = d.align(paint(NAME_SZ, amber))
-                s.dorm.forEachIndexed { k, col ->
-                    val cx = x + CARD_PAD + k * (s.dormColW + INNER_GAP)
-                    col.forEachIndexed { j, line ->
-                        c.drawText(line, d.p(cx), top + (j + 1) * LINE_H, dp)
-                    }
                 }
             }
         }
