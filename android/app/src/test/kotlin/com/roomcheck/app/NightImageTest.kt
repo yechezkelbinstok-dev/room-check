@@ -197,7 +197,7 @@ class NightImageTest {
             """
             |
             |11:15
-            |Menachem Mendel Piekarski, Menachem Mendel Stolik, Asher Wolfe, Menachem Mendel HaLevi Flint, Leib Meir November, Yehuda Fehler
+            |Menachem Mendel Piekarski, Menachem Mendel Stolik, Menachem Mendel HaLevi Flint, Leib Meir November, Yehuda Fehler, Asher Wolfe
             |
             |11:30
             |Dovid Altein, Leib Meir November, Yehuda Fehler

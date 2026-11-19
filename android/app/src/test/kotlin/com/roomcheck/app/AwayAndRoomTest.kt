@@ -17,7 +17,7 @@ class AwayAndRoomTest {
 
     @get:Rule val folder = TemporaryFolder()
 
-    private val room8 = Roster.PLAN.first { it.id == "r8" }   // Fehler / Smith bunk, Levitansky
+    private val room8 = Roster.PLAN.first { it.id == "r8" }   // Fehler / Smith bunk, Wolfe
 
     @Test
     fun notInTownCarriesToEveryRoundAndEveryNightUntilTurnedOff() {
@@ -56,12 +56,12 @@ class AwayAndRoomTest {
 
         vm.setRoom(room8, sid, Mark.IN)
         assertEquals(Mark.IN, vm.logic().statusOf("p29", sid))
-        assertEquals(Mark.IN, vm.logic().statusOf("p28", sid))
+        assertEquals(Mark.IN, vm.logic().statusOf("p11", sid))
         assertEquals(Mark.AWAY, vm.logic().statusOf("p31", sid))
         assertTrue(vm.logic().roomAllIn(room8, sid))
 
         vm.setRoom(room8, sid, Mark.OUT)
-        assertEquals(listOf("p29", "p28"), vm.logic().outIn(room8, sid))
+        assertEquals(listOf("p29", "p11"), vm.logic().outIn(room8, sid))
 
         vm.setRoom(room8, sid, null)
         assertFalse(vm.logic().roomChecked(room8, sid))
@@ -82,8 +82,8 @@ class AwayAndRoomTest {
     fun onlyOneInTheRoomMarksTheRestOut() {
         val vm = testVm(NightStore(folder.newFolder()))
         val sid = vm.state.value.curSlot
-        vm.setRoom(room8, sid, null, only = "p28")
-        assertEquals(Mark.IN, vm.logic().statusOf("p28", sid))
+        vm.setRoom(room8, sid, null, only = "p11")
+        assertEquals(Mark.IN, vm.logic().statusOf("p11", sid))
         assertEquals(Mark.OUT, vm.logic().statusOf("p29", sid))
         assertEquals(Mark.OUT, vm.logic().statusOf("p31", sid))
     }
@@ -92,8 +92,8 @@ class AwayAndRoomTest {
     fun onlyOneMissingMarksTheRestIn() {
         val vm = testVm(NightStore(folder.newFolder()))
         val sid = vm.state.value.curSlot
-        vm.setRoom(room8, sid, null, only = "p28", onlyMark = Mark.OUT)
-        assertEquals(Mark.OUT, vm.logic().statusOf("p28", sid))
+        vm.setRoom(room8, sid, null, only = "p11", onlyMark = Mark.OUT)
+        assertEquals(Mark.OUT, vm.logic().statusOf("p11", sid))
         assertEquals(Mark.IN, vm.logic().statusOf("p29", sid))
         assertEquals(Mark.IN, vm.logic().statusOf("p31", sid))
     }
@@ -104,8 +104,8 @@ class AwayAndRoomTest {
         val vm = testVm(NightStore(folder.newFolder()))
         val sid = vm.state.value.curSlot
         vm.toggleAway("p31")
-        vm.setRoom(room8, sid, null, only = "p28", onlyMark = Mark.OUT)
-        assertEquals(Mark.OUT, vm.logic().statusOf("p28", sid))
+        vm.setRoom(room8, sid, null, only = "p11", onlyMark = Mark.OUT)
+        assertEquals(Mark.OUT, vm.logic().statusOf("p11", sid))
         assertEquals(Mark.IN, vm.logic().statusOf("p29", sid))
         assertNull(vm.state.value.night.marks[sid]?.get("p31"))
     }
@@ -120,8 +120,9 @@ class AwayAndRoomTest {
 
     @Test
     fun whoeverLeftIsOffThePlanButStillHasAName() {
-        assertFalse(Roster.PEOPLE.any { it.id == "p27" || it.id == "p30" })
+        assertFalse(Roster.PEOPLE.any { it.id == "p27" || it.id == "p30" || it.id == "p28" })
         assertEquals("Fridman", Roster.byId.getValue("p27").last)
+        assertEquals("Levitansky", Roster.byId.getValue("p28").last)
         assertEquals(Roster.PEOPLE.map { it.id }.toSet(), Roster.PLAN.flatMap { r -> r.beds.flatMap { it.slots } }.toSet())
     }
 }

@@ -14,10 +14,10 @@ class FindPersonTest {
     @Test
     fun jumpsToTheRoomThePersonSleepsIn() {
         val vm = vm()
-        // p28 (Levitansky) is in Room 8, the last one - nothing like the room it starts on
-        vm.findPerson("p28")
+        // p11 (Wolfe) is in Room 8, the last one - nothing like the room it starts on
+        vm.findPerson("p11")
         assertEquals(7, vm.state.value.room)
-        assertEquals("p28", vm.state.value.highlight)
+        assertEquals("p11", vm.state.value.highlight)
     }
 
     /** A ring buried in a scrolling list of eight plans is not showing someone where a bed is. */

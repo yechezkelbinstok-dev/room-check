@@ -58,7 +58,6 @@ object Roster {
         Person("p24", "Leib Meir", "November", "לייב מאיר", "נאוועמבער"),
         Person("p25", "Sadya", "Liberow", "סעדי׳", "ליבעראוו"),
         Person("p26", "Yitzchok Sholom", "Lipkind", "יצחק שלום", "ליפקינד"),
-        Person("p28", "Tzvi Dov HaLevi", "Levitansky", "צבי דוב הלוי", "לויטנסקי"),
         Person("p29", "Yehuda", "Fehler", "יהודה", "פעלער"),
         Person("p31", "Mordechai Shlomo", "Smith", "מרדכי שלמה", "סמיט")
     )
@@ -66,7 +65,8 @@ object Roster {
     /** Gone from the yeshiva. Kept only so the nights they were in still read with their names. */
     private val LEFT: List<Person> = listOf(
         Person("p27", "Dovid", "Fridman", "דוד", "פרידמאן"),
-        Person("p30", "Meir Shlomo", "Ceitlin", "מאיר שלמה", "ציטלין")
+        Person("p30", "Meir Shlomo", "Ceitlin", "מאיר שלמה", "ציטלין"),
+        Person("p28", "Tzvi Dov HaLevi", "Levitansky", "צבי דוב הלוי", "לויטנסקי")
     )
     val byId: Map<String, Person> = (PEOPLE + LEFT).associateBy { it.id }
 
@@ -92,25 +92,25 @@ object Roster {
     // deep as its own beds need plus roughly a 16-unit walkway in from the door. That walkway is
     // all the empty floor there should ever be; a room does not get depth it has no use for.
     val PLAN: List<Room> = listOf(
-        // a bunk across the top right and a single across the bottom right - the bottom bunk broke,
-        // so Shlomo Altein has it to himself - and Lehr's own single down the left wall from the
-        // top corner. The door is near the bottom-left corner, onto the floor at the foot of
-        // Lehr's bed: further right, Altein's bed against that wall would stand in its way.
-        Room("r1", "Room 1", "חדר א׳", 100f, 78f, Door(DoorWall.BOTTOM, 12f), listOf(
-            across(38f, 2f, "p3", "p4"),        // Piekarski / Pevzner - across the top right
-            across(38f, 44f, "p1"),             // Shlomo Altein - across the bottom right, by the door
-            upright(2f, 2f, "p2"))),            // Lehr - down the left wall, in the top corner
+        // three beds side by side, all running down from the top wall with the same gap between
+        // each: the bunk in the left corner, then two singles. Wider than the others so three
+        // fit with room between them. The door is near the bottom-left corner, onto the floor at
+        // the foot of the bunk.
+        Room("r1", "Room 1", "חדר א׳", 124f, 78f, Door(DoorWall.BOTTOM, 12f), listOf(
+            upright(2f, 2f, "p2", "p4"),        // Lehr / Pevzner - bunk in the top-left corner
+            upright(46f, 2f, "p3"),             // Piekarski - single, in the middle
+            upright(90f, 2f, "p1"))),           // Shlomo Altein - single, on the right
         // bunk on the left wall, the other across the top right
         Room("r2", "Room 2", "חדר ב׳", 100f, 78f, Door(DoorWall.BOTTOM, 85f), listOf(
             upright(2f, 2f, "p8", "p5"),        // Levin / Holtzberg
             across(38f, 2f, "p7", "p6"))),      // Raices / Stolik
         // Hirsch's single is across the top wall with its foot against the right wall; the other
         // two run down the side walls level with each other, so the floor between them is the
-        // walkway in from the door.
-        Room("r3", "Room 3", "חדר ג׳", 100f, 118f, Door(DoorWall.BOTTOM, 70f), listOf(
+        // walkway in from the door - which is on the left, by the foot of Heidingsfeld's bed.
+        Room("r3", "Room 3", "חדר ג׳", 100f, 118f, Door(DoorWall.BOTTOM, 30f), listOf(
             across(38f, 2f, "p10"),             // Hirsch
             upright(2f, 42f, "p9"),             // Heidingsfeld
-            upright(66f, 42f, "p11", "p12"))),  // Wolfe / Tzfasman
+            upright(66f, 42f, "p12"))),         // Tzfasman - on his own since Wolfe moved to Room 8
         // A wider room: the two singles lie end to end along the top wall, right next to each
         // other, and the bunk stands against the right wall below them. Door stays bottom-left.
         Room("r4", "Room 4", "חדר ד׳", 126f, 104f, Door(DoorWall.BOTTOM, 26f), listOf(
@@ -136,7 +136,7 @@ object Roster {
         // bunk across the top, single down the right wall, door low on the left wall
         Room("r8", "Room 8", "חדר ח׳", 100f, 96f, Door(DoorWall.LEFT, 80f), listOf(
             across(2f, 2f, "p29", "p31"),       // Fehler / Smith
-            upright(66f, 32f, "p28")))          // Levitansky
+            upright(66f, 32f, "p11")))          // Wolfe - in the bed that was Levitansky's
     )
 
     /** Rooms 1 to 3 are downstairs; every other room is upstairs. */

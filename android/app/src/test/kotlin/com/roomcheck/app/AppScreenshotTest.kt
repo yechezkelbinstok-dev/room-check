@@ -281,11 +281,11 @@ class AppScreenshotTest {
         }
     }
 
-    /** Search has jumped to Levitansky in Room 8 and ringed him. */
+    /** Search has jumped to Wolfe in Room 8 and ringed him. */
     @Test
     fun foundPerson() {
         val vm = viewModel()
-        vm.findPerson("p28")
+        vm.findPerson("p11")
         paparazzi.snapshot(name = "found-person") {
             RoomCheckTheme { CheckScreen(vm) }
         }
