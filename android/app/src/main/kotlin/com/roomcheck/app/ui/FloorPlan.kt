@@ -277,14 +277,14 @@ fun OftenCard(
     Column(
         modifier.clip(RoundedCornerShape(7.dp)).background(if (status == null) Color.White else markBg(status))
             .border(1.dp, Color(0xFFD5D7DD), RoundedCornerShape(7.dp))
-            .padding(horizontal = 4.dp, vertical = 3.dp),
+            .padding(horizontal = 4.dp, vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         // a set height, so a long name shrinks across rather than taking the buttons' height
         SlotName(name, "", markInk(status), firstSize = 9f, center = true, onClick = onNameClick,
-            modifier = Modifier.fillMaxWidth().height(17.dp))
-        Spacer(Modifier.height(2.dp))
+            modifier = Modifier.fillMaxWidth().height(15.dp))
+        Spacer(Modifier.height(1.dp))
         SlotMarks(status, compact = true, onMark)
     }
 }

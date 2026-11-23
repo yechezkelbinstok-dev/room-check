@@ -295,10 +295,13 @@ private fun StickyControls(vm: AppViewModel, state: UiState, logic: NightLogic, 
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PresetRow(vm: AppViewModel, state: UiState, logic: NightLogic, presets: List<Preset>) {
+private fun PresetRow(
+    vm: AppViewModel, state: UiState, logic: NightLogic, presets: List<Preset>,
+    modifier: Modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp)
+) {
     val hebrew = state.settings.hebrewOnPlan
     FlowRow(
-        Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
+        modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
@@ -410,18 +413,23 @@ private fun RoomsArea(vm: AppViewModel, state: UiState, logic: NightLogic, onOpe
                         ) { _, dragAmount -> dragX += dragAmount }
                     }
             ) {
-                RoomHead(vm, state, logic, room)
+                RoomHead(vm, state, logic, room, withPresets = false)
                 // The plan moves over for the box of bochurim often out of their rooms, which runs
-                // down the side to the bottom bar and is the same on every room. Weighted, so the
-                // plan gets the space that is LEFT after the next/previous row rather than however
-                // tall its own shape wants to be: a Column measures an unweighted child with an
-                // unbounded height, so the two deepest rooms used to draw themselves past the
-                // bottom of the screen and take the nav buttons with them.
+                // down the side from under the room's name to the bottom bar, the same height on
+                // every room - a room's presets sit over its plan rather than over the box, so they
+                // do not cut it short. Weighted, so the plan gets the space that is LEFT after the
+                // next/previous row rather than however tall its own shape wants to be: a Column
+                // measures an unweighted child with an unbounded height, so the two deepest rooms
+                // used to draw themselves past the bottom of the screen and take the nav buttons
+                // with them.
                 Row(
                     Modifier.weight(1f).padding(start = 12.dp, end = 12.dp, bottom = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Column(Modifier.weight(1f)) {
+                        Roster.presetsIn(room).takeIf { it.isNotEmpty() }?.let {
+                            PresetRow(vm, state, logic, it, Modifier.padding(bottom = 8.dp))
+                        }
                         // a deep room fits the height and comes out narrower, centred in what it has
                         Box(Modifier.weight(1f).fillMaxWidth().padding(bottom = 6.dp), contentAlignment = Alignment.TopCenter) {
                             RoomPlan(state, logic, room, onOpenPerson, vm)
@@ -443,21 +451,29 @@ private val OFTEN_W = 88.dp
 
 /**
  * The bochurim often out of their rooms, down the side of the plan: each with his buttons for the
- * round on screen, whichever room is on screen. They share the column's height, so on a phone all
- * of them show at once; on a short screen each keeps a card it can still be tapped in, and the
- * column scrolls.
+ * round on screen, whichever room is on screen. They share the column's height between them, so
+ * all of them show at once with nothing to scroll - on a phone with large text too. Only a screen
+ * too short to give each a card his buttons can still be tapped in lets the column scroll.
  */
 @Composable
 private fun OftenOutColumn(vm: AppViewModel, state: UiState, logic: NightLogic, onOpenPerson: (String) -> Unit, modifier: Modifier) {
     val people = Roster.OFTEN_OUT
     BoxWithConstraints(modifier) {
-        val gap = 3.dp
-        val each = ((maxHeight - gap * (people.size - 1)) / people.size).coerceIn(44.dp, 54.dp)
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(gap)) {
+        val gap = 2.dp
+        val fit = (maxHeight - gap * (people.size - 1)) / people.size
+        val scrolls = fit < OFTEN_MIN_H
+        val each = if (scrolls) OFTEN_MIN_H else fit.coerceAtMost(54.dp)
+        Column(
+            Modifier.fillMaxSize().then(if (scrolls) Modifier.verticalScroll(rememberScrollState()) else Modifier),
+            verticalArrangement = Arrangement.spacedBy(gap)
+        ) {
             people.forEach { pid -> OftenFor(vm, state, logic, pid, onOpenPerson, Modifier.fillMaxWidth().height(each)) }
         }
     }
 }
+
+/** The shortest card in the box that still has buttons big enough to tap. */
+private val OFTEN_MIN_H = 36.dp
 
 /** The same box across the top of the list of every room, four to a row, for when the rooms are shown one under another. */
 @Composable
@@ -525,9 +541,12 @@ private fun RoomBlock(
     }
 }
 
-/** A room's name, how it stands this round, its All in / All out / Clear, and its presets under them. */
+/**
+ * A room's name, how it stands this round, its All in / All out / Clear, and - unless they are put
+ * elsewhere - its presets under them.
+ */
 @Composable
-private fun RoomHead(vm: AppViewModel, state: UiState, logic: NightLogic, room: Room) {
+private fun RoomHead(vm: AppViewModel, state: UiState, logic: NightLogic, room: Room, withPresets: Boolean = true) {
     Column(Modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth().padding(16.dp, 12.dp, 16.dp, 8.dp),
@@ -560,7 +579,7 @@ private fun RoomHead(vm: AppViewModel, state: UiState, logic: NightLogic, room: 
                 }
             }
         }
-        Roster.presetsIn(room).takeIf { it.isNotEmpty() }?.let { PresetRow(vm, state, logic, it) }
+        if (withPresets) Roster.presetsIn(room).takeIf { it.isNotEmpty() }?.let { PresetRow(vm, state, logic, it) }
     }
 }
 
