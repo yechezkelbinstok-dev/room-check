@@ -7,6 +7,8 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -390,6 +392,7 @@ private fun RoomsArea(vm: AppViewModel, state: UiState, logic: NightLogic, onOpe
     // did nothing here but push the bottom bar off the bottom of the screen, unread.
     when (state.mode) {
         RoomMode.SCROLL -> LazyColumn(Modifier.fillMaxSize()) {
+            item { OftenOutRow(vm, state, logic, onOpenPerson) }
             items(Roster.PLAN) { room -> RoomBlock(vm, state, logic, room, onOpenPerson) }
             item { Spacer(Modifier.height(12.dp)) }
         }
@@ -407,19 +410,77 @@ private fun RoomsArea(vm: AppViewModel, state: UiState, logic: NightLogic, onOpe
                         ) { _, dragAmount -> dragX += dragAmount }
                     }
             ) {
-                // Weighted, so the plan gets the space that is LEFT after the next/previous row
-                // rather than however tall its own shape wants to be. A Column measures an
-                // unweighted child with an unbounded height, so the two deepest rooms used to draw
-                // themselves past the bottom of the screen and take the nav buttons with them -
-                // and this mode has no scroll, so there was no way to reach them at all.
-                RoomBlock(vm, state, logic, room, onOpenPerson, Modifier.weight(1f), fitHeight = true)
-                Row(Modifier.padding(12.dp, 14.dp, 12.dp, 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NavButton(Modifier.weight(1f), enabled = state.room > 0, label = if (state.room > 0) roomName(state, state.room - 1) else "", back = true) { vm.goRoom(-1) }
-                    NavButton(Modifier.weight(1f), enabled = state.room < Roster.PLAN.size - 1, label = if (state.room < Roster.PLAN.size - 1) roomName(state, state.room + 1) else "", back = false) { vm.goRoom(1) }
+                RoomHead(vm, state, logic, room)
+                // The plan moves over for the box of bochurim often out of their rooms, which runs
+                // down the side to the bottom bar and is the same on every room. Weighted, so the
+                // plan gets the space that is LEFT after the next/previous row rather than however
+                // tall its own shape wants to be: a Column measures an unweighted child with an
+                // unbounded height, so the two deepest rooms used to draw themselves past the
+                // bottom of the screen and take the nav buttons with them.
+                Row(
+                    Modifier.weight(1f).padding(start = 12.dp, end = 12.dp, bottom = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        // a deep room fits the height and comes out narrower, centred in what it has
+                        Box(Modifier.weight(1f).fillMaxWidth().padding(bottom = 6.dp), contentAlignment = Alignment.TopCenter) {
+                            RoomPlan(state, logic, room, onOpenPerson, vm)
+                        }
+                        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            NavButton(Modifier.weight(1f), enabled = state.room > 0, label = if (state.room > 0) roomName(state, state.room - 1) else "", back = true) { vm.goRoom(-1) }
+                            NavButton(Modifier.weight(1f), enabled = state.room < Roster.PLAN.size - 1, label = if (state.room < Roster.PLAN.size - 1) roomName(state, state.room + 1) else "", back = false) { vm.goRoom(1) }
+                        }
+                    }
+                    OftenOutColumn(vm, state, logic, onOpenPerson, Modifier.width(OFTEN_W).fillMaxHeight())
                 }
             }
         }
     }
+}
+
+/** The width of the box of bochurim often out: three buttons of a bed's size, and a name over them. */
+private val OFTEN_W = 88.dp
+
+/**
+ * The bochurim often out of their rooms, down the side of the plan: each with his buttons for the
+ * round on screen, whichever room is on screen. They share the column's height, so on a phone all
+ * of them show at once; on a short screen each keeps a card it can still be tapped in, and the
+ * column scrolls.
+ */
+@Composable
+private fun OftenOutColumn(vm: AppViewModel, state: UiState, logic: NightLogic, onOpenPerson: (String) -> Unit, modifier: Modifier) {
+    val people = Roster.OFTEN_OUT
+    BoxWithConstraints(modifier) {
+        val gap = 3.dp
+        val each = ((maxHeight - gap * (people.size - 1)) / people.size).coerceIn(44.dp, 54.dp)
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(gap)) {
+            people.forEach { pid -> OftenFor(vm, state, logic, pid, onOpenPerson, Modifier.fillMaxWidth().height(each)) }
+        }
+    }
+}
+
+/** The same box across the top of the list of every room, four to a row, for when the rooms are shown one under another. */
+@Composable
+private fun OftenOutRow(vm: AppViewModel, state: UiState, logic: NightLogic, onOpenPerson: (String) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(12.dp, 12.dp, 12.dp, 0.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Roster.OFTEN_OUT.chunked(4).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                row.forEach { pid -> OftenFor(vm, state, logic, pid, onOpenPerson, Modifier.weight(1f).height(50.dp)) }
+                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OftenFor(vm: AppViewModel, state: UiState, logic: NightLogic, pid: String, onOpenPerson: (String) -> Unit, modifier: Modifier) {
+    OftenCard(
+        name = logic.shortName(pid, state.settings.hebrewOnPlan),
+        status = logic.statusOf(pid, state.curSlot),
+        onNameClick = { onOpenPerson(pid) },
+        onMark = { mark -> vm.setMark(pid, state.curSlot, mark) },
+        modifier = modifier
+    )
 }
 
 private fun roomName(state: UiState, i: Int) =
@@ -449,18 +510,25 @@ private fun NavButton(modifier: Modifier, enabled: Boolean, label: String, back:
     }
 }
 
+/** A room in the list of every room: its name and buttons, then its plan the full width. */
 @Composable
 private fun RoomBlock(
     vm: AppViewModel,
     state: UiState,
     logic: NightLogic,
     room: Room,
-    onOpenPerson: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    /** One-room mode: shrink the plan to the height on offer instead of overflowing it. */
-    fitHeight: Boolean = false
+    onOpenPerson: (String) -> Unit
 ) {
-    Column(modifier.padding(bottom = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.padding(bottom = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        RoomHead(vm, state, logic, room)
+        RoomPlan(state, logic, room, onOpenPerson, vm, Modifier.fillMaxWidth().padding(horizontal = 12.dp))
+    }
+}
+
+/** A room's name, how it stands this round, its All in / All out / Clear, and its presets under them. */
+@Composable
+private fun RoomHead(vm: AppViewModel, state: UiState, logic: NightLogic, room: Room) {
+    Column(Modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth().padding(16.dp, 12.dp, 16.dp, 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -493,26 +561,32 @@ private fun RoomBlock(
             }
         }
         Roster.presetsIn(room).takeIf { it.isNotEmpty() }?.let { PresetRow(vm, state, logic, it) }
-        FloorPlanCanvas(
-            room = room,
-            allIn = logic.roomAllIn(room, state.curSlot),
-            // Fitting means NOT pinning the width: aspectRatio can only shrink to the height on
-            // offer if the width is a maximum rather than an exact size, so a deep room comes out
-            // narrower and centred instead of running off the bottom.
-            modifier = if (fitHeight) Modifier.weight(1f, fill = false).padding(horizontal = 12.dp)
-                       else Modifier.fillMaxWidth().padding(horizontal = 12.dp)
-        ) { _, pid, bunkLabel, wideCard ->
-            PersonSlot(
-                first = logic.first(pid, state.settings.hebrewOnPlan),
-                last = logic.last(pid, state.settings.hebrewOnPlan),
-                bunkLabel = bunkLabel.takeIf { state.settings.bunkLabels },
-                status = logic.statusOf(pid, state.curSlot),
-                highlighted = pid == state.highlight,
-                row = wideCard,
-                onNameClick = { onOpenPerson(pid) },
-                onMark = { mark -> vm.setMark(pid, state.curSlot, mark) }
-            )
-        }
+    }
+}
+
+/**
+ * A room's plan with everyone in his bed. Left to size itself by its [modifier]: the list of rooms
+ * pins it to the full width, and one room on its own hands it a box and lets it fit - aspectRatio
+ * can only shrink to the height on offer when the width is a maximum rather than an exact size, so
+ * a deep room comes out narrower instead of running off the bottom.
+ */
+@Composable
+private fun RoomPlan(state: UiState, logic: NightLogic, room: Room, onOpenPerson: (String) -> Unit, vm: AppViewModel, modifier: Modifier = Modifier) {
+    FloorPlanCanvas(
+        room = room,
+        allIn = logic.roomAllIn(room, state.curSlot),
+        modifier = modifier
+    ) { _, pid, bunkLabel, wideCard ->
+        PersonSlot(
+            first = logic.first(pid, state.settings.hebrewOnPlan),
+            last = logic.last(pid, state.settings.hebrewOnPlan),
+            bunkLabel = bunkLabel.takeIf { state.settings.bunkLabels },
+            status = logic.statusOf(pid, state.curSlot),
+            highlighted = pid == state.highlight,
+            row = wideCard,
+            onNameClick = { onOpenPerson(pid) },
+            onMark = { mark -> vm.setMark(pid, state.curSlot, mark) }
+        )
     }
 }
 

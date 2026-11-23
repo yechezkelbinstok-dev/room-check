@@ -158,6 +158,24 @@ class AppScreenshotTest {
         }
     }
 
+    /**
+     * The box of bochurim often out beside the plan, some of them marked: Liberow in the dorm,
+     * Stolik out, Shlomo Altein in - on the widest room and the deepest, where the plan gives up
+     * the most to it.
+     */
+    @Test
+    fun oftenOut() {
+        val vm = viewModel()
+        val sid = vm.state.value.curSlot
+        vm.setMark("p25", sid, Mark.DORM)
+        vm.setMark("p6", sid, Mark.OUT)
+        vm.setMark("p1", sid, Mark.IN)
+        vm.jumpRoom(Roster.PLAN.indexOfFirst { it.w == Roster.PLAN.maxOf { r -> r.w } })
+        paparazzi.snapshot(name = "check-often-out-wide") { RoomCheckTheme { CheckScreen(vm) } }
+        vm.jumpRoom(Roster.PLAN.indexOfFirst { it.h == Roster.PLAN.maxOf { r -> r.h } })
+        paparazzi.snapshot(name = "check-often-out-deep") { RoomCheckTheme { CheckScreen(vm) } }
+    }
+
     /** The widest room - drawn to the same page width, so its cards have the least room. */
     @Test
     fun widestRoom() {

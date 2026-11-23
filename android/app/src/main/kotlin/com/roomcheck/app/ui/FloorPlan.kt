@@ -41,6 +41,8 @@ import com.roomcheck.app.data.Room
 private const val MARGIN = 5f   // space outside the walls so a door box can sit outside, per the sketch
 private const val GAP = 7f      // half the doorway width, in room-interior units
 private const val DOOR_D = 4f   // how far the three-sided door box juts out past the wall
+private val ROW_CARD_MIN_W = 150.dp   // a name beside three buttons: what a wide card needs across
+private val COL_CARD_MIN_H = 52.dp    // a name over them: what a tall card needs down
 
 /**
  * Walls plus a doorway drawn the way the sketch draws it: a gap in the wall with a small
@@ -139,9 +141,14 @@ fun FloorPlanCanvas(
         room.beds.forEach { bed ->
             // A bunk always stacks its people top/bottom - never splits the width - so each person
             // keeps the bed's full width. Whether a slot uses the wide (name beside buttons) or tall
-            // (name above buttons) card follows the slot's real shape, so neither one gets squeezed.
+            // (name above buttons) card follows the slot's real shape, so neither one gets squeezed -
+            // and its size: a single bed drawn small, as the widest room is beside the box of those
+            // often out, has no room left for a name beside three buttons, but height to spare for
+            // one over them.
             val slotCount = bed.slots.size
-            val wideCard = bed.w > (bed.h / slotCount) * 1.4f
+            val slotW = wPx * (bed.w / totalW)
+            val slotH = hPx * (bed.h / totalH) / slotCount
+            val wideCard = bed.w > (bed.h / slotCount) * 1.4f && (slotW >= ROW_CARD_MIN_W || slotH < COL_CARD_MIN_H)
             Box(
                 Modifier
                     .offset(
@@ -237,6 +244,51 @@ private fun MarkButton(size: Dp, on: Boolean, onColor: Color, onClick: () -> Uni
     }
 }
 
+/** A bed's card, or a name in the box beside the plan, tinted by the mark it has this round. */
+internal fun markBg(status: Mark?): Color = when (status) {
+    Mark.IN -> RC.greenL
+    Mark.OUT -> RC.redL
+    Mark.DORM -> RC.amberL
+    Mark.EXC, Mark.AWAY -> RC.greyL
+    null -> Color.Transparent
+}
+
+/** The name on it, in the same mark's colour - plain while he is in or not marked yet. */
+internal fun markInk(status: Mark?): Color = when (status) {
+    Mark.OUT -> RC.red
+    Mark.DORM -> RC.amber
+    Mark.EXC, Mark.AWAY -> RC.grey
+    else -> RC.text
+}
+
+/**
+ * One of the bochurim often out of his room, in the box beside the plan: his name over the same
+ * buttons as his bed, tinted the same way, for the round on screen. The name opens his sheet, as a
+ * bed's does. One line of name only - the card is narrow, and it is the surname that is read.
+ */
+@Composable
+fun OftenCard(
+    name: String,
+    status: Mark?,
+    onNameClick: () -> Unit,
+    onMark: (Mark) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier.clip(RoundedCornerShape(7.dp)).background(if (status == null) Color.White else markBg(status))
+            .border(1.dp, Color(0xFFD5D7DD), RoundedCornerShape(7.dp))
+            .padding(horizontal = 4.dp, vertical = 3.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // a set height, so a long name shrinks across rather than taking the buttons' height
+        SlotName(name, "", markInk(status), firstSize = 9f, center = true, onClick = onNameClick,
+            modifier = Modifier.fillMaxWidth().height(17.dp))
+        Spacer(Modifier.height(2.dp))
+        SlotMarks(status, compact = true, onMark)
+    }
+}
+
 @Composable
 fun PersonSlot(
     first: String,
@@ -250,19 +302,8 @@ fun PersonSlot(
     /** Ringed because search just landed here - the point is to be findable at a glance. */
     highlighted: Boolean = false
 ) {
-    val bgColor = when (status) {
-        Mark.IN -> RC.greenL
-        Mark.OUT -> RC.redL
-        Mark.DORM -> RC.amberL
-        Mark.EXC, Mark.AWAY -> RC.greyL
-        null -> Color.Transparent
-    }
-    val nameColor = when (status) {
-        Mark.OUT -> RC.red
-        Mark.DORM -> RC.amber
-        Mark.EXC, Mark.AWAY -> RC.grey
-        else -> RC.text
-    }
+    val bgColor = markBg(status)
+    val nameColor = markInk(status)
     Column(
         modifier.fillMaxSize().background(bgColor)
             .then(if (highlighted) Modifier.border(2.5.dp, RC.blue, RoundedCornerShape(4.dp)) else Modifier)

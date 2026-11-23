@@ -150,6 +150,29 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .mk .v-dorm.on{background:var(--amber);color:#fff}
 .mk .e.on{background:var(--grey);color:#fff}
 .viewrow{display:flex;align-items:center;gap:6px;margin-top:8px}
+/* the box of bochurim often out of their rooms, down the side of one room's plan */
+.beside{display:flex;gap:8px;padding:0 12px;align-items:flex-start}
+.beside .main{flex:1;min-width:0}
+.beside .planwrap{padding:0}
+.beside .next{padding:12px 0 6px}
+.often{flex:none;width:88px;display:flex;flex-direction:column;gap:3px}
+.often.across{width:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:12px 12px 0}
+.oc{background:#fff;border:1px solid #D5D7DD;border-radius:7px;padding:4px 4px 5px;display:flex;
+  flex-direction:column;align-items:center;gap:3px}
+.oc .nb{width:100%;text-align:center;padding:0}
+.oc .ln{white-space:nowrap;text-overflow:ellipsis}
+.oc .mk button{width:24px;height:24px}
+.oc .mk svg{width:14px;height:14px}
+.oc.in{background:var(--green-l)}
+.oc.out{background:var(--red-l)}
+.oc.dorm{background:var(--amber-l)}
+.oc.exc,.oc.away{background:var(--grey-l)}
+.oc.out .ln{color:var(--red)}
+.oc.dorm .ln{color:var(--amber)}
+.oc.exc .ln,.oc.away .ln{color:var(--grey)}
+.oc.away .mk,.oc.exc .mk{display:none}
+.oc.away .nb::after,.oc.exc .nb::after{content:"Not in town";display:block;font-size:11px;font-weight:650;color:var(--blue);margin-top:2px}
+.oc.exc .nb::after{content:"Excused";color:var(--grey)}
 /* presets: one button each under the room numbers, green with a tick once the round has them.
    They wrap rather than scroll - a button scrolled off the edge is a button nobody knows is there */
 .presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
@@ -1100,7 +1123,7 @@ function bedHTML(bed,room){
   const tw=totalW(room), th=totalH(room), H=state.settings.hebrewOnPlan;
   const rows=bed.slots.map((pid,i)=>{
     const bunk=(state.settings.bunkLabels&&n>1)?(i===0?"top":"bottom"):"";
-    return `<div class="slot ${wide?"row":"col"}" data-slot="${pid}">
+    return `<div class="slot ${wide?"row":"col"}" data-slot="${pid}"${wide?" data-wide":""}>
       ${bunk?`<span class="bunk">${bunk}</span>`:``}
       <button class="nb" data-a="who" data-p="${pid}">
         <span class="ln"${lnStyle(lastIn(pid,H),wide)}>${esc(lastIn(pid,H))}</span>
@@ -1117,27 +1140,53 @@ function bedHTML(bed,room){
   return `<div class="bed" style="left:${pc(MARGIN+bed.x,tw)};top:${pc(MARGIN+bed.y,th)};`
     +`width:${pc(bed.w,tw)};height:${pc(bed.h,th)}">${rows}</div>`;
 }
-function roomBlock(i){
+/* A room: its bar, then its plan. One room on its own gets [side] beside the plan, with [below]
+   under the plan on the plan's side of it. */
+function roomBlock(i,below,side){
   const room=PLAN[i];
+  const plan=`<div class="planwrap"${i===state.room&&state.mode==="one"?' id="pw"':''}>
+      <div class="plan" data-plan="${room.id}" style="aspect-ratio:${totalW(room)}/${totalH(room)}">${wallsSVG(room)}${room.beds.map(b=>bedHTML(b,room)).join("")}</div>
+    </div>`;
   return `<div class="roomblock" id="rb-${room.id}">
     <div class="rbar">
       <div class="t"><bdi>${esc(roomName(room))}</bdi><em data-rout="${room.id}"></em></div>
       <div class="rbtn"><button data-a="roomset" data-r="${room.id}" data-v="in">All in</button><button data-a="roomset" data-r="${room.id}" data-v="out">All out</button><button data-a="roomset" data-r="${room.id}" data-v="">Clear</button></div>
     </div>
-    <div class="planwrap"${i===state.room&&state.mode==="one"?' id="pw"':''}>
-      <div class="plan" data-plan="${room.id}" style="aspect-ratio:${totalW(room)}/${totalH(room)}">${wallsSVG(room)}${room.beds.map(b=>bedHTML(b,room)).join("")}</div>
-    </div>
+    ${side?`<div class="beside"><div class="main">${plan}${below||""}</div>${side}</div>`:plan}
   </div>`;
+}
+/* The bochurim often out of their rooms: in a box beside the plan on every room's screen, so
+   whichever room you are standing in, each of them is one tap away. In the order asked for. The
+   same list as the app's Roster.OFTEN_OUT. */
+const OFTEN_OUT=["p25","p6","p1","p13","p31","p24","p3","p11"];
+/* a name for somewhere narrow: the surname, with the first name's initial before it when two
+   bochurim share the surname - "S. Altein", "ש׳ אלטיין" */
+function shortName(pid,heb){
+  const ln=lastIn(pid,heb);
+  if(allP().filter(x=>last(x.pid)===last(pid)).length<2)return ln;
+  const i=firstIn(pid,heb).slice(0,1);
+  return heb?i+"\u05F3 "+ln:i+". "+ln;
+}
+/* The box: each of them, his name over his bed's buttons, tinted like his bed - down the side of
+   one room, or [across] the top of the list of every room. */
+function oftenHTML(across){
+  const H=state.settings.hebrewOnPlan;
+  return `<div class="often${across?" across":""}">${OFTEN_OUT.map(pid=>`<div class="oc" data-slot="${pid}">
+      <button class="nb" data-a="who" data-p="${pid}"><span class="ln">${esc(shortName(pid,H))}</span></button>
+      <div class="mk">
+        <button class="v-in" data-mk data-p="${pid}" data-v="in" aria-label="${esc(nameOf(pid))} here">${IC.tick}</button>
+        <button class="v-dorm" data-mk data-p="${pid}" data-v="dorm" aria-label="${esc(nameOf(pid))} in the dorm">${IC.home}</button>
+        <button class="v-out" data-mk data-p="${pid}" data-v="out" aria-label="${esc(nameOf(pid))} not here">${IC.ex}</button>
+      </div></div>`).join("")}</div>`;
 }
 function marksHTML(){
   if(state.mode==="scroll")
-    return `<div class="wrap">${PLAN.map((r,i)=>roomBlock(i)).join("")}</div>`;
-  return `<div class="wrap">${roomBlock(state.room)}
-    <div class="next">
+    return `<div class="wrap">${oftenHTML(true)}${PLAN.map((r,i)=>roomBlock(i)).join("")}</div>`;
+  const next=`<div class="next">
       <button data-a="room" data-d="-1" ${state.room===0?"disabled":""}><span class="cv">‹</span><bdi>${state.room>0?esc(roomName(PLAN[state.room-1])):""}</bdi></button>
       <button data-a="room" data-d="1" ${state.room===PLAN.length-1?"disabled":""}><bdi>${state.room<PLAN.length-1?esc(roomName(PLAN[state.room+1])):""}</bdi><span class="cv">›</span></button>
-    </div>
     </div>`;
+  return `<div class="wrap">${roomBlock(state.room,next,oftenHTML(false))}</div>`;
 }
 
 /* ---------- screens ---------- */
@@ -1690,7 +1739,13 @@ function timesScreen(){
 /* A wide bed's surname is one line beside three buttons: a long one shrinks until it fits rather
    than losing its end to an ellipsis, the way the app's beds do it. */
 function fitNames(){
-  document.querySelectorAll(".slot.row .ln").forEach(el=>{
+  /* a single bed drawn small - the widest room beside the box of those often out - has no room
+     left for a name beside three buttons but height to spare for one over them, as the app's do */
+  document.querySelectorAll(".slot[data-wide]").forEach(el=>{
+    const row=el.clientWidth>=150||el.clientHeight<52;
+    el.classList.toggle("row",row); el.classList.toggle("col",!row);
+  });
+  document.querySelectorAll(".slot.row .ln,.oc .ln").forEach(el=>{
     el.style.fontSize="";
     for(let px=13;px>9&&el.scrollWidth>el.clientWidth;px-=.5)el.style.fontSize=px-.5+"px";
   });
@@ -2069,7 +2124,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.19.4";
+const APP_VERSION="1.19.5";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

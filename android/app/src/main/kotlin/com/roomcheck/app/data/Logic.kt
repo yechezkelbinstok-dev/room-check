@@ -31,6 +31,17 @@ class NightLogic(
 
     fun nameOf(pid: String, hebrew: Boolean): String = "${first(pid, hebrew)} ${last(pid, hebrew)}"
 
+    /**
+     * A name for somewhere narrow: the surname, with the first name's initial before it when two
+     * bochurim share the surname - "S. Altein" and "D. Altein", "ש׳ אלטיין" and "ד׳ אלטיין".
+     */
+    fun shortName(pid: String, hebrew: Boolean): String {
+        val surname = last(pid, hebrew)
+        if (Roster.PEOPLE.count { last(it.id) == last(pid) } < 2) return surname
+        val initial = first(pid, hebrew).take(1)
+        return if (hebrew) "$initial׳ $surname" else "$initial. $surname"
+    }
+
     /** True once at least one person actually has a Hebrew name to switch to. */
     fun anyHebrewNames(): Boolean = Roster.PEOPLE.any { it.hebFirst.isNotBlank() }
 

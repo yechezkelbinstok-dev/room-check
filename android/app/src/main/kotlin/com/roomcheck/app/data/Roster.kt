@@ -163,6 +163,21 @@ object Roster {
     fun presetsIn(room: Room): List<Preset> =
         PRESETS.filter { preset -> preset.marks.any { (pid, _) -> roomOf[pid]?.id == room.id } }
 
+    /**
+     * The bochurim often out of their rooms: in a box beside the plan on every room's screen, so
+     * whichever room you are standing in, each of them is one tap away. In the order asked for. The
+     * same list as OFTEN_OUT in the site's index.html.
+     */
+    val OFTEN_OUT: List<String> = listOf(
+        "p25",          // Liberow
+        "p6",           // Stolik
+        "p1", "p13",    // Shlomo and Dovid Altein
+        "p31",          // Smith
+        "p24",          // November
+        "p3",           // Piekarski
+        "p11"           // Wolfe
+    )
+
     val SLOTS = listOf("1115" to "11:15", "1130" to "11:30", "1200" to "12:00")
     val SIDS = SLOTS.map { it.first }
 }
