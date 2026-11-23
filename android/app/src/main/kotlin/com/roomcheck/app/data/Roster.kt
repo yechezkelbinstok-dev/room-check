@@ -155,7 +155,7 @@ object Roster {
      * PRESETS in the site's index.html.
      */
     val PRESETS: List<Preset> = listOf(
-        Preset("p26" to Mark.IN, "p25" to Mark.OUT),   // Lipkind in, Liberow out - Room 7
+        Preset("p26" to Mark.IN, "p25" to Mark.DORM),  // Lipkind in, Liberow in the dorm - Room 7
         Preset("p4" to Mark.IN, "p2" to Mark.IN)       // Pevzner and Lehr in - Room 1
     )
 

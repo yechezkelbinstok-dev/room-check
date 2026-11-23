@@ -316,8 +316,11 @@ private fun PresetRow(vm: AppViewModel, state: UiState, logic: NightLogic, prese
                 logic.presetParts(preset, hebrew).forEachIndexed { i, (names, mark) ->
                     if (i > 0) Text("·", fontSize = 13.5.sp, color = RC.sub)
                     Text(names, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = RC.text, maxLines = 1)
-                    if (mark == Mark.IN) Icon(Icons.Filled.Check, "in", tint = RC.green, modifier = Modifier.size(17.dp))
-                    else Icon(Icons.Filled.Close, "out", tint = RC.red, modifier = Modifier.size(17.dp))
+                    when (mark) {
+                        Mark.IN -> Icon(Icons.Filled.Check, "in", tint = RC.green, modifier = Modifier.size(17.dp))
+                        Mark.DORM -> Icon(Icons.Filled.Home, "in the dorm", tint = RC.amber, modifier = Modifier.size(17.dp))
+                        else -> Icon(Icons.Filled.Close, "out", tint = RC.red, modifier = Modifier.size(17.dp))
+                    }
                 }
             }
         }

@@ -158,6 +158,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
   color:var(--text);white-space:nowrap}
 .presets .g{color:var(--green)}
 .presets .r{color:var(--red)}
+.presets .a{color:var(--amber)}
 .presets .dot{color:var(--sub)}
 .presets .pk{display:none;color:var(--green)}
 .presets button.done{background:var(--green-l);border-color:#BCE0D2}
@@ -1003,7 +1004,7 @@ function setRoom(room,sid,v,only,onlyMark){
 /* The buttons under the room numbers: each marks its bochurim, in the round on screen, the way they
    nearly always are - and nobody else. The same list as the app's Roster.PRESETS. */
 const PRESETS=[
-  [["p26","in"],["p25","out"]],   /* Lipkind in, Liberow out */
+  [["p26","in"],["p25","dorm"]],  /* Lipkind in, Liberow in the dorm */
   [["p4","in"],["p2","in"]]       /* Pevzner and Lehr in */
 ];
 /* In place at sid: everyone in it has its mark, or is off the walk and so not the preset's to mark. */
@@ -1175,7 +1176,7 @@ function headHTML(){
   const rooms=[down,idx.filter(i=>!down.includes(i))].map(row=>`<div class="rrow">${row.map(btn).join("")}</div>`).join("");
   /* every name and word its own element, so Hebrew names cannot drag "in" and "out" past them */
   const presets=PRESETS.map((p,i)=>`<button data-a="preset" data-pre="${i}"><span class="pk">✓</span>${
-    presetParts(p,state.settings.hebrewOnPlan).map(([n,v],j)=>`${j?`<span class="dot">·</span>`:``}<bdi>${esc(n)}</bdi><span class="${v==="in"?"g":"r"}">${v}</span>`).join("")
+    presetParts(p,state.settings.hebrewOnPlan).map(([n,v],j)=>`${j?`<span class="dot">·</span>`:``}<bdi>${esc(n)}</bdi><span class="${v==="in"?"g":v==="dorm"?"a":"r"}">${v}</span>`).join("")
   }</button>`).join("");
   return `<div class="hd">
       <div class="topbar">
@@ -2068,7 +2069,7 @@ document.addEventListener("input",e=>{
 });
 
 /* ---------- installable app plumbing ---------- */
-const APP_VERSION="1.18.3";
+const APP_VERSION="1.19.4";
 let deferredInstall=null, swReg=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;
   const b=document.getElementById("installrow"); if(b)b.style.display="";});

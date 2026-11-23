@@ -18,7 +18,7 @@ class PresetTest {
     @get:Rule val folder = TemporaryFolder()
     private fun vm() = testVm(NightStore(folder.newFolder()))
 
-    private val lipkindLiberow = Preset("p26" to Mark.IN, "p25" to Mark.OUT)
+    private val lipkindLiberow = Preset("p26" to Mark.IN, "p25" to Mark.DORM)
     private val pevznerLehr = Preset("p4" to Mark.IN, "p2" to Mark.IN)
 
     /** The two asked for, in the order they were asked for. */
@@ -37,7 +37,7 @@ class PresetTest {
         vm.applyPreset(lipkindLiberow, sid)
         val logic = vm.logic()
         assertEquals(Mark.IN, logic.statusOf("p26", sid))
-        assertEquals(Mark.OUT, logic.statusOf("p25", sid))
+        assertEquals(Mark.DORM, logic.statusOf("p25", sid))
         assertEquals(Mark.OUT, logic.statusOf("p1", sid))
         assertEquals(3, vm.state.value.night.marks[sid]?.size)
     }
@@ -60,7 +60,7 @@ class PresetTest {
         val sid = vm.state.value.curSlot
         vm.setMark("p25", sid, Mark.IN)
         vm.applyPreset(lipkindLiberow, sid)
-        assertEquals(Mark.OUT, vm.logic().statusOf("p25", sid))
+        assertEquals(Mark.DORM, vm.logic().statusOf("p25", sid))
     }
 
     /** Someone not in town, or excused tonight, is left as he is - a mark on him would never be read. */
@@ -121,13 +121,13 @@ class PresetTest {
         assertEquals(Mark.OUT, vm.logic().statusOf("p1", sid))
     }
 
-    /** The button names who it marks, each with his tick or cross, in English or in Hebrew. */
+    /** The button names who it marks, each with his tick, cross or house, in English or in Hebrew. */
     @Test
     fun itsButtonNamesWhoItMarks() {
         val logic = vm().logic()
-        assertEquals(listOf("Lipkind" to Mark.IN, "Liberow" to Mark.OUT), logic.presetParts(lipkindLiberow, hebrew = false))
+        assertEquals(listOf("Lipkind" to Mark.IN, "Liberow" to Mark.DORM), logic.presetParts(lipkindLiberow, hebrew = false))
         assertEquals(listOf("Pevzner, Lehr" to Mark.IN), logic.presetParts(pevznerLehr, hebrew = false))
-        assertEquals(listOf("ליפקינד" to Mark.IN, "ליבעראוו" to Mark.OUT), logic.presetParts(lipkindLiberow, hebrew = true))
+        assertEquals(listOf("ליפקינד" to Mark.IN, "ליבעראוו" to Mark.DORM), logic.presetParts(lipkindLiberow, hebrew = true))
         // two Alteins: a surname alone would not say which one
         assertEquals(listOf("Dovid Altein" to Mark.IN), logic.presetParts(Preset("p13" to Mark.IN), hebrew = false))
     }

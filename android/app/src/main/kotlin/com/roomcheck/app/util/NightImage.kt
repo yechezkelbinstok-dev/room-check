@@ -219,8 +219,7 @@ private class Sections(val missing: List<Summary>, val dorm: List<Summary>?)
     // "not marked", not "not checked yet": a round can be missed outright, and "yet" promises
     // it is still coming.
     private const val NOT_MARKED_HE = "לא סומן"            // not marked
-    // in the dorm but not in his room: missing all the same, so named under the same word
-    private const val DORM_TITLE = "חסרים — בפנימיה"     // missing - in the dorm
+    private const val DORM_TITLE = "בפנימיה"             // in the dorm
     private const val NOBODY_OUT_HE = "אף אחד לא בחוץ"    // nobody out
     private const val NONE_HE = "אין"                   // none
 
